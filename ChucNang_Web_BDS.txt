@@ -1,0 +1,20 @@
+ĐỀ TÀI: XÂY DỰNG WEBSITE BẤT ĐỘNG SẢN
+
+Các chức năng chính:
+
+1. Dành cho Người dùng (Khách hàng End-user):
+- Tìm kiếm và lọc BĐS chi tiết (theo giá, diện tích, khu vực, loại hình).
+- Xem thông tin chi tiết BĐS (hình ảnh, mô tả, vị trí bản đồ).
+- Lưu lại danh sách BĐS yêu thích.
+- Chức năng liên hệ trực tiếp với Môi giới đăng tin.
+
+2. Dành cho Môi giới (Agent):
+- Đăng nhập, đăng ký, và quản lý tài khoản cá nhân.
+- Đăng tin BĐS mới (yêu cầu điền đầy đủ thông tin: giá, loại, diện tích, hình ảnh).
+- Xem danh sách tin đã đăng, chỉnh sửa tin hoặc xóa tin.
+- Nhận thông báo từ hệ thống (khi tin được duyệt hoặc bị từ chối).
+
+3. Dành cho Quản trị viên (Admin):
+- Phân hệ kiểm duyệt tin đăng (Duyệt tin để hiển thị hoặc Từ chối kèm lý do).
+- Quản lý danh sách tài khoản người dùng và môi giới.
+- Báo cáo thống kê cơ bản (số lượng tin đăng, số người dùng).
