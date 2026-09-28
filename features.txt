@@ -1,0 +1,17 @@
+﻿Dưới đây là danh sách 8 chức năng cốt lõi được tinh gọn vừa vặn cho website Bất động sản của nhóm, bám sát đúng scope đồ án môn học trường UEH và không bị lan man:
+1. Đăng ký và Đăng nhập tài khoản (Authentication):
+   * Cho phép người dùng tạo tài khoản mới và đăng nhập vào hệ thống. Phân quyền rõ ràng thành 3 nhóm: Khách hàng (Customer), Môi giới (Agent), và Quản trị viên (Admin).
+2. Quản lý thông tin cá nhân (Profile Management):
+   * Cho phép người dùng xem và cập nhật thông tin cá nhân cơ bản như số điện thoại, email, ảnh đại diện để khách hàng khác có thể liên hệ.
+3. Đăng tin bất động sản mới (Property Posting):
+   * Dành cho Môi giới tạo tin rao bán hoặc cho thuê nhà đất. Form nhập liệu bao gồm: tiêu đề, mô tả chi tiết, giá tiền, diện tích, chọn loại hình (căn hộ, nhà phố...), chọn khu vực và upload nhiều hình ảnh minh họa.
+4. Quản lý tin đăng cá nhân (My Properties Management):
+   * Cho phép môi giới xem lại danh sách các tin mình đã đăng, hỗ trợ thao tác chỉnh sửa thông tin hoặc ẩn/xóa tin đăng khi đã giao dịch thành công.
+5. Tìm kiếm và Lọc bất động sản nâng cao (Search & Filtering):
+   * Dành cho khách hàng tìm kiếm nhà đất nhanh chóng thông theo từ khóa (tiêu đề, khu vực) hoặc lọc theo các tiêu chí cụ thể: Khoảng giá, Diện tích, Loại hình (Bán/Cho thuê), Quận/Huyện.
+6. Xem chi tiết bất động sản (Property Detail View):
+   * Hiển thị toàn bộ thông tin chi tiết của một căn nhà (ảnh lớn, danh sách ảnh thu nhỏ, thông số kỹ thuật, mô tả) kèm theo thông tin liên hệ trực tiếp của môi giới phụ trách tin đó.
+7. Quản lý và Duyệt tin đăng (Admin Moderation):
+   * Dành riêng cho Admin kiểm duyệt chất lượng nội dung. Admin có thể xem danh sách các tin đang chờ duyệt (Pending), sau đó nhấn Duyệt (đưa lên trang chủ) hoặc Từ chối kèm lý do vi phạm.
+8. Quản lý người dùng và tài khoản vi phạm (User Management & Banning):
+   * Dành cho Admin theo dõi danh sách toàn bộ tài khoản trên hệ thống, có quyền khóa (Ban) các tài khoản môi giới đăng tin rác, lừa đảo để làm sạch dữ liệu nền tảng.
