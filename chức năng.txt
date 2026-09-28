@@ -1,0 +1,23 @@
+1. Đăng ký & Đăng nhập (Phân quyền người dùng)
+Hệ thống quản lý tài khoản cho khách hàng, người môi giới và quản trị viên (Admin), giúp bảo mật thông tin và phân chia quyền hạn thao tác trên hệ thống.
+
+2. Tìm kiếm & Lọc bất động sản nâng cao
+Cho phép người dùng chủ động tìm kiếm bất động sản theo nhiều tiêu chí như vị trí, mức giá, diện tích, loại hình (nhà đất, chung cư, biệt thự) và hướng nhà.
+
+3. Đăng tin & Quản lý bài đăng bất động sản
+Người bán hoặc môi giới có thể dễ dàng tạo bài đăng mới (tải ảnh, nhập thông tin, địa chỉ) và chỉnh sửa, ẩn hoặc xóa các tin đăng của mình.
+
+4. Xem thông tin chi tiết bất động sản
+Trang chi tiết hiển thị đầy đủ hình ảnh, mô tả, thông số pháp lý, mức giá và bản đồ vị trí (Google Maps) để người mua đánh giá sơ bộ trước khi liên hệ.
+
+5. Đặt lịch hẹn xem nhà trực tuyến
+Khách hàng có thể chọn ngày giờ phù hợp và gửi yêu cầu đặt lịch xem bất động sản trực tiếp cho chủ nhà hoặc môi giới ngay trên ứng dụng.
+
+6. Lưu bất động sản yêu thích (Bookmark/Wishlist)
+Người dùng có thể đánh dấu các bất động sản quan tâm để dễ dàng so sánh, theo dõi biến động giá và xem lại bất cứ lúc nào.
+
+7. Trò chuyện & Liên hệ trực tiếp (Chat Live / Call)
+Tích hợp khung chat trực tiếp hoặc nút gọi nhanh giúp người mua và người bán trao đổi thông tin nhanh chóng, tiện lợi.
+
+8. Trang quản trị viên (Admin Dashboard)
+Giúp Admin kiểm duyệt các tin đăng trước khi hiển thị công khai, quản lý người dùng, thống kê lượt truy cập và xem báo cáo doanh thu.
