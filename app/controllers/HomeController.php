@@ -6,7 +6,7 @@ class HomeController extends Controller
     {
         $this->view('home/index', [
             'title'      => 'Trang chủ',
-            'properties' => (new Property())->latest(8),
+            'properties' => (new PropertyFinder())->latest(8),
             'provinces'  => (new Location())->provinces(),
         ]);
     }
