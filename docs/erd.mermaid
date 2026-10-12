@@ -1,0 +1,132 @@
+erDiagram
+    roles ||--o{ users : "có"
+    users ||--o{ properties : "đăng (môi giới)"
+    property_types ||--o{ properties : "phân loại"
+    provinces ||--o{ districts : "gồm"
+    districts ||--o{ wards : "gồm"
+    wards ||--o{ properties : "thuộc"
+    properties ||--o{ property_images : "có ảnh"
+    properties ||--o{ property_amenities : "có"
+    amenities ||--o{ property_amenities : "thuộc"
+    users ||--o{ favorites : "lưu"
+    properties ||--o{ favorites : "được lưu"
+    users ||--o{ reviews : "viết"
+    properties ||--o{ reviews : "nhận"
+    users ||--o{ viewing_appointments : "đặt lịch"
+    properties ||--o{ viewing_appointments : "được hẹn"
+    users ||--o{ reports : "báo cáo"
+    properties ||--o{ reports : "bị báo cáo"
+    users ||--o{ saved_searches : "lưu bộ lọc"
+
+    roles {
+        tinyint id PK
+        varchar name "admin|agent|customer"
+    }
+    users {
+        int id PK
+        tinyint role_id FK
+        varchar full_name
+        varchar email UK
+        varchar phone
+        varchar password_hash
+        varchar avatar
+        text bio
+        enum status "active|locked"
+        datetime created_at
+    }
+    provinces {
+        int id PK
+        varchar name
+    }
+    districts {
+        int id PK
+        int province_id FK
+        varchar name
+    }
+    wards {
+        int id PK
+        int district_id FK
+        varchar name
+    }
+    property_types {
+        int id PK
+        varchar name
+    }
+    amenities {
+        int id PK
+        varchar name
+    }
+    properties {
+        int id PK
+        int user_id FK
+        int type_id FK
+        int ward_id FK
+        varchar title
+        text description
+        enum listing_type "sale|rent"
+        decimal price
+        decimal deposit
+        float area
+        tinyint bedrooms
+        tinyint bathrooms
+        varchar direction
+        varchar legal_status
+        enum furniture "none|basic|full"
+        bool pets_allowed
+        varchar address_detail
+        decimal latitude
+        decimal longitude
+        enum status "pending|approved|rejected|hidden|closed"
+        varchar reject_reason
+        bool is_verified
+        int views
+        datetime created_at
+        datetime updated_at
+    }
+    property_images {
+        int id PK
+        int property_id FK
+        varchar image_url
+        bool is_cover
+    }
+    property_amenities {
+        int property_id PK,FK
+        int amenity_id PK,FK
+    }
+    favorites {
+        int user_id PK,FK
+        int property_id PK,FK
+        datetime created_at
+    }
+    reviews {
+        int id PK
+        int property_id FK
+        int user_id FK
+        tinyint rating "1-5"
+        varchar comment
+        datetime created_at
+    }
+    viewing_appointments {
+        int id PK
+        int property_id FK
+        int customer_id FK
+        datetime scheduled_at
+        varchar note
+        enum status "pending|confirmed|cancelled|done"
+        datetime created_at
+    }
+    reports {
+        int id PK
+        int property_id FK
+        int reporter_id FK
+        varchar reason
+        enum status "open|resolved|dismissed"
+        datetime created_at
+    }
+    saved_searches {
+        int id PK
+        int user_id FK
+        varchar name
+        text filters "JSON"
+        datetime created_at
+    }
