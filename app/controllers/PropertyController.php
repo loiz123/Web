@@ -18,4 +18,12 @@ class PropertyController extends Controller
         // TODO [C]: lấy chi tiết + ảnh + tiện ích + bản đồ + tăng lượt xem
         $this->view('stub', ['title' => 'Chi tiết tin #' . (int)$id, 'owner' => 'C', 'todo' => 'Trang chi tiết: gallery ảnh, thông số, Google Maps, liên hệ môi giới, yêu thích, đánh giá, hẹn xem nhà.']);
     }
+
+    public function mapTest(): void
+    {
+        $this->view('property/map_test', [
+            'title'  => 'Kiểm tra Google Maps API',
+            'apiKey' => (string)config('google_maps_api_key'),
+        ]);
+    }
 }
