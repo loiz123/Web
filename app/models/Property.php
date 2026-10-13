@@ -3,6 +3,8 @@
 // hoặc SQL thường khi config use_routines = false.
 class Property extends Model
 {
+    private const STATUSES = ['pending', 'approved', 'rejected', 'hidden', 'closed'];
+
     protected string $table = 'properties';
     protected array $fillable = [
         'user_id', 'type_id', 'ward_id', 'title', 'description', 'listing_type', 'price', 'deposit', 'area',
@@ -45,5 +47,23 @@ class Property extends Model
         if ($max !== null) { $sql .= ' AND p.price <= ?'; $args[] = $max; }
         $sql .= ' ORDER BY p.created_at DESC LIMIT ' . (int)$limit . ' OFFSET ' . (int)$offset;
         return $this->query($sql, $args)->fetchAll();
+    }
+
+    public function findByAgent(int $agentId): array
+    {
+        return $this->query(
+            'SELECT * FROM properties WHERE user_id = ? ORDER BY created_at DESC, id DESC',
+            [$agentId]
+        )->fetchAll();
+    }
+
+    public function setStatus(int $id, string $status, ?string $rejectReason = null): bool
+    {
+        if (!in_array($status, self::STATUSES, true)) return false;
+
+        return $this->query(
+            'UPDATE properties SET status = ?, reject_reason = ? WHERE id = ?',
+            [$status, $status === 'rejected' ? $rejectReason : null, $id]
+        )->rowCount() > 0;
     }
 }
