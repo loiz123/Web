@@ -8,7 +8,7 @@ class PropertyController extends Controller
         $this->view('property/search', [
             'title'      => 'Tìm kiếm',
             'filters'    => $filters,
-            'properties' => (new Property())->search($filters, 12, 0),
+            'properties' => (new PropertyFinder())->search($filters, 12, 0),
             'provinces'  => (new Location())->provinces(),
         ]);
     }
