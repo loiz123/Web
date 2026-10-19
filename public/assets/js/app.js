@@ -10,16 +10,8 @@ async function api(path, { method = 'GET', body = null } = {}) {
 }
 
 function fillSelect(select, items, placeholder) {
-  select.innerHTML = `<option value="">${placeholder}</option>`;
+  select.replaceChildren(new Option(placeholder, ''));
   items.forEach(i => select.add(new Option(i.name, i.id)));
 }
 
-// Mẫu AJAX: chọn Tỉnh/Thành -> nạp Quận/Huyện (gọi api/districts/{id})
-document.querySelectorAll('select[data-target]').forEach(province => {
-  province.addEventListener('change', async () => {
-    const district = document.querySelector(province.dataset.target);
-    if (!province.value) return fillSelect(district, [], 'Quận/Huyện');
-    const res = await api(`api/districts/${province.value}`);
-    fillSelect(district, res.success ? res.data : [], 'Quận/Huyện');
-  });
-});
+// Dropdown Tỉnh/Quận/Phường: xem location.js
