@@ -22,8 +22,7 @@ class PropertyController extends Controller
     public function mapTest(): void
     {
         $this->view('property/map_test', [
-            'title'  => 'Kiểm tra Google Maps API',
-            'apiKey' => (string)config('google_maps_api_key'),
+            'title' => 'Kiểm tra bản đồ Leaflet & OpenStreetMap',
         ]);
     }
 }
