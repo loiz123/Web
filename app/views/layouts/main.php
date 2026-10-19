@@ -27,7 +27,7 @@
       </ul>
       <ul class="navbar-nav">
         <?php if ($user): ?>
-          <li class="nav-item"><span class="navbar-text me-3">Xin chào, <?= e($user['full_name']) ?></span></li>
+          <li class="nav-item"><a class="nav-link me-2" href="<?= e(base_url('profile')) ?>">Xin chào, <?= e($user['full_name']) ?></a></li>
           <li class="nav-item"><a class="nav-link" href="<?= e(base_url('auth/logout')) ?>">Đăng xuất</a></li>
         <?php else: ?>
           <li class="nav-item"><a class="nav-link" href="<?= e(base_url('auth/login')) ?>">Đăng nhập</a></li>
@@ -49,5 +49,6 @@
 <footer class="bg-light border-top py-3 text-center text-muted small">&copy; <?= date('Y') ?> <?= e(config('app_name')) ?> - Đồ án môn Lập trình web</footer>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="<?= e(base_url('assets/js/app.js')) ?>"></script>
+<script src="<?= e(base_url('assets/js/location.js')) ?>"></script>
 </body>
 </html>
