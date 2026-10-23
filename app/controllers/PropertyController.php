@@ -8,7 +8,7 @@ class PropertyController extends Controller
         $this->view('property/search', [
             'title'      => 'Tìm kiếm',
             'filters'    => $filters,
-            'properties' => (new Property())->search($filters, 12, 0),
+            'properties' => (new PropertyFinder())->search($filters, 12, 0),
             'provinces'  => (new Location())->provinces(),
         ]);
     }
@@ -17,5 +17,12 @@ class PropertyController extends Controller
     {
         // TODO [C]: lấy chi tiết + ảnh + tiện ích + bản đồ + tăng lượt xem
         $this->view('stub', ['title' => 'Chi tiết tin #' . (int)$id, 'owner' => 'C', 'todo' => 'Trang chi tiết: gallery ảnh, thông số, Google Maps, liên hệ môi giới, yêu thích, đánh giá, hẹn xem nhà.']);
+    }
+
+    public function mapTest(): void
+    {
+        $this->view('property/map_test', [
+            'title' => 'Kiểm tra bản đồ Leaflet & OpenStreetMap',
+        ]);
     }
 }
