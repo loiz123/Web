@@ -6,8 +6,136 @@ class AgentController extends Controller
 
     public function index(): void
     {
-        // TODO [B]: dashboard "tin của tôi" (danh sách + trạng thái + sửa/ẩn/xóa)
-        $this->view('stub', ['title' => 'Tin của tôi', 'owner' => 'B', 'todo' => 'Dashboard môi giới: danh sách tin, đổi trạng thái (AJAX), sửa/xóa.']);
+        $status = $_GET['status'] ?? '';
+        $statuses = ['pending', 'approved', 'rejected', 'hidden', 'closed'];
+        if ($status !== '' && !in_array($status, $statuses, true)) {
+            flash('warning', 'Trạng thái lọc không hợp lệ.');
+            $this->redirect('agent');
+        }
+        $this->view('agent/index', [
+            'title' => 'Tin của tôi',
+            'listings' => (new Property())->listingsForUser((int)Auth::id(), $status === '' ? null : $status),
+            'selectedStatus' => $status,
+        ]);
+    }
+
+    public function edit(int $id): void
+    {
+        $property = new Property();
+        $listing = $property->findOwned($id, (int)Auth::id());
+        if (!$listing) {
+            http_response_code(404);
+            $this->view('errors/404');
+            return;
+        }
+
+        if (!$this->isPost()) {
+            $this->showEditForm($listing);
+            return;
+        }
+
+        $this->verifyCsrf();
+        $input = $_POST;
+        foreach ($input as $key => $value) {
+            if (!is_string($value)) $input[$key] = '';
+        }
+        $title = trim($input['title'] ?? '');
+        $description = trim($input['description'] ?? '');
+        $listingType = $input['listing_type'] ?? '';
+        $typeId = filter_var($input['type_id'] ?? '', FILTER_VALIDATE_INT);
+        $price = $input['price'] ?? '';
+        $area = $input['area'] ?? '';
+        $bedrooms = filter_var($input['bedrooms'] ?? '', FILTER_VALIDATE_INT);
+        $bathrooms = filter_var($input['bathrooms'] ?? '', FILTER_VALIDATE_INT);
+        $address = trim($input['address_detail'] ?? '');
+        $errors = [];
+
+        $titleLength = function_exists('mb_strlen') ? mb_strlen($title, 'UTF-8') : strlen($title);
+        if ($title === '' || $titleLength > 200) $errors[] = 'Tiêu đề không được để trống và tối đa 200 ký tự.';
+        if (!in_array($listingType, ['sale', 'rent'], true)) $errors[] = 'Vui lòng chọn loại tin bán hoặc cho thuê.';
+        if (!$typeId || !$property->typeExists((int)$typeId)) $errors[] = 'Vui lòng chọn loại bất động sản hợp lệ.';
+        if (!is_numeric($price) || (float)$price <= 0) $errors[] = 'Giá phải là số lớn hơn 0.';
+        if (!is_numeric($area) || (float)$area <= 0) $errors[] = 'Diện tích phải là số lớn hơn 0.';
+        if ($bedrooms === false || $bedrooms < 0 || $bedrooms > 255
+            || $bathrooms === false || $bathrooms < 0 || $bathrooms > 255) {
+            $errors[] = 'Số phòng ngủ và phòng tắm không hợp lệ.';
+        }
+        if (strlen($address) > 200) $errors[] = 'Địa chỉ chi tiết tối đa 200 ký tự.';
+
+        if ($errors) {
+            foreach ($errors as $error) flash('danger', $error);
+            $this->showEditForm(array_merge($listing, $input));
+            return;
+        }
+
+        $updated = $property->updateOwnedListing($id, (int)Auth::id(), [
+            'type_id' => (int)$typeId,
+            'title' => $title,
+            'description' => $description,
+            'listing_type' => $listingType,
+            'price' => (float)$price,
+            'area' => (float)$area,
+            'bedrooms' => (int)$bedrooms,
+            'bathrooms' => (int)$bathrooms,
+            'address_detail' => $address ?: null,
+        ]);
+        if (!$updated) {
+            flash('danger', 'Không thể cập nhật tin đăng. Vui lòng thử lại.');
+            $this->showEditForm(array_merge($listing, $input));
+            return;
+        }
+
+        flash('success', 'Tin đăng đã được cập nhật và chuyển về trạng thái chờ duyệt.');
+        $this->redirect('agent');
+    }
+
+    public function hide(int $id): void
+    {
+        $this->requirePostAndCsrf();
+        if (!(new Property())->setOwnedVisibility($id, (int)Auth::id(), true)) {
+            flash('danger', 'Chỉ có thể ẩn tin đã được duyệt của bạn.');
+        } else {
+            flash('success', 'Tin đăng đã được ẩn.');
+        }
+        $this->redirect('agent');
+    }
+
+    public function restore(int $id): void
+    {
+        $this->requirePostAndCsrf();
+        if (!(new Property())->setOwnedVisibility($id, (int)Auth::id(), false)) {
+            flash('danger', 'Không thể khôi phục tin đăng này.');
+        } else {
+            flash('success', 'Tin đăng đã được gửi lại để duyệt.');
+        }
+        $this->redirect('agent');
+    }
+
+    public function delete(int $id): void
+    {
+        $this->requirePostAndCsrf();
+        $property = new Property();
+        $listing = $property->findOwned($id, (int)Auth::id());
+        if (!$listing) {
+            flash('danger', 'Không tìm thấy tin đăng của bạn để xóa.');
+            $this->redirect('agent');
+        }
+
+        $imagePaths = $property->imagesForListing($id);
+        if (!$property->deleteOwned($id, (int)Auth::id())) {
+            flash('danger', 'Không thể xóa tin đăng. Vui lòng thử lại.');
+            $this->redirect('agent');
+        }
+        foreach ($imagePaths as $imagePath) {
+            $fileName = basename($imagePath);
+            if (!preg_match('/^[a-f0-9]{32}\.(jpg|png|webp)$/', $fileName)) continue;
+            $filePath = rtrim(config('upload_dir'), '/\\') . DIRECTORY_SEPARATOR . $fileName;
+            if (is_file($filePath) && !unlink($filePath)) {
+                error_log('Unable to remove deleted property image: ' . $filePath);
+            }
+        }
+        flash('success', 'Tin đăng đã được xóa.');
+        $this->redirect('agent');
     }
 
     public function create(): void
@@ -168,6 +296,25 @@ class AgentController extends Controller
             'provinces' => (new Location())->provinces(),
             'amenities' => (new Amenity())->allSorted(),
         ]);
+    }
+
+    private function showEditForm(array $listing): void
+    {
+        $this->view('agent/edit', [
+            'title' => 'Sửa tin đăng',
+            'listing' => $listing,
+            'propertyTypes' => (new PropertyType())->allSorted(),
+        ]);
+    }
+
+    private function requirePostAndCsrf(): void
+    {
+        if (!$this->isPost()) {
+            http_response_code(405);
+            header('Allow: POST');
+            exit('Phương thức không được hỗ trợ.');
+        }
+        $this->verifyCsrf();
     }
 
     private function uploadedImages(array &$errors): array
