@@ -1,11 +1,17 @@
 <?php /** @var array $p một dòng kết quả từ Property::latest()/search() */ ?>
 <div class="col-sm-6 col-lg-3">
-  <div class="card h-100 shadow-sm property-card">
+  <div class="card h-100 shadow-sm property-card position-relative">
     <?php if (!empty($p['cover_url'])): ?>
-      <img src="<?= e(base_url($p['cover_url'])) ?>" class="card-img-top" alt="<?= e($p['title']) ?>">
+      <img src="<?= e(base_url($p['cover_url'])) ?>" class="card-img-top" alt="<?= e($p['title']) ?>" style="height: 180px; object-fit: cover;">
     <?php else: ?>
-      <div class="card-img-top bg-secondary-subtle d-flex align-items-center justify-content-center text-muted">Chưa có ảnh</div>
+      <div class="card-img-top bg-secondary-subtle d-flex align-items-center justify-content-center text-muted" style="height: 180px;">Chưa có ảnh</div>
     <?php endif; ?>
+    <button type="button" class="btn btn-sm btn-light position-absolute top-0 end-0 m-2 rounded-circle shadow-sm btn-fav-card"
+            style="width: 32px; height: 32px; padding: 0; line-height: 32px; z-index: 2; opacity: 0.9;"
+            title="Lưu tin yêu thích"
+            onclick="toggleCardFavorite(event, <?= (int)$p['id'] ?>, this)">
+      🤍
+    </button>
     <div class="card-body">
       <span class="badge <?= $p['listing_type'] === 'rent' ? 'text-bg-info' : 'text-bg-success' ?>"><?= $p['listing_type'] === 'rent' ? 'Cho thuê' : 'Bán' ?></span>
       <?php if ($p['is_verified']): ?><span class="badge text-bg-primary">Đã xác thực</span><?php endif; ?>
