@@ -238,8 +238,9 @@
 
         <!-- Chia sẻ & Yêu thích -->
         <div class="d-flex gap-2">
-          <button class="btn btn-outline-danger flex-grow-1" onclick="alert('Đã lưu vào danh sách yêu thích!');">
-            ❤️ Lưu tin
+          <button id="btnFavorite" class="btn <?= !empty($isFavorited) ? 'btn-danger' : 'btn-outline-danger' ?> flex-grow-1" onclick="handleToggleFavorite(<?= (int)$property['id'] ?>)">
+            <span id="favIcon"><?= !empty($isFavorited) ? '❤️' : '🤍' ?></span>
+            <span id="favText"><?= !empty($isFavorited) ? 'Đã lưu tin' : 'Lưu tin' ?></span>
           </button>
           <button class="btn btn-outline-secondary" onclick="navigator.clipboard.writeText(window.location.href); alert('Đã sao chép link tin đăng!');">
             🔗 Chia sẻ
@@ -290,6 +291,43 @@
     if (mainImg) mainImg.src = url;
     document.querySelectorAll('.gallery-thumb').forEach(t => t.classList.remove('active'));
     if (el) el.classList.add('active');
+  }
+
+  async function handleToggleFavorite(propertyId) {
+    const btn = document.getElementById('btnFavorite');
+    const icon = document.getElementById('favIcon');
+    const text = document.getElementById('favText');
+    if (btn) btn.disabled = true;
+
+    try {
+      const res = await api('favorite/toggle/' + propertyId, { method: 'POST' });
+      if (res.success) {
+        const liked = res.data.liked;
+        if (liked) {
+          btn.classList.remove('btn-outline-danger');
+          btn.classList.add('btn-danger');
+          if (icon) icon.textContent = '❤️';
+          if (text) text.textContent = 'Đã lưu tin';
+        } else {
+          btn.classList.remove('btn-danger');
+          btn.classList.add('btn-outline-danger');
+          if (icon) icon.textContent = '🤍';
+          if (text) text.textContent = 'Lưu tin';
+        }
+      } else {
+        if (res.data && res.data.require_login) {
+          if (confirm('Vui lòng đăng nhập để lưu tin yêu thích. Bạn có muốn chuyển đến trang đăng nhập ngay không?')) {
+            window.location.href = '<?= e(base_url('auth/login')) ?>';
+          }
+        } else {
+          alert(res.message || 'Không thể thực hiện thao tác.');
+        }
+      }
+    } catch (err) {
+      alert('Không thể kết nối đến máy chủ. Vui lòng thử lại sau.');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
   }
 
   document.addEventListener('DOMContentLoaded', function () {

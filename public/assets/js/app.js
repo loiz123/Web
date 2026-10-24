@@ -149,4 +149,36 @@ document.querySelectorAll('select[data-target]').forEach(function (province) {
   });
 });
 
+async function toggleCardFavorite(event, propertyId, btn) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  if (!btn) return;
+  btn.disabled = true;
+
+  try {
+    var response = await api('favorite/toggle/' + propertyId, { method: 'POST' });
+    if (response.success) {
+      if (response.data && response.data.liked) {
+        btn.textContent = '❤️';
+      } else {
+        btn.textContent = '🤍';
+      }
+    } else {
+      if (response.data && response.data.require_login) {
+        if (window.confirm('Vui lòng đăng nhập để lưu tin yêu thích. Bạn có muốn chuyển đến trang đăng nhập ngay không?')) {
+          window.location.href = (BASE_URL || '') + '/auth/login';
+        }
+      } else {
+        window.alert(response.message || 'Không thể thực hiện thao tác.');
+      }
+    }
+  } catch (error) {
+    window.alert('Không thể kết nối đến máy chủ. Vui lòng thử lại sau.');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 setupAgentForm();
