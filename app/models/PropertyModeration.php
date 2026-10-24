@@ -20,7 +20,7 @@ class PropertyModeration extends Model
              FROM properties p
              JOIN users u ON u.id = p.user_id
              WHERE p.status = ?
-             ORDER BY p.created_at ASC
+             ORDER BY p.created_at ASC, p.id ASC
              LIMIT $perPage OFFSET $offset",
             [$status]
         )->fetchAll();
