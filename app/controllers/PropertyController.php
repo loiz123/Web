@@ -32,13 +32,15 @@ class PropertyController extends Controller
         $images = $finder->getImages($id);
         $amenities = $finder->getAmenities($id);
         $similar = $finder->getSimilar($id, (int)$property['type_id'], 3);
+        $isFavorited = Auth::check() ? (new Favorite())->isFavorited((int)Auth::id(), $id) : false;
 
         $this->view('property/detail', [
-            'title'     => $property['title'],
-            'property'  => $property,
-            'images'    => $images,
-            'amenities' => $amenities,
-            'similar'   => $similar,
+            'title'       => $property['title'],
+            'property'    => $property,
+            'images'      => $images,
+            'amenities'   => $amenities,
+            'similar'     => $similar,
+            'isFavorited' => $isFavorited,
         ]);
     }
 
