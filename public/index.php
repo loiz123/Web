@@ -16,4 +16,5 @@ spl_autoload_register(function (string $class): void {
 require APP . '/helpers/functions.php';
 
 ini_set('display_errors', config('debug') ? '1' : '0');
+Auth::validate();   // đăng xuất ngay nếu tài khoản bị khóa/xóa
 (new App())->run();
