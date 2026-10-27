@@ -1,6 +1,6 @@
 <?php
 // [A] Tiện ích
-class Amenity extends Model
+class Amenity extends CatalogModel
 {
     protected string $table = 'amenities';
     protected array $fillable = ['name'];

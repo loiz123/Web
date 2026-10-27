@@ -7,17 +7,25 @@ class AuthController extends Controller
         if (Auth::check()) $this->redirect('');
         if ($this->isPost()) {
             $this->verifyCsrf();
-            $user = (new User())->findByEmail(trim($_POST['email'] ?? ''));
-            if (!$user || !password_verify($_POST['password'] ?? '', $user['password_hash'])) {
-                flash('danger', 'Email hoặc mật khẩu không đúng.');
+            $email = strtolower(trim($_POST['email'] ?? ''));
+            $pass  = (string)($_POST['password'] ?? '');
+            $user  = $email !== '' ? (new User())->findByEmail($email) : null;
+
+            if ($email === '' || $pass === '') {
+                flash('danger', 'Vui lòng nhập email và mật khẩu.');
+            } elseif (!$user || !password_verify($pass, $user['password_hash'])) {
+                flash('danger', 'Email hoặc mật khẩu không đúng.');   // không tiết lộ email có tồn tại hay không
             } elseif ($user['status'] === 'locked') {
-                flash('danger', 'Tài khoản của bạn đã bị khóa.');
+                flash('danger', 'Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.');
             } else {
+                unset($_SESSION['old']);
                 Auth::login($user);
-                $this->redirect($user['role_name'] === 'admin' ? 'admin' : ($user['role_name'] === 'agent' ? 'agent' : ''));
+                $this->redirect(['admin' => 'admin', 'agent' => 'agent'][$user['role_name']] ?? '');
             }
+            $_SESSION['old'] = ['email' => $email];
         }
         $this->view('auth/login', ['title' => 'Đăng nhập']);
+        unset($_SESSION['old']);
     }
 
     public function register(): void
@@ -25,16 +33,16 @@ class AuthController extends Controller
         if (Auth::check()) $this->redirect('');
         if ($this->isPost()) {
             $this->verifyCsrf();
-            $name  = trim($_POST['full_name'] ?? '');
-            $email = trim($_POST['email'] ?? '');
-            $phone = trim($_POST['phone'] ?? '');
-            $pass  = $_POST['password'] ?? '';
-            $role  = in_array($_POST['role'] ?? '', ['agent', 'customer'], true) ? $_POST['role'] : 'customer';
+            $name    = trim(preg_replace('/\s+/u', ' ', (string)($_POST['full_name'] ?? '')));
+            $email   = strtolower(trim($_POST['email'] ?? ''));
+            $phone   = User::normalizePhone($_POST['phone'] ?? '');
+            $pass    = (string)($_POST['password'] ?? '');
+            $confirm = (string)($_POST['password_confirm'] ?? '');
+            $role    = in_array($_POST['role'] ?? '', ['agent', 'customer'], true) ? $_POST['role'] : 'customer';
 
-            $errors = [];
-            if ($name === '') $errors[] = 'Vui lòng nhập họ tên.';
-            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'Email không hợp lệ.';
-            if (strlen($pass) < 6) $errors[] = 'Mật khẩu tối thiểu 6 ký tự.';
+            $errors = User::validateProfile($name, $phone);
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 100) $errors[] = 'Email không hợp lệ.';
+            $errors = array_merge($errors, User::validatePassword($pass, $confirm));
             $users = new User();
             if (!$errors && $users->findByEmail($email)) $errors[] = 'Email đã được đăng ký.';
 
