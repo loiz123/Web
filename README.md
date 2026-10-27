@@ -33,6 +33,13 @@ app/helpers/       functions.php (e(), base_url(), csrf_field(), flash()...)
 - Chặn quyền: `$this->requireRole('agent')` ở constructor hoặc đầu action.
 - Escape output bằng `e()`.
 
+## Đăng tin môi giới
+- Đăng nhập bằng tài khoản môi giới, mở `/agent/create`, điền thông tin và gửi từ 1 đến 10 ảnh JPG/PNG/WEBP (tối đa 5 MB mỗi ảnh).
+- Chọn ảnh bìa, vị trí được tải theo tỉnh/thành bằng AJAX; tiện ích được lưu cùng tin đăng.
+- Tin mới được lưu với trạng thái `pending` để quản trị viên duyệt.
+- Mở `/agent` để xem và lọc tin theo trạng thái; môi giới có thể sửa, ẩn tin đã duyệt, gửi tin đã ẩn duyệt lại hoặc xóa tin của mình.
+- Mỗi lần sửa hoặc gửi tin đã ẩn duyệt lại sẽ chuyển tin về `pending` để quản trị viên duyệt lại.
+
 ## Phân công (tìm `TODO [A|B|C|D]` trong code)
 | | Module | File chính |
 |---|---|---|
