@@ -18,6 +18,7 @@
     <div class="collapse navbar-collapse" id="nav">
       <ul class="navbar-nav me-auto">
         <li class="nav-item"><a class="nav-link" href="<?= e(base_url('property/search')) ?>">Tìm kiếm</a></li>
+        <li class="nav-item"><a class="nav-link" href="<?= e(base_url('favorite')) ?>">Tin đã lưu</a></li>
         <?php if (Auth::hasRole('agent', 'admin')): ?>
           <li class="nav-item"><a class="nav-link" href="<?= e(base_url('agent')) ?>">Tin của tôi</a></li>
         <?php endif; ?>

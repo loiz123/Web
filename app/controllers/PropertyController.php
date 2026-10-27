@@ -15,8 +15,33 @@ class PropertyController extends Controller
 
     public function detail($id = 0): void
     {
-        // TODO [C]: lấy chi tiết + ảnh + tiện ích + bản đồ + tăng lượt xem
-        $this->view('stub', ['title' => 'Chi tiết tin #' . (int)$id, 'owner' => 'C', 'todo' => 'Trang chi tiết: gallery ảnh, thông số, Google Maps, liên hệ môi giới, yêu thích, đánh giá, hẹn xem nhà.']);
+        $id = (int)$id;
+        $finder = new PropertyFinder();
+        $property = $finder->findDetail($id);
+
+        if (!$property) {
+            flash('danger', 'Không tìm thấy bất động sản yêu cầu hoặc tin đã bị gỡ.');
+            $this->redirect('property/search');
+            return;
+        }
+
+        // Tăng lượt xem tin
+        $finder->incrementViews($id);
+        $property['views'] = ((int)$property['views']) + 1;
+
+        $images = $finder->getImages($id);
+        $amenities = $finder->getAmenities($id);
+        $similar = $finder->getSimilar($id, (int)$property['type_id'], 3);
+        $isFavorited = Auth::check() ? (new Favorite())->isFavorited((int)Auth::id(), $id) : false;
+
+        $this->view('property/detail', [
+            'title'       => $property['title'],
+            'property'    => $property,
+            'images'      => $images,
+            'amenities'   => $amenities,
+            'similar'     => $similar,
+            'isFavorited' => $isFavorited,
+        ]);
     }
 
     public function mapTest(): void
