@@ -141,12 +141,29 @@ function setupAgentForm() {
 }
 
 document.querySelectorAll('select[data-target]').forEach(function (province) {
-  province.addEventListener('change', async function () {
-    var district = document.querySelector(province.dataset.target);
-    if (!province.value) return fillSelect(district, [], 'Quận/Huyện');
+  var district = document.querySelector(province.dataset.target);
+  if (!district) return;
+
+  async function updateDistricts(keepSelected) {
+    if (!province.value) {
+      fillSelect(district, [], 'Quận/Huyện');
+      return;
+    }
     var response = await api(`api/districts/${province.value}`);
     fillSelect(district, response.success ? response.data : [], 'Quận/Huyện');
+    if (keepSelected && district.dataset.selected) {
+      district.value = district.dataset.selected;
+    }
+  }
+
+  province.addEventListener('change', function () {
+    district.dataset.selected = '';
+    updateDistricts(false);
   });
+
+  if (province.value) {
+    updateDistricts(true);
+  }
 });
 
 async function toggleCardFavorite(event, propertyId, btn) {
