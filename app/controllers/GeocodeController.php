@@ -38,8 +38,8 @@ class GeocodeController extends Controller
                 'Accept: application/json',
                 'Accept-Language: vi,en;q=0.9',
             ],
-            CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_SSL_VERIFYHOST => false,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
         ]);
 
         $raw = curl_exec($ch);

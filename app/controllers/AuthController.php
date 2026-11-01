@@ -62,6 +62,14 @@ class AuthController extends Controller
 
     public function logout(): void
     {
+        $this->requireLogin();
+        if (!$this->isPost()) {
+            http_response_code(405);
+            header('Allow: POST');
+            $this->view('errors/405', ['title' => 'Phương thức không được hỗ trợ']);
+            return;
+        }
+        $this->verifyCsrf();
         Auth::logout();
         session_start();
         flash('info', 'Bạn đã đăng xuất.');

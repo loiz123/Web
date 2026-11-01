@@ -29,7 +29,12 @@
       <ul class="navbar-nav">
         <?php if ($user): ?>
           <li class="nav-item"><a class="nav-link me-2" href="<?= e(base_url('profile')) ?>">Xin chào, <?= e($user['full_name']) ?></a></li>
-          <li class="nav-item"><a class="nav-link" href="<?= e(base_url('auth/logout')) ?>">Đăng xuất</a></li>
+          <li class="nav-item">
+            <form method="post" action="<?= e(base_url('auth/logout')) ?>">
+              <?= csrf_field() ?>
+              <button class="nav-link border-0 bg-transparent" type="submit">Đăng xuất</button>
+            </form>
+          </li>
         <?php else: ?>
           <li class="nav-item"><a class="nav-link" href="<?= e(base_url('auth/login')) ?>">Đăng nhập</a></li>
           <li class="nav-item"><a class="nav-link" href="<?= e(base_url('auth/register')) ?>">Đăng ký</a></li>
