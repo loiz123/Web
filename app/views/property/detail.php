@@ -70,7 +70,7 @@
           <?php if (count($images) > 1): ?>
             <div class="d-flex gap-2 overflow-auto pb-2">
               <?php foreach ($images as $idx => $img): ?>
-                <img src="<?= e(base_url($img['image_url'])) ?>" alt="Ảnh <?= $idx + 1 ?>" class="gallery-thumb <?= $idx === 0 ? 'active' : '' ?>" onclick="switchGalleryImg('<?= e(base_url($img['image_url'])) ?>', this)">
+                <img src="<?= e(base_url($img['image_url'])) ?>" data-gallery-url="<?= e(base_url($img['image_url'])) ?>" alt="Ảnh <?= $idx + 1 ?>" class="gallery-thumb <?= $idx === 0 ? 'active' : '' ?>">
               <?php endforeach; ?>
             </div>
           <?php endif; ?>
@@ -176,6 +176,96 @@
           </p>
         </div>
       </div>
+
+      <!-- Đánh giá & Nhận xét [C - Thiện] -->
+      <div class="card shadow-sm border-0 mb-4" id="reviewsSection">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+            <h5 class="fw-bold mb-0">Đánh giá & Nhận xét</h5>
+            <div class="text-end">
+              <?php if (!empty($reviewStats['total_reviews'])): ?>
+                <span class="fs-5 fw-bold text-warning">★ <?= number_format((float)$reviewStats['avg_rating'], 1) ?></span>
+                <span class="text-muted small">/ 5 (<?= (int)$reviewStats['total_reviews'] ?> đánh giá)</span>
+              <?php else: ?>
+                <span class="text-muted small">Chưa có đánh giá</span>
+              <?php endif; ?>
+            </div>
+          </div>
+
+          <!-- Form gửi / cập nhật đánh giá -->
+          <?php if (Auth::check()): ?>
+            <?php if ((int)Auth::id() === (int)$property['user_id']): ?>
+              <div class="alert alert-light border small text-muted mb-4">
+                <i class="bi bi-info-circle me-1"></i> Bạn là người đăng tin bất động sản này nên không thể tự đánh giá.
+              </div>
+            <?php else: ?>
+              <div class="bg-light p-3 rounded mb-4 border">
+                <h6 class="fw-bold mb-2"><?= $userReview ? 'Cập nhật đánh giá của bạn' : 'Để lại đánh giá của bạn' ?></h6>
+                <form method="post" action="<?= e(base_url('review/submit')) ?>">
+                  <?= csrf_field() ?>
+                  <input type="hidden" name="property_id" value="<?= (int)$property['id'] ?>">
+                  <div class="mb-2">
+                    <label class="form-label small fw-semibold me-2">Số sao:</label>
+                    <div class="d-inline-flex gap-3">
+                      <?php for ($s = 5; $s >= 1; $s--): ?>
+                        <div class="form-check form-check-inline m-0">
+                          <input class="form-check-input" type="radio" name="rating" id="star<?= $s ?>" value="<?= $s ?>" <?= ($userReview && (int)$userReview['rating'] === $s) || (!$userReview && $s === 5) ? 'checked' : '' ?> required>
+                          <label class="form-check-label text-warning fw-bold" for="star<?= $s ?>"><?= $s ?> ★</label>
+                        </div>
+                      <?php endfor; ?>
+                    </div>
+                  </div>
+                  <div class="mb-2">
+                    <textarea name="comment" class="form-control form-control-sm" rows="3" placeholder="Chia sẻ cảm nhận của bạn về bất động sản này, vị trí, giá cả..."><?= e($userReview['comment'] ?? '') ?></textarea>
+                  </div>
+                  <div class="d-flex justify-content-between align-items-center">
+                    <button type="submit" class="btn btn-primary btn-sm fw-semibold">
+                      <?= $userReview ? 'Lưu thay đổi' : 'Gửi đánh giá' ?>
+                    </button>
+                    <?php if ($userReview): ?>
+                      <button type="submit" formaction="<?= e(base_url('review/delete/' . (int)$userReview['id'])) ?>" class="btn btn-outline-danger btn-sm" onclick="return confirm('Bạn có chắc muốn xóa đánh giá này?');">
+                        Xóa đánh giá
+                      </button>
+                    <?php endif; ?>
+                  </div>
+                </form>
+              </div>
+            <?php endif; ?>
+          <?php else: ?>
+            <div class="alert alert-light border text-center p-3 mb-4">
+              <p class="small text-muted mb-2">Vui lòng đăng nhập để gửi đánh giá và nhận xét về bất động sản này.</p>
+              <a href="<?= e(base_url('auth/login')) ?>" class="btn btn-sm btn-outline-primary fw-semibold">Đăng nhập ngay</a>
+            </div>
+          <?php endif; ?>
+
+          <!-- Danh sách nhận xét -->
+          <?php if (empty($reviews)): ?>
+            <p class="text-muted small text-center my-3">Chưa có đánh giá nào cho bất động sản này. Hãy là người đầu tiên để lại nhận xét!</p>
+          <?php else: ?>
+            <div class="review-list d-flex flex-column gap-3">
+              <?php foreach ($reviews as $rev): ?>
+                <div class="border-bottom pb-3">
+                  <div class="d-flex justify-content-between align-items-center mb-1">
+                    <div class="d-flex align-items-center gap-2">
+                      <div class="bg-primary-subtle text-primary rounded-circle d-flex align-items-center justify-content-center fw-bold small" style="width: 32px; height: 32px;">
+                        <?= mb_substr(e($rev['user_name'] ?: 'U'), 0, 1) ?>
+                      </div>
+                      <span class="fw-semibold text-dark small"><?= e($rev['user_name']) ?></span>
+                    </div>
+                    <span class="text-muted small"><?= date('d/m/Y H:i', strtotime($rev['created_at'])) ?></span>
+                  </div>
+                  <div class="text-warning small mb-1">
+                    <?= str_repeat('★', (int)$rev['rating']) ?><?= str_repeat('☆', 5 - (int)$rev['rating']) ?>
+                  </div>
+                  <?php if (!empty($rev['comment'])): ?>
+                    <p class="text-secondary small mb-0"><?= nl2br(e($rev['comment'])) ?></p>
+                  <?php endif; ?>
+                </div>
+              <?php endforeach; ?>
+            </div>
+          <?php endif; ?>
+        </div>
+      </div>
     </div>
 
     <!-- Cột phải: Thông tin người đăng / môi giới & hành động -->
@@ -214,37 +304,69 @@
           </div>
         </div>
 
-        <!-- Card Hẹn xem nhà & Tương tác -->
+        <!-- Card Hẹn xem nhà & Tương tác [D - Quốc] -->
         <div class="card shadow-sm border-0 mb-3">
           <div class="card-body p-3">
-            <h6 class="fw-bold mb-2">Yêu cầu tư vấn</h6>
-            <p class="small text-muted mb-3">Để lại thông tin để môi giới liên hệ trực tiếp hỗ trợ xem nhà miễn phí.</p>
-            <form onsubmit="event.preventDefault(); alert('Cảm ơn bạn! Môi giới sẽ sớm liên hệ lại.');">
-              <div class="mb-2">
-                <input type="text" class="form-control form-control-sm" placeholder="Họ và tên của bạn" required>
+            <h6 class="fw-bold mb-2">Đặt lịch xem nhà</h6>
+            <p class="small text-muted mb-3">Chọn thời gian thuận tiện nhất, môi giới sẽ xác nhận và đón bạn đến xem bất động sản.</p>
+            <?php if (Auth::check()): ?>
+              <?php if ((int)Auth::id() === (int)$property['user_id']): ?>
+                <div class="alert alert-secondary small mb-0 py-2">
+                  Đây là tin đăng của bạn. Bạn có thể xem danh sách lịch hẹn khách đặt trong trang quản lý.
+                </div>
+              <?php else: ?>
+                <form method="post" action="<?= e(base_url('appointment/book')) ?>">
+                  <?= csrf_field() ?>
+                  <input type="hidden" name="property_id" value="<?= (int)$property['id'] ?>">
+                  <div class="mb-2">
+                    <label class="form-label small fw-semibold">Thời gian muốn xem:</label>
+                    <input type="datetime-local" name="appointment_date" class="form-control form-control-sm" required min="<?= date('Y-m-d\TH:i', strtotime('+1 hour')) ?>">
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label small fw-semibold">Ghi chú cho môi giới:</label>
+                    <textarea name="note" class="form-control form-control-sm" rows="2" placeholder="Ví dụ: Tôi có thể xem vào buổi chiều, gọi trước 15 phút..."></textarea>
+                  </div>
+                  <div class="d-grid">
+                    <button type="submit" class="btn btn-primary btn-sm fw-semibold">Xác nhận đặt lịch</button>
+                  </div>
+                </form>
+              <?php endif; ?>
+            <?php else: ?>
+              <div class="alert alert-light border small text-center p-2 mb-0">
+                <p class="text-muted mb-2">Vui lòng đăng nhập để đặt lịch hẹn xem nhà trực tiếp.</p>
+                <a href="<?= e(base_url('auth/login')) ?>" class="btn btn-sm btn-outline-primary w-100 fw-semibold">Đăng nhập đặt lịch</a>
               </div>
-              <div class="mb-2">
-                <input type="tel" class="form-control form-control-sm" placeholder="Số điện thoại" required>
-              </div>
-              <div class="mb-3">
-                <textarea class="form-control form-control-sm" rows="2" placeholder="Nội dung lời nhắn hoặc thời gian rảnh..."></textarea>
-              </div>
-              <div class="d-grid">
-                <button type="submit" class="btn btn-primary btn-sm fw-semibold">Gửi yêu cầu hẹn lịch</button>
-              </div>
-            </form>
+            <?php endif; ?>
           </div>
         </div>
 
-        <!-- Chia sẻ & Yêu thích -->
-        <div class="d-flex gap-2">
-          <button id="btnFavorite" class="btn <?= !empty($isFavorited) ? 'btn-danger' : 'btn-outline-danger' ?> flex-grow-1" onclick="handleToggleFavorite(<?= (int)$property['id'] ?>)">
-            <span id="favIcon"><?= !empty($isFavorited) ? '❤️' : '🤍' ?></span>
-            <span id="favText"><?= !empty($isFavorited) ? 'Đã lưu tin' : 'Lưu tin' ?></span>
-          </button>
-          <button class="btn btn-outline-secondary" onclick="navigator.clipboard.writeText(window.location.href); alert('Đã sao chép link tin đăng!');">
-            🔗 Chia sẻ
-          </button>
+        <!-- Chia sẻ, Yêu thích & Báo cáo vi phạm -->
+        <div class="d-flex flex-column gap-2">
+          <div class="d-flex gap-2">
+            <button id="btnFavorite" class="btn <?= !empty($isFavorited) ? 'btn-danger' : 'btn-outline-danger' ?> flex-grow-1" onclick="handleToggleFavorite(<?= (int)$property['id'] ?>)">
+              <span id="favIcon"><?= !empty($isFavorited) ? '❤️' : '🤍' ?></span>
+              <span id="favText"><?= !empty($isFavorited) ? 'Đã lưu tin' : 'Lưu tin' ?></span>
+            </button>
+            <button class="btn btn-outline-secondary" onclick="navigator.clipboard.writeText(window.location.href); alert('Đã sao chép link tin đăng!');">
+              🔗 Chia sẻ
+            </button>
+          </div>
+
+          <?php if (Auth::check()): ?>
+            <?php if (!empty($hasReported)): ?>
+              <button class="btn btn-outline-warning btn-sm w-100" disabled>
+                🚩 Bạn đã báo cáo tin đăng này
+              </button>
+            <?php elseif ((int)Auth::id() !== (int)$property['user_id']): ?>
+              <button class="btn btn-outline-danger btn-sm w-100" data-bs-toggle="modal" data-bs-target="#reportModal">
+                🚩 Báo cáo tin đăng vi phạm
+              </button>
+            <?php endif; ?>
+          <?php else: ?>
+            <a href="<?= e(base_url('auth/login')) ?>" class="btn btn-outline-danger btn-sm w-100">
+              🚩 Đăng nhập để báo cáo vi phạm
+            </a>
+          <?php endif; ?>
         </div>
       </div>
     </div>
@@ -280,6 +402,42 @@
       </div>
     </div>
   <?php endif; ?>
+</div>
+
+<!-- Modal Báo cáo vi phạm [D - Quốc] -->
+<div class="modal fade" id="reportModal" tabindex="-1" aria-labelledby="reportModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post" action="<?= e(base_url('report/submit')) ?>">
+        <?= csrf_field() ?>
+        <input type="hidden" name="property_id" value="<?= (int)$property['id'] ?>">
+        <div class="modal-header">
+          <h5 class="modal-title fw-bold text-danger" id="reportModalLabel">🚩 Báo cáo vi phạm tin đăng</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="small text-muted mb-3">Nếu bạn phát hiện thông tin không chính xác, lừa đảo hoặc vi phạm quy định, vui lòng gửi phản ánh để ban quản trị xử lý.</p>
+          <div class="mb-3">
+            <label class="form-label fw-semibold small">Chọn lý do phổ biến</label>
+            <select class="form-select form-select-sm mb-2" onchange="if(this.value){document.getElementById('reportReason').value = this.value;}">
+              <option value="">-- Chọn lý do thường gặp --</option>
+              <option value="Tin giả mạo / Bất động sản không có thật">Tin giả mạo / Bất động sản không có thật</option>
+              <option value="Thông tin sai lệch (giá, diện tích, vị trí thực tế)">Thông tin sai lệch (giá, diện tích, vị trí thực tế)</option>
+              <option value="Bất động sản đã bán hoặc đã cho thuê từ trước">Bất động sản đã bán hoặc đã cho thuê từ trước</option>
+              <option value="Không liên lạc được người đăng tin / Số điện thoại ảo">Không liên lạc được người đăng tin / Số điện thoại ảo</option>
+              <option value="Nội dung phản cảm, hình ảnh không đúng chuẩn mực">Nội dung phản cảm, hình ảnh không đúng chuẩn mực</option>
+            </select>
+            <label class="form-label fw-semibold small">Mô tả cụ thể <span class="text-danger">*</span></label>
+            <textarea id="reportReason" name="reason" class="form-control form-control-sm" rows="3" placeholder="Chi tiết lý do vi phạm (tối thiểu 5 ký tự)..." required minlength="5"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Đóng</button>
+          <button type="submit" class="btn btn-danger btn-sm fw-semibold">Gửi báo cáo</button>
+        </div>
+      </form>
+    </div>
+  </div>
 </div>
 
 <!-- Script Leaflet & Map.js -->
@@ -331,10 +489,16 @@
   }
 
   document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[data-gallery-url]').forEach(function (thumbnail) {
+      thumbnail.addEventListener('click', function () {
+        switchGalleryImg(thumbnail.dataset.galleryUrl, thumbnail);
+      });
+    });
+
     // Tọa độ BĐS từ DB hoặc tọa độ mặc định TP.HCM
     const lat = <?= !empty($property['latitude']) ? (float)$property['latitude'] : 10.776889 ?>;
     const lng = <?= !empty($property['longitude']) ? (float)$property['longitude'] : 106.700806 ?>;
-    const title = <?= json_encode($property['title']) ?>;
+    const title = <?= json_for_script($property['title']) ?>;
 
     if (window.BdsMap && typeof window.BdsMap.initViewer === 'function') {
       window.BdsMap.initViewer({
@@ -342,7 +506,7 @@
         lat: lat,
         lng: lng,
         zoom: 15,
-        popupText: '<strong>' + title + '</strong><br>' + <?= json_encode($property['address_detail'] ?: $property['ward_name']) ?>
+        popupText: '<strong>' + title + '</strong><br>' + <?= json_for_script($property['address_detail'] ?: $property['ward_name']) ?>
       });
     }
   });

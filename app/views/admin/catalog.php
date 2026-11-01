@@ -60,8 +60,8 @@ $isWard = $tab === 'wards';
           <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#catalogModal" data-mode="edit"
                   data-id="<?= (int)$r['id'] ?>" data-name="<?= e($r['name']) ?>"
                   data-parent="<?= (int)($r['parent_id'] ?? 0) ?>" data-grand="<?= (int)($r['grand_id'] ?? 0) ?>">Sửa</button>
-          <form method="post" action="<?= e(base_url('admin/catalog/delete')) ?>" class="d-inline"
-                onsubmit="return confirm('Xóa “<?= e(addslashes($r['name'])) ?>”?');">
+          <form method="post" action="<?= e(base_url('admin/catalog/delete')) ?>" class="d-inline js-confirm-delete"
+                data-confirm-name="<?= e($r['name']) ?>">
             <?= csrf_field() ?>
             <input type="hidden" name="tab" value="<?= e($tab) ?>">
             <input type="hidden" name="item_id" value="<?= (int)$r['id'] ?>">
@@ -118,7 +118,7 @@ document.getElementById('catalogModal').addEventListener('show.bs.modal', async 
   const edit = b && b.dataset.mode === 'edit';
   f.elements['item_id'].value = edit ? b.dataset.id : '';
   f.elements['name'].value = edit ? b.dataset.name : '';
-  document.getElementById('catalogModalTitle').textContent = (edit ? 'Sửa ' : 'Thêm ') + <?= json_encode($cfg['noun'], JSON_UNESCAPED_UNICODE) ?>;
+  document.getElementById('catalogModalTitle').textContent = (edit ? 'Sửa ' : 'Thêm ') + <?= json_for_script($cfg['noun']) ?>;
   const prov = document.getElementById('m-province'), dist = document.getElementById('m-district');
   <?php if ($isDistrict): ?>
   prov.value = edit ? b.dataset.parent : '';
@@ -126,5 +126,11 @@ document.getElementById('catalogModal').addEventListener('show.bs.modal', async 
   prov.value = edit ? b.dataset.grand : '';
   await BdsLocation.load(dist, 'districts', prov.value, edit ? b.dataset.parent : '');
   <?php endif; ?>
+});
+
+document.querySelectorAll('.js-confirm-delete').forEach(form => {
+  form.addEventListener('submit', ev => {
+    if (!window.confirm('Xóa “' + form.dataset.confirmName + '”?')) ev.preventDefault();
+  });
 });
 </script>
