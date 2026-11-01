@@ -37,7 +37,22 @@ class Auth
         flash('danger', $u ? 'Tài khoản của bạn đã bị khóa.' : 'Phiên đăng nhập không còn hợp lệ.');
     }
 
-    public static function logout(): void { $_SESSION = []; session_destroy(); }
+    public static function logout(): void
+    {
+        $_SESSION = [];
+        if (ini_get('session.use_cookies')) {
+            $params = session_get_cookie_params();
+            setcookie(session_name(), '', [
+                'expires' => time() - 42000,
+                'path' => $params['path'],
+                'domain' => $params['domain'],
+                'secure' => $params['secure'],
+                'httponly' => $params['httponly'],
+                'samesite' => $params['samesite'] ?? 'Lax',
+            ]);
+        }
+        session_destroy();
+    }
     public static function check(): bool { return isset($_SESSION['user']); }
     public static function user(): ?array { return $_SESSION['user'] ?? null; }
     public static function id(): ?int { return $_SESSION['user']['id'] ?? null; }

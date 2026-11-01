@@ -25,6 +25,14 @@ class PropertyController extends Controller
             return;
         }
 
+        $isOwner = Auth::check() && (int)$property['user_id'] === (int)Auth::id();
+        $canModerate = Auth::hasRole('admin');
+        if ($property['status'] !== 'approved' && !$isOwner && !$canModerate) {
+            http_response_code(404);
+            $this->view('errors/404', ['title' => 'Không tìm thấy']);
+            return;
+        }
+
         // Tăng lượt xem tin
         $finder->incrementViews($id);
         $property['views'] = ((int)$property['views']) + 1;
