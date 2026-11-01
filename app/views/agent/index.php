@@ -39,28 +39,50 @@ $statusLabels = [
               </div>
             <?php endif; ?>
             <div class="col">
-              <div class="card-body">
+              <div class="card-body" data-listing-card>
                 <div class="d-flex flex-wrap justify-content-between gap-2">
                   <div>
                     <h2 class="h5 card-title mb-1"><?= e($listing['title']) ?></h2>
                     <p class="text-muted small mb-2"><?= e($listing['type_name']) ?> · <?= $listing['listing_type'] === 'rent' ? 'Cho thuê' : 'Bán' ?> · <?= e(number_format((float)$listing['area'], 1, ',', '.')) ?> m²</p>
                   </div>
-                  <span class="badge text-bg-secondary align-self-start"><?= e($statusLabels[$listing['status']] ?? $listing['status']) ?></span>
+                  <span class="badge text-bg-secondary align-self-start" data-status-badge><?= e($statusLabels[$listing['status']] ?? $listing['status']) ?></span>
                 </div>
                 <p class="fw-semibold text-primary mb-3"><?= e(format_price($listing['price'])) ?></p>
+                <?php if ($listing['status'] === 'rejected' && !empty($listing['reject_reason'])): ?>
+                  <div class="alert alert-warning py-2 mb-3" data-reject-reason>
+                    <strong>Lý do từ chối:</strong> <?= e($listing['reject_reason']) ?>
+                  </div>
+                <?php endif; ?>
                 <div class="d-flex flex-wrap gap-2">
                   <a class="btn btn-sm btn-outline-primary" href="<?= e(base_url('agent/edit/' . (int)$listing['id'])) ?>">Sửa tin</a>
+                  <div class="d-flex flex-wrap gap-2" data-status-actions>
                   <?php if ($listing['status'] === 'approved'): ?>
-                    <form method="post" action="<?= e(base_url('agent/hide/' . (int)$listing['id'])) ?>">
+                    <form method="post" action="<?= e(base_url('agent/status/' . (int)$listing['id'])) ?>" data-status-path="<?= e('agent/status/' . (int)$listing['id']) ?>" data-status-form>
                       <?= csrf_field() ?>
+                      <input type="hidden" name="status" value="hidden">
                       <button type="submit" class="btn btn-sm btn-outline-secondary">Ẩn tin</button>
                     </form>
                   <?php elseif ($listing['status'] === 'hidden'): ?>
-                    <form method="post" action="<?= e(base_url('agent/restore/' . (int)$listing['id'])) ?>">
+                    <form method="post" action="<?= e(base_url('agent/status/' . (int)$listing['id'])) ?>" data-status-path="<?= e('agent/status/' . (int)$listing['id']) ?>" data-status-form>
                       <?= csrf_field() ?>
+                      <input type="hidden" name="status" value="pending">
                       <button type="submit" class="btn btn-sm btn-outline-success">Gửi duyệt lại</button>
                     </form>
+                  <?php elseif ($listing['status'] === 'closed'): ?>
+                    <form method="post" action="<?= e(base_url('agent/status/' . (int)$listing['id'])) ?>" data-status-path="<?= e('agent/status/' . (int)$listing['id']) ?>" data-status-form>
+                      <?= csrf_field() ?>
+                      <input type="hidden" name="status" value="pending">
+                      <button type="submit" class="btn btn-sm btn-outline-success">Mở lại tin</button>
+                    </form>
                   <?php endif; ?>
+                  <?php if ($listing['status'] === 'approved'): ?>
+                    <form method="post" action="<?= e(base_url('agent/status/' . (int)$listing['id'])) ?>" data-status-path="<?= e('agent/status/' . (int)$listing['id']) ?>" data-status-form>
+                      <?= csrf_field() ?>
+                      <input type="hidden" name="status" value="closed">
+                      <button type="submit" class="btn btn-sm btn-outline-warning">Đóng tin</button>
+                    </form>
+                  <?php endif; ?>
+                  </div>
                   <form method="post" action="<?= e(base_url('agent/delete/' . (int)$listing['id'])) ?>" onsubmit="return confirm('Bạn có chắc muốn xóa tin đăng này?');">
                     <?= csrf_field() ?>
                     <button type="submit" class="btn btn-sm btn-outline-danger">Xóa tin</button>

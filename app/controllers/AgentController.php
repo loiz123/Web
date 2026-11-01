@@ -111,6 +111,30 @@ class AgentController extends Controller
         $this->redirect('agent');
     }
 
+    public function status(int $id): void
+    {
+        $this->verifyCsrf();
+        $status = $_POST['status'] ?? '';
+        if (!is_string($status) || !in_array($status, ['pending', 'hidden', 'closed'], true)) {
+            $this->json(null, false, 'Trạng thái cần chuyển không hợp lệ.', 422);
+        }
+
+        try {
+            $changed = (new Property())->setOwnedStatus($id, (int)Auth::id(), $status);
+        } catch (PDOException $error) {
+            error_log('Unable to change owned property status: ' . $error->getMessage());
+            $message = (int)($error->errorInfo[1] ?? 0) === 1644
+                ? (string)($error->errorInfo[2] ?? 'Không thể đổi trạng thái tin.')
+                : 'Không thể đổi trạng thái tin. Vui lòng thử lại.';
+            $this->json(null, false, $message, 409);
+        }
+
+        if (!$changed) {
+            $this->json(null, false, 'Tin không tồn tại hoặc không thể đổi trạng thái hiện tại.', 409);
+        }
+        $this->json(['id' => $id, 'status' => $status], true, 'Đã cập nhật trạng thái tin.');
+    }
+
     public function delete(int $id): void
     {
         $this->requirePostAndCsrf();
