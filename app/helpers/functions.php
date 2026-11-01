@@ -22,6 +22,15 @@ function base_url(string $path = ''): string
 
 function e($value): string { return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8'); }
 
+/** Encode data embedded in a <script> block without allowing </script> breakout. */
+function json_for_script($value): string
+{
+    return json_encode(
+        $value,
+        JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_THROW_ON_ERROR
+    );
+}
+
 function csrf_token(): string
 {
     if (empty($_SESSION['csrf'])) $_SESSION['csrf'] = bin2hex(random_bytes(32));
@@ -41,3 +50,6 @@ function format_price($price): string
     if ($p >= 1e6) return rtrim(rtrim(number_format($p / 1e6, 1, ',', '.'), '0'), ',') . ' triệu';
     return number_format($p, 0, ',', '.') . ' đ';
 }
+
+/** Độ dài chuỗi UTF-8 theo ký tự (không cần extension mbstring, vì một số hosting miễn phí tắt nó). */
+function str_len(string $s): int { return (int)preg_match_all('/./us', $s); }
