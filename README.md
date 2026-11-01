@@ -2,7 +2,7 @@
 
 ## Chạy trên máy (XAMPP / Laragon, PHP >= 8.0)
 1. Copy thư mục vào `htdocs` (hoặc `www`). Bật Apache + MySQL.
-2. phpMyAdmin → Import lần lượt: `database/schema.sql` → `database/seed.sql` → `database/procedures.sql`.
+2. phpMyAdmin → Import lần lượt: `database/schema.sql` → `database/seed.sql` → `database/procedures.sql` → `database/procedures/quoc.sql` → `database/procedures/hai.sql`.
 3. Copy `config/config.local.example.php` thành `config/config.local.php`, sửa user/pass DB. (File này không commit.)
 4. Mở `http://localhost/batdongsan/public/`.
 
@@ -38,6 +38,7 @@ app/helpers/       functions.php (e(), base_url(), csrf_field(), flash()...)
 - Chọn ảnh bìa, vị trí được tải theo tỉnh/thành bằng AJAX; tiện ích được lưu cùng tin đăng.
 - Tin mới được lưu với trạng thái `pending` để quản trị viên duyệt.
 - Mở `/agent` để xem và lọc tin theo trạng thái; môi giới có thể sửa, ẩn tin đã duyệt, gửi tin đã ẩn duyệt lại hoặc xóa tin của mình.
+- Dashboard agent hỗ trợ đổi trạng thái bằng AJAX; routine `hai.sql` có thể bỏ qua nếu hosting không cho tạo stored procedure vì code có SQL dự phòng.
 - Mỗi lần sửa hoặc gửi tin đã ẩn duyệt lại sẽ chuyển tin về `pending` để quản trị viên duyệt lại.
 
 ## Phân công (tìm `TODO [A|B|C|D]` trong code)
