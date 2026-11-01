@@ -7,6 +7,11 @@ class Location extends Model
     public function provinces(): array { return $this->query('SELECT id, name FROM provinces ORDER BY name')->fetchAll(); }
     public function districtsByProvince(int $id): array { return $this->query('SELECT id, name FROM districts WHERE province_id = ? ORDER BY name', [$id])->fetchAll(); }
     public function wardsByDistrict(int $id): array { return $this->query('SELECT id, name FROM wards WHERE district_id = ? ORDER BY name', [$id])->fetchAll(); }
+    public function provinceByDistrict(int $districtId): ?int
+    {
+        $row = $this->query('SELECT province_id FROM districts WHERE id = ?', [$districtId])->fetch();
+        return $row ? (int)$row['province_id'] : null;
+    }
     public function isValidWard(int $provinceId, int $districtId, int $wardId): bool
     {
         return (bool)$this->query(
