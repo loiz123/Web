@@ -1,4 +1,9 @@
-<?php /** @var array $provinces  @var array $filters (tùy chọn) */ $filters = $filters ?? []; ?>
+<?php
+/** @var array $provinces  @var array $filters (tùy chọn) */
+$filters = $filters ?? [];
+$selectedProvinceId = (int)($filters['province_id'] ?? 0);
+$selectedDistrictId = (int)($filters['district_id'] ?? 0);
+?>
 <form class="row g-2" method="get" action="<?= e(base_url('property/search')) ?>">
   <div class="col-md-3"><input type="text" name="keyword" class="form-control" placeholder="Tên đường, dự án..." value="<?= e($filters['keyword'] ?? '') ?>"></div>
   <div class="col-md-2">
@@ -9,11 +14,17 @@
     </select>
   </div>
   <div class="col-md-3">
-    <select id="province" class="form-select" data-target="#district">
+    <select id="province" name="province_id" class="form-select" data-target="#district">
       <option value="">Tỉnh/Thành</option>
-      <?php foreach ($provinces as $pr): ?><option value="<?= (int)$pr['id'] ?>"><?= e($pr['name']) ?></option><?php endforeach; ?>
+      <?php foreach ($provinces as $pr): ?>
+        <option value="<?= (int)$pr['id'] ?>" <?= $selectedProvinceId === (int)$pr['id'] ? 'selected' : '' ?>><?= e($pr['name']) ?></option>
+      <?php endforeach; ?>
     </select>
   </div>
-  <div class="col-md-2"><select id="district" name="district_id" class="form-select"><option value="">Quận/Huyện</option></select></div>
+  <div class="col-md-2">
+    <select id="district" name="district_id" class="form-select" data-selected="<?= $selectedDistrictId ?: '' ?>">
+      <option value="">Quận/Huyện</option>
+    </select>
+  </div>
   <div class="col-md-2 d-grid"><button class="btn btn-warning fw-semibold">Tìm kiếm</button></div>
 </form>
