@@ -70,7 +70,7 @@
           <?php if (count($images) > 1): ?>
             <div class="d-flex gap-2 overflow-auto pb-2">
               <?php foreach ($images as $idx => $img): ?>
-                <img src="<?= e(base_url($img['image_url'])) ?>" alt="Ảnh <?= $idx + 1 ?>" class="gallery-thumb <?= $idx === 0 ? 'active' : '' ?>" onclick="switchGalleryImg('<?= e(base_url($img['image_url'])) ?>', this)">
+                <img src="<?= e(base_url($img['image_url'])) ?>" data-gallery-url="<?= e(base_url($img['image_url'])) ?>" alt="Ảnh <?= $idx + 1 ?>" class="gallery-thumb <?= $idx === 0 ? 'active' : '' ?>">
               <?php endforeach; ?>
             </div>
           <?php endif; ?>
@@ -331,10 +331,16 @@
   }
 
   document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[data-gallery-url]').forEach(function (thumbnail) {
+      thumbnail.addEventListener('click', function () {
+        switchGalleryImg(thumbnail.dataset.galleryUrl, thumbnail);
+      });
+    });
+
     // Tọa độ BĐS từ DB hoặc tọa độ mặc định TP.HCM
     const lat = <?= !empty($property['latitude']) ? (float)$property['latitude'] : 10.776889 ?>;
     const lng = <?= !empty($property['longitude']) ? (float)$property['longitude'] : 106.700806 ?>;
-    const title = <?= json_encode($property['title']) ?>;
+    const title = <?= json_for_script($property['title']) ?>;
 
     if (window.BdsMap && typeof window.BdsMap.initViewer === 'function') {
       window.BdsMap.initViewer({
@@ -342,7 +348,7 @@
         lat: lat,
         lng: lng,
         zoom: 15,
-        popupText: '<strong>' + title + '</strong><br>' + <?= json_encode($property['address_detail'] ?: $property['ward_name']) ?>
+        popupText: '<strong>' + title + '</strong><br>' + <?= json_for_script($property['address_detail'] ?: $property['ward_name']) ?>
       });
     }
   });

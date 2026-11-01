@@ -44,7 +44,7 @@ class FavoriteController extends Controller
         }
 
         $property = (new PropertyFinder())->findDetail($propertyId);
-        if (!$property) {
+        if (!$property || $property['status'] !== 'approved') {
             $this->json(null, false, 'Tin đăng không tồn tại hoặc đã bị gỡ.', 404);
             return;
         }
