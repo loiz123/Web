@@ -13,10 +13,10 @@ class Report extends Model
         )->fetchColumn();
     }
 
-    /** Khách báo cáo tin. Trả id mới, 0 nếu tin không tồn tại hoặc đã có báo cáo đang mở của người này. */
+    /** Khách báo cáo tin. Trả id mới, 0 nếu tin chưa được duyệt (không phải approved) hoặc đã có báo cáo đang mở của người này. */
     public function submit(int $propertyId, int $reporterId, string $reason): int
     {
-        $exists = $this->query('SELECT 1 FROM properties WHERE id = ?', [$propertyId])->fetchColumn();
+        $exists = $this->query("SELECT 1 FROM properties WHERE id = ? AND status = 'approved'", [$propertyId])->fetchColumn();
         if (!$exists || $this->hasOpenReport($propertyId, $reporterId)) {
             return 0;
         }
