@@ -324,6 +324,8 @@ Nằm trong `database/procedures.sql`. Khi hosting không cho tạo routine, đ�
 | --- | --- | --- | --- |
 | `sp_latest_properties` | `p_limit` | Tin mới nhất đã duyệt, kèm ảnh bìa, loại, phường, quận | Thiện |
 | `sp_search_properties` | `p_keyword`, `p_listing_type`, `p_district_id`, `p_min_price`, `p_max_price`, `p_limit`, `p_offset` | Tìm kiếm có lọc; tham số NULL nghĩa là bỏ qua điều kiện | Thiện |
+| `sp_get_agent_properties` | `p_user_id`, `p_status` | Danh sách tin của chính môi giới, có thể lọc trạng thái | Hải |
+| `sp_set_property_status` | `p_id`, `p_user_id`, `p_status` | Đổi trạng thái tin thuộc về môi giới; kiểm tra chuyển trạng thái hợp lệ | Hải |
 
 Routine mới của từng người viết trong `database/procedures/<tên>.sql` (`phat.sql`, `hai.sql`, `thien.sql`, `quoc.sql`), đặt tên dạng `sp_<hành_động>_<đối_tượng>`.
 

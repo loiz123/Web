@@ -198,4 +198,69 @@ async function toggleCardFavorite(event, propertyId, btn) {
   }
 }
 
+var agentStatusLabels = {
+  pending: 'Chờ duyệt',
+  approved: 'Đã duyệt',
+  rejected: 'Bị từ chối',
+  hidden: 'Đã ẩn',
+  closed: 'Đã đóng'
+};
+
+function agentStatusForm(path, status, label, buttonClass) {
+  return `<form method="post" action="${BASE_URL}/${path}" data-status-path="${path}" data-status-form>` +
+    `<input type="hidden" name="_csrf" value="${CSRF}">` +
+    `<input type="hidden" name="status" value="${status}">` +
+    `<button type="submit" class="btn btn-sm ${buttonClass}">${label}</button></form>`;
+}
+
+function renderAgentStatusActions(card, status) {
+  var actions = card.querySelector('[data-status-actions]');
+  if (!actions) return;
+  var pathElement = actions.querySelector('[data-status-path]');
+  var path = pathElement ? pathElement.dataset.statusPath : '';
+  if (!path) return;
+  if (status === 'approved') {
+    actions.innerHTML = agentStatusForm(path, 'hidden', 'Ẩn tin', 'btn-outline-secondary') +
+      agentStatusForm(path, 'closed', 'Đóng tin', 'btn-outline-warning');
+  } else if (status === 'hidden') {
+    actions.innerHTML = agentStatusForm(path, 'pending', 'Gửi duyệt lại', 'btn-outline-success');
+  } else if (status === 'closed') {
+    actions.innerHTML = agentStatusForm(path, 'pending', 'Mở lại tin', 'btn-outline-success');
+  } else {
+    actions.innerHTML = '';
+  }
+  bindAgentStatusForms();
+}
+
+function bindAgentStatusForms() {
+  document.querySelectorAll('[data-status-form]').forEach(function (form) {
+    if (form.dataset.bound === 'true') return;
+    form.dataset.bound = 'true';
+    form.addEventListener('submit', async function (event) {
+      event.preventDefault();
+      var button = form.querySelector('button[type="submit"]');
+      if (button) button.disabled = true;
+      try {
+        var response = await api(form.dataset.statusPath, {
+          method: 'POST',
+          body: new FormData(form)
+        });
+        if (!response.success) throw new Error(response.message || 'Không thể cập nhật trạng thái.');
+        var card = form.closest('[data-listing-card]');
+        var status = response.data.status;
+        var badge = card.querySelector('[data-status-badge]');
+        badge.textContent = agentStatusLabels[status] || status;
+        badge.className = 'badge align-self-start ' + (status === 'approved' ? 'text-bg-success' : 'text-bg-secondary');
+        var reason = card.querySelector('[data-reject-reason]');
+        if (reason) reason.remove();
+        renderAgentStatusActions(card, status);
+      } catch (error) {
+        window.alert(error.message || 'Không thể kết nối đến máy chủ. Vui lòng thử lại.');
+        if (button) button.disabled = false;
+      }
+    });
+  });
+}
+
+bindAgentStatusForms();
 setupAgentForm();
