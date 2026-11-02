@@ -19,6 +19,16 @@ class Appointment extends Model
         return (int)$this->db->lastInsertId();
     }
 
+    /** Khách đã có lịch đang chờ hoặc đã xác nhận cho tin này chưa. */
+    public function hasActiveBooking(int $propertyId, int $customerId): bool
+    {
+        return (bool)$this->query(
+            "SELECT 1 FROM viewing_appointments
+             WHERE property_id = ? AND customer_id = ? AND status IN ('pending', 'confirmed')",
+            [$propertyId, $customerId]
+        )->fetchColumn();
+    }
+
     /** Lịch hẹn của một khách. */
     public function forCustomer(int $customerId): array
     {
