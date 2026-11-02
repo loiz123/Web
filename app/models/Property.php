@@ -17,7 +17,23 @@ class Property extends Model
 
     public function listingsForUser(int $userId, ?string $status = null): array
     {
+        if (config('use_routines')) {
+            try {
+                return $this->call('sp_get_agent_properties', [$userId, $status]);
+            } catch (PDOException $error) {
+                $code = (int)($error->errorInfo[1] ?? 0);
+                if ($code !== 1305) {
+                    throw $error;
+                }
+            }
+        }
+        return $this->listingsForUserSql($userId, $status);
+    }
+
+    private function listingsForUserSql(int $userId, ?string $status): array
+    {
         $sql = "SELECT p.id, p.title, p.status, p.listing_type, p.price, p.area, p.created_at,
+                       p.reject_reason,
                        t.name AS type_name,
                        (SELECT image_url FROM property_images i
                         WHERE i.property_id = p.id ORDER BY i.is_cover DESC, i.id LIMIT 1) AS cover_url
@@ -60,17 +76,30 @@ class Property extends Model
 
     public function setOwnedVisibility(int $id, int $userId, bool $hidden): bool
     {
-        if ($hidden) {
-            return $this->query(
-                "UPDATE properties SET status = 'hidden' WHERE id = ? AND user_id = ? AND status = 'approved'",
-                [$id, $userId]
-            )->rowCount() > 0;
+        return $this->setOwnedStatus($id, $userId, $hidden ? 'hidden' : 'pending');
+    }
+
+    public function setOwnedStatus(int $id, int $userId, string $status): bool
+    {
+        if (!in_array($status, ['pending', 'hidden', 'closed'], true)) {
+            return false;
         }
-        return $this->query(
-            "UPDATE properties SET status = 'pending', reject_reason = NULL
-             WHERE id = ? AND user_id = ? AND status = 'hidden'",
-            [$id, $userId]
-        )->rowCount() > 0;
+        if (config('use_routines')) {
+            try {
+                return $this->call('sp_set_property_status', [$id, $userId, $status]) !== [];
+            } catch (PDOException $error) {
+                $code = (int)($error->errorInfo[1] ?? 0);
+                if ($code !== 1305) {
+                    throw $error;
+                }
+            }
+        }
+        $allowedFrom = $status === 'hidden' ? ['approved'] : ($status === 'pending' ? ['hidden', 'closed'] : ['approved']);
+        $marks = implode(',', array_fill(0, count($allowedFrom), '?'));
+        $params = [$status, $id, $userId, ...$allowedFrom];
+        $sql = "UPDATE properties SET status = ?, reject_reason = NULL
+                WHERE id = ? AND user_id = ? AND status IN ($marks)";
+        return $this->query($sql, $params)->rowCount() > 0;
     }
 
     public function imagesForListing(int $id): array
