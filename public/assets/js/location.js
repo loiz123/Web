@@ -6,18 +6,24 @@
 // data-level: mục con cần nạp ("districts" mặc định, hoặc "wards"); data-selected: giá trị chọn sẵn (form sửa).
 const BdsLocation = (() => {
   const PLACEHOLDER = { districts: 'Quận/Huyện', wards: 'Phường/Xã' };
+  const requests = new WeakMap();
 
   /** Nạp danh sách con vào select theo id cha; selected = id chọn sẵn. */
   async function load(select, level, parentId, selected) {
     if (!select) return;
     const ph = select.dataset.placeholder || PLACEHOLDER[level] || '';
-    if (!parentId) { fillSelect(select, [], ph); return; }
+    const request = (requests.get(select) || 0) + 1;
+    requests.set(select, request);
+    fillSelect(select, [], ph);
+    if (!parentId) { select.disabled = false; return; }
     select.disabled = true;
     try {
       const res = await api(`api/${level}/${encodeURIComponent(parentId)}`);
+      if (requests.get(select) !== request) return;
       fillSelect(select, res.success ? res.data : [], ph);
       if (selected) select.value = String(selected);
     } catch (err) {
+      if (requests.get(select) !== request) return;
       fillSelect(select, [], ph);
     }
     select.disabled = false;
@@ -26,7 +32,9 @@ const BdsLocation = (() => {
   function clearChain(select) {
     const next = select.dataset.target ? document.querySelector(select.dataset.target) : null;
     if (!next) return;
+    requests.set(next, (requests.get(next) || 0) + 1);
     fillSelect(next, [], next.dataset.placeholder || PLACEHOLDER[select.dataset.level === 'wards' ? 'wards' : 'districts'] || '');
+    next.disabled = false;
     clearChain(next);
   }
 
@@ -34,8 +42,8 @@ const BdsLocation = (() => {
     select.addEventListener('change', async () => {
       const target = document.querySelector(select.dataset.target);
       if (!target) return;
-      await load(target, select.dataset.level || 'districts', select.value);
       clearChain(target);
+      await load(target, select.dataset.level || 'districts', select.value);
     });
   }
 
