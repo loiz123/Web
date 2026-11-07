@@ -14,8 +14,8 @@ $config = [
     'use_routines' => true,    // false nếu hosting không cho tạo stored procedure
     'debug'        => true,    // tắt khi deploy
     'upload_dir'   => __DIR__ . '/../public/uploads/properties',
-    // Google Maps Platform API Key (Lưu cấu hình chuẩn bị cho đồ án - Hệ thống web hiện tại chuyển hoàn toàn sang Leaflet OpenStreetMap Web API miễn phí, mã nguồn mở, không cần thẻ tín dụng)
-    'google_maps_api_key' => 'AIzaSyBQ4MsBXASsJCom1K8U4Q0qnD5dbjfWuW4',
+    // Google Maps Platform API Key (Để trống khi không sử dụng - Hệ thống web hiện tại chuyển hoàn toàn sang Leaflet OpenStreetMap Web API miễn phí, mã nguồn mở, không cần thẻ tín dụng)
+    'google_maps_api_key' => '',
 ];
 
 $local = __DIR__ . '/config.local.php';
