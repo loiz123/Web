@@ -40,3 +40,27 @@ BEGIN
 END$$
 
 DELIMITER ;
+
+-- Thống kê dashboard admin
+DELIMITER $$
+
+DROP PROCEDURE IF EXISTS sp_stats_properties_by_status$$
+CREATE PROCEDURE sp_stats_properties_by_status()
+BEGIN
+    SELECT status, COUNT(*) AS total FROM properties GROUP BY status;
+END$$
+
+DROP PROCEDURE IF EXISTS sp_stats_properties_by_district$$
+CREATE PROCEDURE sp_stats_properties_by_district()
+BEGIN
+    SELECT d.id, d.name AS district_name, pv.name AS province_name,
+           COUNT(pr.id) AS total, SUM(pr.status = 'approved') AS approved
+    FROM districts d
+    JOIN provinces pv ON pv.id = d.province_id
+    JOIN wards w ON w.district_id = d.id
+    JOIN properties pr ON pr.ward_id = w.id
+    GROUP BY d.id, d.name, pv.name
+    ORDER BY total DESC, d.name;
+END$$
+
+DELIMITER ;

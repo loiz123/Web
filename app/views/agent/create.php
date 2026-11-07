@@ -3,7 +3,7 @@ $values = $values ?? [];
 $selectedAmenities = is_array($values['amenities'] ?? null) ? $values['amenities'] : [];
 ?>
 <h1 class="h3 mb-4">Đăng tin bất động sản</h1>
-<form method="post" action="<?= e(base_url('agent/create')) ?>" enctype="multipart/form-data" class="row g-3">
+<form id="agent-create-form" method="post" action="<?= e(base_url('agent/create')) ?>" enctype="multipart/form-data" class="row g-3">
   <?= csrf_field() ?>
   <div class="col-12 col-md-6">
     <label for="title" class="form-label">Tiêu đề</label>
@@ -98,19 +98,19 @@ $selectedAmenities = is_array($values['amenities'] ?? null) ? $values['amenities
   </div>
   <div class="col-12 col-md-6">
     <label for="address-detail" class="form-label">Địa chỉ chi tiết</label>
-    <input id="address-detail" name="address_detail" maxlength="200" class="form-control" value="<?= e($values['address_detail'] ?? '') ?>">
+    <input id="address-detail" name="address_detail" maxlength="200" class="form-control" required value="<?= e($values['address_detail'] ?? '') ?>">
   </div>
   <div class="col-12 col-md-6">
     <label for="legal-status" class="form-label">Pháp lý</label>
     <input id="legal-status" name="legal_status" maxlength="100" class="form-control" value="<?= e($values['legal_status'] ?? '') ?>">
   </div>
 
-  <!-- [C - Thiện] Bản đồ Leaflet OpenStreetMap chọn vị trí khi đăng tin -->
+  <!-- Bản đồ chọn vị trí khi đăng tin -->
   <div class="col-12">
     <div class="card bg-light border shadow-sm">
       <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
-        <span class="fw-semibold small text-dark">🗺️ Chọn vị trí trên bản đồ OpenStreetMap (Leaflet)</span>
-        <span class="text-muted small">Kéo marker hoặc bấm trên map</span>
+        <span class="fw-semibold small text-dark">🗺️ Chọn vị trí bất động sản trên bản đồ</span>
+        <span class="text-muted small">Kéo điểm ghim hoặc bấm trên bản đồ</span>
       </div>
       <div class="card-body p-3">
         <div class="input-group mb-2">
@@ -118,20 +118,20 @@ $selectedAmenities = is_array($values['amenities'] ?? null) ? $values['amenities
           <button type="button" class="btn btn-outline-primary" id="btnSearchMapAddress">🔍 Tìm vị trí</button>
         </div>
         <div id="mapStatus" class="alert alert-info py-2 small mb-2">
-          💡 Bấm trực tiếp lên bản đồ hoặc kéo biểu tượng marker để lưu tọa độ chính xác cho bất động sản.
+          💡 Bấm trực tiếp lên bản đồ hoặc kéo biểu tượng điểm ghim để lưu tọa độ chính xác cho bất động sản.
         </div>
         <div id="agentMapPicker" style="height: 320px; width: 100%; border-radius: 6px;" class="border mb-2"></div>
         <div class="row g-2">
           <div class="col-6">
             <div class="input-group input-group-sm">
               <span class="input-group-text">Vĩ độ (Lat)</span>
-              <input type="text" id="latitudeInput" name="latitude" class="form-control bg-white" value="<?= e($values['latitude'] ?? '') ?>" placeholder="10.776889">
+              <input type="text" id="latitudeInput" name="latitude" class="form-control bg-white" required value="<?= e($values['latitude'] ?? '') ?>" placeholder="10.776889">
             </div>
           </div>
           <div class="col-6">
             <div class="input-group input-group-sm">
               <span class="input-group-text">Kinh độ (Lng)</span>
-              <input type="text" id="longitudeInput" name="longitude" class="form-control bg-white" value="<?= e($values['longitude'] ?? '') ?>" placeholder="106.700806">
+              <input type="text" id="longitudeInput" name="longitude" class="form-control bg-white" required value="<?= e($values['longitude'] ?? '') ?>" placeholder="106.700806">
             </div>
           </div>
         </div>
@@ -169,6 +169,10 @@ $selectedAmenities = is_array($values['amenities'] ?? null) ? $values['amenities
 <script src="<?= e(base_url('assets/js/map.js')) ?>"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+  var form = document.getElementById('agent-create-form');
+  var latitudeInput = document.getElementById('latitudeInput');
+  var longitudeInput = document.getElementById('longitudeInput');
+  var mapStatus = document.getElementById('mapStatus');
   if (window.BdsMap) {
     window.BdsMap.initPicker({
       mapId: 'agentMapPicker',
@@ -180,6 +184,16 @@ document.addEventListener('DOMContentLoaded', function () {
       defaultLat: <?= !empty($values['latitude']) ? (float)$values['latitude'] : '10.776889' ?>,
       defaultLng: <?= !empty($values['longitude']) ? (float)$values['longitude'] : '106.700806' ?>,
       defaultZoom: 15
+    });
+  }
+  if (form) {
+    form.addEventListener('submit', function (event) {
+      if (latitudeInput.value === '10.776889' && longitudeInput.value === '106.700806') {
+        event.preventDefault();
+        mapStatus.className = 'alert alert-warning py-2 small mb-2';
+        mapStatus.textContent = 'Vui lòng bấm lên bản đồ hoặc kéo điểm ghim để chọn tọa độ.';
+        mapStatus.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
     });
   }
 });

@@ -51,7 +51,7 @@ abstract class Controller
     {
         $token = $_POST['_csrf'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
         $expected = $_SESSION['csrf'] ?? '';
-        if ($expected === '' || !hash_equals($expected, (string)$token)) {
+        if (!is_string($token) || !is_string($expected) || $expected === '' || !hash_equals($expected, $token)) {
             http_response_code(419);
             exit('CSRF token không hợp lệ.');
         }

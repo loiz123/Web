@@ -53,7 +53,10 @@ class Review extends Model
     public function saveReview(int $propertyId, int $userId, int $rating, ?string $comment = null): bool
     {
         $rating = max(1, min(5, $rating));
-        $comment = $comment !== null ? mb_substr(trim($comment), 0, 500, 'UTF-8') : null;
+        if ($comment !== null) {
+            preg_match('/^.{0,500}/us', trim($comment), $matches);
+            $comment = $matches[0] ?? '';
+        }
 
         // Kiểm tra xem tin có tồn tại không
         $propExists = (bool)$this->query('SELECT 1 FROM properties WHERE id = ?', [$propertyId])->fetchColumn();

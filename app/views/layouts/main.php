@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="base-url" content="<?= e(rtrim(base_url(), '/')) ?>">
   <meta name="csrf" content="<?= e(csrf_token()) ?>">
-  <title><?= e(($title ?? '') ? $title . ' | ' : '') . e(config('app_name')) ?></title>
+  <title><?= e(($title ?? '') ? $title . ' | ' : '') ?>BĐS Việt - Cổng Thông Tin Bất Động Sản Trực Tuyến</title>
 
   <!-- Google Font: Plus Jakarta Sans -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -17,7 +17,7 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
-  <!-- Leaflet 1.9.4 CSS (Bản đồ Leaflet OpenStreetMap & ESRI World Imagery) -->
+  <!-- Bản đồ tương tác trực quan -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
 
   <!-- Main Custom CSS -->
@@ -29,13 +29,13 @@
 <nav class="navbar navbar-expand-lg navbar-light bg-white navbar-modern sticky-top">
   <div class="container">
     <!-- Brand Logo -->
-    <a class="navbar-brand d-flex align-items-center gap-2" href="<?= e(base_url()) ?>">
+    <a class="navbar-brand d-flex align-items-center gap-2" href="<?= e(base_url()) ?>" title="BĐS Việt - Cổng Thông Tin Bất Động Sản Trực Tuyến">
       <div class="brand-logo-icon">
         <i class="bi bi-buildings-fill"></i>
       </div>
       <div class="d-flex flex-column">
-        <span class="brand-title"><?= e(config('app_name')) ?></span>
-        <span class="brand-subtitle">Cổng Bất Động Sản Trực Tuyến</span>
+        <span class="brand-title">BĐS Việt</span>
+        <span class="brand-subtitle">Cổng Thông Tin Bất Động Sản Trực Tuyến</span>
       </div>
     </a>
 
@@ -188,18 +188,18 @@
             <i class="bi bi-buildings-fill"></i>
           </div>
           <div>
-            <h5 class="mb-0 text-white fw-bold"><?= e(config('app_name')) ?></h5>
-            <span class="text-muted small">Nền tảng BĐS thông minh</span>
+            <h5 class="mb-0 text-white fw-bold">BĐS Việt</h5>
+            <span class="text-light text-opacity-75 small">Cổng Thông Tin Bất Động Sản Trực Tuyến</span>
           </div>
         </div>
-        <p class="text-secondary small mb-3 lh-base">
-          Hệ sinh thái kết nối giao dịch bất động sản minh bạch hàng đầu. Cung cấp giải pháp tìm kiếm theo bản đồ Leaflet OpenStreetMap, tính lãi suất vay mua nhà và so sánh bất động sản đối đầu thông minh.
+        <p class="text-light text-opacity-75 small mb-3 lh-base">
+          Hệ sinh thái kết nối giao dịch bất động sản minh bạch hàng đầu Việt Nam. Cung cấp bản đồ bất động sản trực quan, công cụ tính lãi suất vay mua nhà và so sánh chi tiết thông số dự án.
         </p>
         <div class="d-flex align-items-center">
-          <a href="#" class="social-icon-btn" title="Facebook"><i class="bi bi-facebook"></i></a>
-          <a href="#" class="social-icon-btn" title="YouTube"><i class="bi bi-youtube"></i></a>
-          <a href="#" class="social-icon-btn" title="Zalo"><i class="bi bi-chat-dots-fill"></i></a>
-          <a href="#" class="social-icon-btn" title="LinkedIn"><i class="bi bi-linkedin"></i></a>
+          <a href="#" class="social-icon-btn" title="Facebook" aria-label="Facebook"><i class="bi bi-facebook"></i></a>
+          <a href="#" class="social-icon-btn" title="YouTube" aria-label="YouTube"><i class="bi bi-youtube"></i></a>
+          <a href="#" class="social-icon-btn" title="Zalo" aria-label="Zalo"><i class="bi bi-chat-dots-fill"></i></a>
+          <a href="#" class="social-icon-btn" title="LinkedIn" aria-label="LinkedIn"><i class="bi bi-linkedin"></i></a>
         </div>
       </div>
 
@@ -207,7 +207,7 @@
       <div class="col-lg-2 col-md-6 col-6">
         <h6 class="text-white fw-bold">Khám phá BĐS</h6>
         <ul class="list-unstyled d-flex flex-column gap-2 small">
-          <li><a href="<?= e(base_url('property/search?listing_type=sale&type_id=2')) ?>"><i class="bi bi-chevron-right me-1 small"></i>Nhà phố & Riêng</a></li>
+          <li><a href="<?= e(base_url('property/search?listing_type=sale&type_id=2')) ?>"><i class="bi bi-chevron-right me-1 small"></i>Nhà phố & Nhà riêng</a></li>
           <li><a href="<?= e(base_url('property/search?listing_type=sale&type_id=1')) ?>"><i class="bi bi-chevron-right me-1 small"></i>Căn hộ chung cư</a></li>
           <li><a href="<?= e(base_url('property/search?listing_type=sale&type_id=3')) ?>"><i class="bi bi-chevron-right me-1 small"></i>Biệt thự cao cấp</a></li>
           <li><a href="<?= e(base_url('property/search?listing_type=sale&type_id=4')) ?>"><i class="bi bi-chevron-right me-1 small"></i>Đất nền dự án</a></li>
@@ -217,41 +217,41 @@
 
       <!-- Cột 3: Tiện ích & Hỗ trợ -->
       <div class="col-lg-3 col-md-6 col-6">
-        <h6 class="text-white fw-bold">Công cụ & Hỗ trợ</h6>
+        <h6 class="text-white fw-bold">Công cụ & Dịch vụ</h6>
         <ul class="list-unstyled d-flex flex-column gap-2 small">
-          <li><a href="<?= e(base_url('property/search')) ?>"><i class="bi bi-map me-1"></i>Tìm kiếm trên bản đồ</a></li>
-          <li><a href="<?= e(base_url('property/compare')) ?>"><i class="bi bi-arrow-left-right me-1"></i>So sánh bất động sản</a></li>
-          <li><a href="<?= e(base_url('property/search')) ?>#calc"><i class="bi bi-calculator me-1"></i>Bảng tính lãi suất vay</a></li>
-          <li><a href="<?= e(base_url('favorite')) ?>"><i class="bi bi-bookmark-heart me-1"></i>Danh sách tin yêu thích</a></li>
-          <li><a href="<?= e(base_url('agent/create')) ?>"><i class="bi bi-pencil-square me-1"></i>Đăng tin bán & cho thuê</a></li>
+          <li><a href="<?= e(base_url('property/search')) ?>"><i class="bi bi-map me-1"></i>Bản đồ bất động sản trực quan</a></li>
+          <li><a href="<?= e(base_url('property/compare')) ?>"><i class="bi bi-arrow-left-right me-1"></i>So sánh chi tiết thông số dự án</a></li>
+          <li><a href="<?= e(base_url('property/search')) ?>#calc"><i class="bi bi-calculator me-1"></i>Công cụ tính lãi suất vay mua nhà</a></li>
+          <li><a href="<?= e(base_url('favorite')) ?>"><i class="bi bi-bookmark-heart me-1"></i>Danh sách bất động sản đã lưu</a></li>
+          <li><a href="<?= e(base_url('agent/create')) ?>"><i class="bi bi-pencil-square me-1"></i>Đăng tin ký gửi nhà đất</a></li>
         </ul>
       </div>
 
-      <!-- Cột 4: Thông tin đồ án & Liên hệ -->
+      <!-- Cột 4: Liên hệ & Chăm sóc khách hàng -->
       <div class="col-lg-3 col-md-6">
-        <h6 class="text-white fw-bold">Thông tin đồ án & Liên hệ</h6>
-        <div class="small text-secondary mb-2">
-          <i class="bi bi-mortarboard-fill text-warning me-1"></i> Đồ án môn Lập trình Web - Nhóm BĐS
+        <h6 class="text-white fw-bold">Liên hệ & Hỗ trợ</h6>
+        <div class="small text-light text-opacity-75 mb-2">
+          <i class="bi bi-buildings-fill text-warning me-1"></i> BĐS Việt - Cổng Thông Tin Bất Động Sản Trực Tuyến
         </div>
-        <div class="small text-secondary mb-2">
-          <i class="bi bi-geo-alt-fill text-danger me-1"></i> Đại học Kinh tế TP.HCM (UEH)
+        <div class="small text-light text-opacity-75 mb-2">
+          <i class="bi bi-geo-alt-fill text-danger me-1"></i> Tòa nhà Tài chính, Quận 1, TP. Hồ Chí Minh
         </div>
-        <div class="small text-secondary mb-2">
-          <i class="bi bi-people-fill text-info me-1"></i> Module C: Hà Ngọc Thiện phụ trách
+        <div class="small text-light text-opacity-75 mb-2">
+          <i class="bi bi-telephone-fill text-info me-1"></i> Hotline CSKH: 1900 6868 (8:00 - 21:00)
         </div>
-        <div class="small text-secondary">
-          <i class="bi bi-envelope-fill text-success me-1"></i> support@batdongsan.local
+        <div class="small text-light text-opacity-75">
+          <i class="bi bi-envelope-fill text-success me-1"></i> Email: <a href="mailto:cskh@bdsviet.vn" class="text-light text-opacity-75 text-decoration-none">cskh@bdsviet.vn</a>
         </div>
       </div>
     </div>
 
     <!-- Bottom Copyright -->
     <div class="footer-bottom-bar d-flex flex-column flex-md-row justify-content-between align-items-center gap-2">
-      <div class="text-muted">
-        &copy; <?= date('Y') ?> <?= e(config('app_name')) ?>. All rights reserved. Xây dựng trên nền tảng PHP 8.2 MVC, Bootstrap 5 & Leaflet OpenStreetMap.
+      <div class="text-light text-opacity-75 small">
+        &copy; <?= date('Y') ?> BĐS Việt - Cổng Thông Tin Bất Động Sản Trực Tuyến. Bảo lưu mọi quyền.
       </div>
-      <div class="text-muted small">
-        Phiên bản 2.5 (Modern UI/UX Release)
+      <div class="text-light text-opacity-75 small">
+        Thông tin minh bạch • Định vị chính xác • Giao dịch an toàn
       </div>
     </div>
   </div>
