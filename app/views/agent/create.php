@@ -105,6 +105,40 @@ $selectedAmenities = is_array($values['amenities'] ?? null) ? $values['amenities
     <input id="legal-status" name="legal_status" maxlength="100" class="form-control" value="<?= e($values['legal_status'] ?? '') ?>">
   </div>
 
+  <!-- [C - Thiện] Bản đồ Leaflet OpenStreetMap chọn vị trí khi đăng tin -->
+  <div class="col-12">
+    <div class="card bg-light border shadow-sm">
+      <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
+        <span class="fw-semibold small text-dark">🗺️ Chọn vị trí trên bản đồ OpenStreetMap (Leaflet)</span>
+        <span class="text-muted small">Kéo marker hoặc bấm trên map</span>
+      </div>
+      <div class="card-body p-3">
+        <div class="input-group mb-2">
+          <input type="text" id="mapSearchAddress" class="form-control" placeholder="Nhập địa chỉ tìm nhanh trên bản đồ (VD: Nguyễn Huệ, Bến Nghé, Quận 1, TP.HCM)...">
+          <button type="button" class="btn btn-outline-primary" id="btnSearchMapAddress">🔍 Tìm vị trí</button>
+        </div>
+        <div id="mapStatus" class="alert alert-info py-2 small mb-2">
+          💡 Bấm trực tiếp lên bản đồ hoặc kéo biểu tượng marker để lưu tọa độ chính xác cho bất động sản.
+        </div>
+        <div id="agentMapPicker" style="height: 320px; width: 100%; border-radius: 6px;" class="border mb-2"></div>
+        <div class="row g-2">
+          <div class="col-6">
+            <div class="input-group input-group-sm">
+              <span class="input-group-text">Vĩ độ (Lat)</span>
+              <input type="text" id="latitudeInput" name="latitude" class="form-control bg-white" value="<?= e($values['latitude'] ?? '') ?>" placeholder="10.776889">
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="input-group input-group-sm">
+              <span class="input-group-text">Kinh độ (Lng)</span>
+              <input type="text" id="longitudeInput" name="longitude" class="form-control bg-white" value="<?= e($values['longitude'] ?? '') ?>" placeholder="106.700806">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <fieldset class="col-12">
     <legend class="form-label">Tiện ích</legend>
     <div class="row g-2">
@@ -129,3 +163,24 @@ $selectedAmenities = is_array($values['amenities'] ?? null) ? $values['amenities
     <button type="submit" class="btn btn-primary">Gửi tin đăng</button>
   </div>
 </form>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="<?= e(base_url('assets/js/map.js')) ?>"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  if (window.BdsMap) {
+    window.BdsMap.initPicker({
+      mapId: 'agentMapPicker',
+      latInput: '#latitudeInput',
+      lngInput: '#longitudeInput',
+      addressInput: '#mapSearchAddress',
+      searchBtn: '#btnSearchMapAddress',
+      statusEl: '#mapStatus',
+      defaultLat: <?= !empty($values['latitude']) ? (float)$values['latitude'] : '10.776889' ?>,
+      defaultLng: <?= !empty($values['longitude']) ? (float)$values['longitude'] : '106.700806' ?>,
+      defaultZoom: 15
+    });
+  }
+});
+</script>

@@ -222,8 +222,107 @@ window.BdsMap = (function () {
     return { map, marker };
   }
 
+  /**
+   * Khởi tạo bản đồ tìm kiếm bất động sản (Search Map & AJAX)
+   * Vẽ nhiều marker tương ứng với danh sách kết quả tìm kiếm
+   */
+  function initSearchMap(options = {}) {
+    const mapId = options.mapId || 'searchMap';
+    const mapEl = document.getElementById(mapId);
+    if (!mapEl) return null;
+
+    if (typeof L === 'undefined') {
+      console.error('Leaflet chưa được tải. Vui lòng nhúng leaflet.js và leaflet.css');
+      return null;
+    }
+
+    const defaultLat = options.defaultLat || DEFAULT_LAT;
+    const defaultLng = options.defaultLng || DEFAULT_LNG;
+    const defaultZoom = options.defaultZoom || 12;
+
+    const map = L.map(mapId, {
+      center: [defaultLat, defaultLng],
+      zoom: defaultZoom,
+      scrollWheelZoom: true,
+    });
+
+    L.tileLayer(OSM_TILE_URL, {
+      maxZoom: 19,
+      attribution: OSM_ATTRIBUTION,
+    }).addTo(map);
+
+    const markersLayer = L.layerGroup().addTo(map);
+
+    function updateMarkers(properties = []) {
+      markersLayer.clearLayers();
+      const validPoints = [];
+
+      properties.forEach(p => {
+        if (!p.latitude || !p.longitude) return;
+        const lat = parseFloat(p.latitude);
+        const lng = parseFloat(p.longitude);
+        if (isNaN(lat) || isNaN(lng)) return;
+
+        const coverImg = p.cover_url
+          ? `<img src="${p.cover_url}" alt="${p.title}" style="width: 100%; height: 110px; object-fit: cover; border-radius: 4px; margin-bottom: 6px;">`
+          : '';
+
+        const typeBadge = p.listing_type === 'rent'
+          ? '<span class="badge text-bg-info" style="font-size: 0.7rem;">Cho thuê</span>'
+          : '<span class="badge text-bg-danger" style="font-size: 0.7rem;">Bán</span>';
+
+        const popupHtml = `
+          <div class="search-map-popup" style="max-width: 230px; font-family: system-ui, sans-serif; line-height: 1.4;">
+            ${coverImg}
+            <div class="fw-bold text-truncate mb-1" title="${p.title}" style="font-size: 0.85rem;">
+              <a href="${p.detail_url}" target="_blank" class="text-decoration-none text-dark">${p.title}</a>
+            </div>
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <span class="text-danger fw-bold" style="font-size: 0.9rem;">${p.formatted_price || p.price}</span>
+              ${typeBadge}
+            </div>
+            <div class="text-muted small mb-2" style="font-size: 0.75rem;">
+              <span>📐 ${p.area} m²</span> • <span>🛏️ ${p.bedrooms || 0} PN</span>
+              ${p.district_name ? ` • <span>📍 ${p.district_name}</span>` : ''}
+            </div>
+            <a href="${p.detail_url}" class="btn btn-warning btn-sm w-100 py-1 fw-semibold text-dark" style="font-size: 0.75rem;">Xem chi tiết &rarr;</a>
+          </div>
+        `;
+
+        const marker = L.marker([lat, lng], {
+          title: p.title
+        }).bindPopup(popupHtml);
+
+        markersLayer.addLayer(marker);
+        validPoints.push([lat, lng]);
+      });
+
+      if (validPoints.length === 1) {
+        map.setView(validPoints[0], 15);
+      } else if (validPoints.length > 1) {
+        const bounds = L.latLngBounds(validPoints);
+        map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
+      }
+    }
+
+    if (options.properties && options.properties.length > 0) {
+      updateMarkers(options.properties);
+    }
+
+    setTimeout(() => map.invalidateSize(), 250);
+    window.addEventListener('resize', () => map.invalidateSize());
+
+    return {
+      map,
+      markersLayer,
+      updateMarkers,
+      invalidateSize: () => map.invalidateSize(),
+    };
+  }
+
   return {
     initPicker,
     initViewer,
+    initSearchMap,
   };
 })();

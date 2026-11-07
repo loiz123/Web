@@ -60,15 +60,18 @@ class Property extends Model
 
     public function updateOwnedListing(int $id, int $userId, array $data): bool
     {
+        $lat = !empty($data['latitude']) ? (float)$data['latitude'] : null;
+        $lng = !empty($data['longitude']) ? (float)$data['longitude'] : null;
         $updated = $this->query(
             "UPDATE properties
              SET type_id = ?, title = ?, description = ?, listing_type = ?, price = ?, area = ?,
-                 bedrooms = ?, bathrooms = ?, address_detail = ?, status = 'pending', reject_reason = NULL
+                 bedrooms = ?, bathrooms = ?, address_detail = ?, latitude = ?, longitude = ?,
+                 status = 'pending', reject_reason = NULL
              WHERE id = ? AND user_id = ?",
             [
                 $data['type_id'], $data['title'], $data['description'], $data['listing_type'],
                 $data['price'], $data['area'], $data['bedrooms'], $data['bathrooms'],
-                $data['address_detail'], $id, $userId,
+                $data['address_detail'], $lat, $lng, $id, $userId,
             ]
         )->rowCount() > 0;
         return $updated || $this->findOwned($id, $userId) !== null;
@@ -120,18 +123,22 @@ class Property extends Model
 
     public function createListing(array $data, array $imagePaths, array $amenityIds, int $coverIndex): int
     {
+        $lat = !empty($data['latitude']) ? (float)$data['latitude'] : null;
+        $lng = !empty($data['longitude']) ? (float)$data['longitude'] : null;
+
         $this->db->beginTransaction();
         try {
             $this->query(
                 "INSERT INTO properties
                     (user_id, type_id, ward_id, title, description, listing_type, price, deposit, area,
-                     bedrooms, bathrooms, direction, legal_status, furniture, pets_allowed, address_detail, status)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')",
+                     bedrooms, bathrooms, direction, legal_status, furniture, pets_allowed, address_detail,
+                     latitude, longitude, status)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')",
                 [
                     $data['user_id'], $data['type_id'], $data['ward_id'], $data['title'], $data['description'],
                     $data['listing_type'], $data['price'], $data['deposit'], $data['area'], $data['bedrooms'],
                     $data['bathrooms'], $data['direction'], $data['legal_status'], $data['furniture'],
-                    $data['pets_allowed'], $data['address_detail'],
+                    $data['pets_allowed'], $data['address_detail'], $lat, $lng,
                 ]
             );
             $propertyId = (int)$this->db->lastInsertId();

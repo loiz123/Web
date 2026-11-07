@@ -501,12 +501,18 @@
     const title = <?= json_for_script($property['title']) ?>;
 
     if (window.BdsMap && typeof window.BdsMap.initViewer === 'function') {
+      const popupHtml = '<div style="min-width:180px; font-family:system-ui, sans-serif;">' +
+        '<div class="fw-bold text-dark mb-1">' + title + '</div>' +
+        '<div class="text-danger fw-bold mb-1">' + <?= json_for_script(format_price($property['price'])) ?> + ' - ' + <?= json_for_script($property['area'] . ' m²') ?> + '</div>' +
+        '<div class="small text-muted">📍 ' + <?= json_for_script(($property['address_detail'] ? $property['address_detail'] . ', ' : '') . $property['ward_name'] . ', ' . $property['district_name']) ?> + '</div>' +
+        '</div>';
+
       window.BdsMap.initViewer({
         mapId: 'propertyMap',
         lat: lat,
         lng: lng,
         zoom: 15,
-        popupText: '<strong>' + title + '</strong><br>' + <?= json_for_script($property['address_detail'] ?: $property['ward_name']) ?>
+        popupText: popupHtml
       });
     }
   });
