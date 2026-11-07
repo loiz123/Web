@@ -26,11 +26,11 @@ class Favorite extends Model
             return false;
         }
 
-        $this->query(
+        $stmt = $this->query(
             'INSERT IGNORE INTO favorites (user_id, property_id) VALUES (?, ?)',
             [$userId, $propertyId]
         );
-        return true;
+        return $stmt->rowCount() > 0;
     }
 
     /** Danh sách BĐS đã lưu của user (kèm thông tin loại, địa chỉ, ảnh bìa) */

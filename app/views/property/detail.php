@@ -198,9 +198,11 @@
               <div class="alert alert-light border small text-muted mb-4">
                 <i class="bi bi-info-circle me-1"></i> Bạn là người đăng tin bất động sản này nên không thể tự đánh giá.
               </div>
+            <?php elseif ($userReview): ?>
+              <div class="alert alert-light border">Bạn đã đánh giá tin này.</div>
             <?php else: ?>
               <div class="bg-light p-3 rounded mb-4 border">
-                <h6 class="fw-bold mb-2"><?= $userReview ? 'Cập nhật đánh giá của bạn' : 'Để lại đánh giá của bạn' ?></h6>
+                <h6 class="fw-bold mb-2">Để lại đánh giá của bạn</h6>
                 <form method="post" action="<?= e(base_url('review/submit')) ?>">
                   <?= csrf_field() ?>
                   <input type="hidden" name="property_id" value="<?= (int)$property['id'] ?>">
@@ -220,7 +222,7 @@
                   </div>
                   <div class="d-flex justify-content-between align-items-center">
                     <button type="submit" class="btn btn-primary btn-sm fw-semibold">
-                      <?= $userReview ? 'Lưu thay đổi' : 'Gửi đánh giá' ?>
+                      Gửi đánh giá
                     </button>
                     <?php if ($userReview): ?>
                       <button type="submit" formaction="<?= e(base_url('review/delete/' . (int)$userReview['id'])) ?>" class="btn btn-outline-danger btn-sm" onclick="return confirm('Bạn có chắc muốn xóa đánh giá này?');">
