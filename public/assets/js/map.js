@@ -18,8 +18,12 @@ window.BdsMap = (function () {
   const CARTO_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions" target="_blank">CARTO</a>';
 
   // Lớp gạch OpenStreetMap chuẩn
-  const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+  const OSM_TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
   const OSM_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors';
+
+  // Lớp gạch Vệ tinh ESRI World Imagery (Sắc nét, toàn cầu, miễn phí)
+  const ESRI_SATELLITE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+  const ESRI_ATTRIBUTION = 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community';
 
   /**
    * Sửa lỗi đường dẫn icon mặc định của Leaflet khi nạp qua CDN
@@ -50,13 +54,23 @@ window.BdsMap = (function () {
   }
 
   /**
-   * Thêm bộ điều khiển chuyển đổi layer (CartoDB Voyager vs OpenStreetMap)
+   * Thêm bộ điều khiển chuyển đổi layer:
+   * 1. Bản đồ tiêu chuẩn (CartoDB Voyager)
+   * 2. Bản đồ OpenStreetMap gốc
+   * 3. Bản đồ Vệ tinh ESRI World Imagery
    */
   function addLayerSwitcher(map, baseLayer) {
-    if (!map || typeof L === 'undefined') return;
+    if (!map || typeof L === 'undefined') return null;
+
     const osmLayer = L.tileLayer(OSM_TILE_URL, {
       maxZoom: 19,
+      subdomains: 'abc',
       attribution: OSM_ATTRIBUTION,
+    });
+
+    const esriSatelliteLayer = L.tileLayer(ESRI_SATELLITE_URL, {
+      maxZoom: 19,
+      attribution: ESRI_ATTRIBUTION,
     });
 
     osmLayer.on('tileerror', function () {
@@ -67,13 +81,45 @@ window.BdsMap = (function () {
     });
 
     const baseMaps = {
-      '<span style="font-weight:600;font-size:12px;">🗺️ CartoDB Voyager (Mặc định)</span>': baseLayer,
-      '<span style="font-size:12px;">🌍 OpenStreetMap (Chuẩn)</span>': osmLayer,
+      '<span style="font-weight:600;font-size:12px;">🗺️ Bản đồ tiêu chuẩn (CartoDB Voyager)</span>': baseLayer,
+      '<span style="font-size:12px;">🌍 Bản đồ OpenStreetMap gốc</span>': osmLayer,
+      '<span style="font-size:12px;">🛰️ Bản đồ Vệ tinh (ESRI World Imagery)</span>': esriSatelliteLayer,
     };
     try {
-      L.control.layers(baseMaps, null, { position: 'topright', collapsed: true }).addTo(map);
+      return L.control.layers(baseMaps, null, { position: 'topright', collapsed: true }).addTo(map);
     } catch (e) {
-      // Ignored
+      return null;
+    }
+  }
+
+  /**
+   * Xử lý triệt để lỗi màn hình xám của Leaflet:
+   * Gọi invalidateSize ngay, sau 150ms, 500ms, 1000ms, khi resize, khi load và IntersectionObserver khi cuộn tới
+   */
+  function applyAntiGreyScreen(map, mapEl) {
+    if (!map) return;
+    try {
+      map.invalidateSize();
+      setTimeout(() => { if (map) map.invalidateSize(); }, 150);
+      setTimeout(() => { if (map) map.invalidateSize(); }, 500);
+      setTimeout(() => { if (map) map.invalidateSize(); }, 1000);
+
+      window.addEventListener('resize', () => { if (map) map.invalidateSize(); });
+      window.addEventListener('load', () => { if (map) map.invalidateSize(); });
+
+      if (typeof IntersectionObserver !== 'undefined' && mapEl) {
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting) {
+              setTimeout(() => { if (map) map.invalidateSize(); }, 50);
+              setTimeout(() => { if (map) map.invalidateSize(); }, 200);
+            }
+          });
+        }, { threshold: 0.1 });
+        observer.observe(mapEl);
+      }
+    } catch (e) {
+      console.warn('Lỗi applyAntiGreyScreen:', e);
     }
   }
 
@@ -240,12 +286,8 @@ window.BdsMap = (function () {
       });
     }
 
-    // Đảm bảo không bị vỡ/trắng khung bản đồ khi tải xong
-    setTimeout(() => { if (map) map.invalidateSize(); }, 150);
-    setTimeout(() => { if (map) map.invalidateSize(); }, 300);
-    setTimeout(() => { if (map) map.invalidateSize(); }, 800);
-    window.addEventListener('resize', () => { if (map) map.invalidateSize(); });
-    window.addEventListener('load', () => { if (map) map.invalidateSize(); });
+    // Đảm bảo không bị vỡ/trắng khung bản đồ khi tải xong (Anti Grey Screen đa thời điểm)
+    applyAntiGreyScreen(map, mapEl);
 
     return {
       map,
@@ -346,7 +388,20 @@ window.BdsMap = (function () {
     baseLayer.addTo(map);
     addLayerSwitcher(map, baseLayer);
 
-    const marker = L.marker([lat, lng]).addTo(map);
+    // Marker BĐS chính - màu đỏ nổi bật với icon ngôi nhà
+    const propertyIcon = L.divIcon({
+      className: 'property-main-marker',
+      html: '<div style="background: linear-gradient(135deg, #ef4444, #b91c1c); color:white; width:42px; height:42px; border-radius:50% 50% 50% 0; transform:rotate(-45deg); display:flex; align-items:center; justify-content:center; box-shadow:0 6px 16px rgba(220,38,38,0.45); border:3px solid white;"><span style="transform:rotate(45deg); font-size:18px;">🏠</span></div>',
+      iconSize: [42, 42],
+      iconAnchor: [21, 42],
+      popupAnchor: [0, -42]
+    });
+
+    const marker = L.marker([lat, lng], {
+      icon: propertyIcon,
+      title: 'Vị trí bất động sản'
+    }).addTo(map);
+
     if (options.popupText) {
       marker.bindPopup(options.popupText).openPopup();
     }
@@ -386,7 +441,8 @@ window.BdsMap = (function () {
                 formattedDistance: formatDistance(d),
                 type: conf.label,
                 icon: conf.icon,
-                badgeClass: conf.badgeClass
+                badgeClass: conf.badgeClass,
+                color: conf.color
               };
             }).filter(item => item.distance <= 2200);
           }
@@ -419,7 +475,8 @@ window.BdsMap = (function () {
             formattedDistance: formatDistance(d),
             type: conf.label,
             icon: conf.icon,
-            badgeClass: conf.badgeClass
+            badgeClass: conf.badgeClass,
+            color: conf.color
           };
         });
       }
@@ -440,13 +497,17 @@ window.BdsMap = (function () {
 
         const walkMinutes = Math.max(1, Math.round(item.distance / 75));
         const popupHtml = 
-          '<div style="min-width: 180px; font-family: system-ui, sans-serif; line-height: 1.4;">' +
+          '<div style="min-width: 200px; font-family: system-ui, -apple-system, sans-serif; line-height: 1.45; padding: 2px;">' +
             '<div class="d-flex align-items-center gap-2 mb-1">' +
               '<span style="font-size: 1.25rem;">' + item.icon + '</span>' +
               '<strong class="text-dark" style="font-size: 0.875rem;">' + item.name + '</strong>' +
             '</div>' +
             '<div class="text-muted small mb-1">Loại: <span class="badge bg-light text-dark border">' + item.type + '</span></div>' +
-            '<div class="text-danger fw-bold small">📍 Cách ' + item.formattedDistance + ' <span class="fw-normal text-muted">(~' + walkMinutes + ' phút đi bộ)</span></div>' +
+            '<div class="text-danger fw-bold small mb-2">📍 Cách ' + item.formattedDistance + ' <span class="fw-normal text-muted">(~' + walkMinutes + ' phút đi bộ)</span></div>' +
+            '<div class="d-flex gap-1">' +
+              '<a href="https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=%2C%3B' + item.lat + '%2C' + item.lng + '" target="_blank" rel="noopener noreferrer" class="btn btn-outline-success btn-sm py-0 px-2 text-decoration-none" style="font-size:0.75rem;"><i class="bi bi-signpost-2 me-1"></i>Chỉ đường OSM</a>' +
+              '<a href="https://www.google.com/maps/dir/?api=1&destination=' + item.lat + ',' + item.lng + '" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary btn-sm py-0 px-2 text-decoration-none" style="font-size:0.75rem;"><i class="bi bi-geo-alt me-1"></i>Google Maps</a>' +
+            '</div>' +
           '</div>';
 
         const m = L.marker([item.lat, item.lng], { icon: divIcon })
@@ -469,12 +530,8 @@ window.BdsMap = (function () {
       marker.openPopup();
     }
 
-    // Kích hoạt vẽ lại kích thước tránh lỗi xám
-    setTimeout(() => { if (map) map.invalidateSize(); }, 150);
-    setTimeout(() => { if (map) map.invalidateSize(); }, 300);
-    setTimeout(() => { if (map) map.invalidateSize(); }, 800);
-    window.addEventListener('resize', () => { if (map) map.invalidateSize(); });
-    window.addEventListener('load', () => { if (map) map.invalidateSize(); });
+    // Kích hoạt chống màn hình xám triệt để
+    applyAntiGreyScreen(map, mapEl);
 
     return {
       map,
@@ -575,11 +632,8 @@ window.BdsMap = (function () {
       updateMarkers(options.properties);
     }
 
-    setTimeout(() => { if (map) map.invalidateSize(); }, 150);
-    setTimeout(() => { if (map) map.invalidateSize(); }, 300);
-    setTimeout(() => { if (map) map.invalidateSize(); }, 800);
-    window.addEventListener('resize', () => { if (map) map.invalidateSize(); });
-    window.addEventListener('load', () => { if (map) map.invalidateSize(); });
+    // Đảm bảo không bị vỡ/trắng khung bản đồ khi tải xong (Anti Grey Screen đa thời điểm)
+    applyAntiGreyScreen(map, mapEl);
 
     return {
       map,

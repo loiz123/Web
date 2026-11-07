@@ -22,7 +22,7 @@ if (!$hasValidCoords) {
 <!-- Leaflet 1.9.4 CSS (jsDelivr CDN ổn định, tải nhanh, không lỗi integrity) -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
 <style>
-  #propertyMap { height: 420px; min-height: 380px; width: 100%; border-radius: 12px; z-index: 1; background-color: #f1f5f9; position: relative; }
+  #propertyMap { height: 450px; min-height: 450px; width: 100%; border-radius: 16px; z-index: 1; background-color: #f8fafc; position: relative; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
   .leaflet-container { font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif !important; }
   .gallery-main { height: 420px; object-fit: cover; border-radius: 8px; width: 100%; }
   .gallery-thumb { height: 80px; object-fit: cover; border-radius: 6px; cursor: pointer; transition: opacity .2s; }
@@ -185,7 +185,7 @@ if (!$hasValidCoords) {
         </div>
       <?php endif; ?>
 
-      <!-- Vị trí trên bản đồ Leaflet OpenStreetMap & Tiện ích xung quanh (POI) [C - Thiện] -->
+      <!-- Vị trí trên bản đồ Leaflet OpenStreetMap Web API & Tiện ích xung quanh (POI) [C - Thiện] -->
       <div class="card shadow-sm border-0 mb-4" id="mapSection">
         <div class="card-body">
           <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-3 border-bottom pb-2">
@@ -193,12 +193,16 @@ if (!$hasValidCoords) {
               <h5 class="fw-bold mb-0 text-dark d-flex align-items-center gap-2">
                 <i class="bi bi-geo-alt-fill text-danger"></i> Vị trí & Tiện ích xung quanh
               </h5>
-              <span class="text-muted small">Bản đồ Leaflet OpenStreetMap • Khám phá tiện ích bán kính 1 - 2km</span>
+              <span class="text-muted small">Bản đồ vị trí bất động sản • Khám phá tiện ích bán kính 1 - 2km</span>
             </div>
-            <!-- Nút tắt / đặt lại tiện ích -->
-            <button type="button" id="btnResetPoi" class="btn btn-outline-secondary btn-sm d-none" onclick="resetNearbyPoi()">
-              <i class="bi bi-arrow-counterclockwise me-1"></i> Xóa tiện ích
-            </button>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <span class="badge bg-success-subtle text-success border border-success-subtle"><i class="bi bi-map me-1"></i>OpenStreetMap Web API (Leaflet Engine)</span>
+              <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle"><i class="bi bi-geo-alt me-1"></i>Tọa độ: <?= number_format($propLat, 4) ?>, <?= number_format($propLng, 4) ?></span>
+              <!-- Nút tắt / đặt lại tiện ích -->
+              <button type="button" id="btnResetPoi" class="btn btn-outline-secondary btn-sm d-none" onclick="resetNearbyPoi()">
+                <i class="bi bi-arrow-counterclockwise me-1"></i> Xóa tiện ích
+              </button>
+            </div>
           </div>
 
           <!-- Thanh nút bấm lọc tiện ích xung quanh -->
@@ -228,19 +232,23 @@ if (!$hasValidCoords) {
           <!-- Trạng thái đang tải tiện ích -->
           <div id="poiLoadingNotice" class="alert alert-light border small text-muted py-2 px-3 d-none align-items-center gap-2 mb-3">
             <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
-            <span>Đang tra cứu dữ liệu tiện ích xung quanh từ OpenStreetMap...</span>
+            <span id="poiLoadingText">Đang tra cứu dữ liệu tiện ích xung quanh...</span>
           </div>
 
-          <!-- Bản đồ Leaflet -->
-          <div id="propertyMap" class="border rounded-3 shadow-sm position-relative" style="height: 420px; min-height: 380px; width: 100%;"></div>
+          <!-- Khung bản đồ Leaflet OpenStreetMap (chiều cao 450px, bo góc 16px, border đẹp) -->
+          <div id="propertyMap" class="shadow-sm position-relative" style="height: 450px; min-height: 450px; width: 100%; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 20px rgba(0,0,0,0.06); overflow: hidden; background-color: #f8fafc;"></div>
 
-          <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mt-2">
+          <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mt-3">
             <p class="small text-muted mb-0">
               📍 <?= e($property['address_detail'] ? $property['address_detail'] . ', ' : '') ?><?= e($property['ward_name']) ?>, <?= e($property['district_name']) ?>, <?= e($property['province_name']) ?>
             </p>
-            <div class="d-flex align-items-center gap-2">
-              <span class="badge bg-light text-muted border small">Tọa độ: <?= round($propLat, 4) ?>, <?= round($propLng, 4) ?></span>
-              <span class="badge bg-success-subtle text-success border border-success-subtle small"><i class="bi bi-shield-check me-1"></i>Bản đồ mở (Không cần API key)</span>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <a href="https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=%2C%3B<?= $propLat ?>%2C<?= $propLng ?>" target="_blank" rel="noopener noreferrer" class="btn btn-outline-success btn-sm rounded-pill px-3 py-1 fw-semibold" style="font-size: 0.8rem;" title="Mở chỉ đường trên OpenStreetMap">
+                <i class="bi bi-signpost-2 me-1"></i>Chỉ đường (OpenStreetMap)
+              </a>
+              <a href="https://www.google.com/maps/dir/?api=1&destination=<?= $propLat ?>,<?= $propLng ?>" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary btn-sm rounded-pill px-3 py-1 fw-semibold" style="font-size: 0.8rem;" title="Mở chỉ đường trên Google Maps">
+                <i class="bi bi-geo-alt me-1"></i>Chỉ đường (Google Maps)
+              </a>
             </div>
           </div>
 
@@ -719,7 +727,10 @@ if (!$hasValidCoords) {
   </div>
 </div>
 
-<!-- Script Leaflet 1.9.4 & Map.js (jsDelivr CDN ổn định) -->
+<!-- Cấu hình Google Maps API được lưu trữ tại config/config.php phục vụ chuẩn bị đồ án -->
+<!-- Hệ thống hiển thị bản đồ sử dụng thuần Leaflet OpenStreetMap Web API RESTful -->
+
+<!-- Script Leaflet 1.9.4 & Map.js (Dự phòng và fallback mượt mà) -->
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="<?= e(base_url('assets/js/map.js')) ?>"></script>
 <script>
@@ -802,9 +813,20 @@ if (!$hasValidCoords) {
     updateDetailCompareBtn();
   }
 
-  // Quản lý bản đồ & tiện ích xung quanh POI [C - Thiện]
-  let detailMapInstance = null;
+  // =========================================================================
+  // BẢN ĐỒ VỊ TRÍ & TIỆN ÍCH XUNG QUANH (LEAFLET OPENSTREETMAP WEB API) [C - Thiện]
+  // =========================================================================
+  const mapLat = <?= $propLat ?>;
+  const mapLng = <?= $propLng ?>;
+  const propTitle = <?= json_for_script($property['title']) ?>;
+  const propPriceFormatted = <?= json_for_script(format_price($property['price'])) ?>;
+  const propAreaFormatted = <?= json_for_script($property['area'] . ' m²') ?>;
+  const propAddressFormatted = <?= json_for_script(($property['address_detail'] ? $property['address_detail'] . ', ' : '') . $property['ward_name'] . ', ' . $property['district_name']) ?>;
+  const propDistrict = <?= json_for_script($property['district_name'] ?? '') ?>;
+
+  let detailMapInstance = null; // Leaflet viewer instance
   let activePoiCat = null;
+  let currentPoiItems = [];
 
   async function handlePoiCategoryClick(catKey, btn) {
     if (!detailMapInstance || !detailMapInstance.loadPoi) return;
@@ -1065,11 +1087,24 @@ if (!$hasValidCoords) {
     const title = <?= json_for_script($property['title']) ?>;
 
     if (window.BdsMap && typeof window.BdsMap.initViewer === 'function') {
-      const popupHtml = '<div style="min-width:180px; font-family:system-ui, sans-serif;">' +
-        '<div class="fw-bold text-dark mb-1">' + title + '</div>' +
-        '<div class="text-danger fw-bold mb-1">' + <?= json_for_script(format_price($property['price'])) ?> + ' - ' + <?= json_for_script($property['area'] . ' m²') ?> + '</div>' +
-        '<div class="small text-muted">📍 ' + <?= json_for_script(($property['address_detail'] ? $property['address_detail'] . ', ' : '') . $property['ward_name'] . ', ' . $property['district_name']) ?> + '</div>' +
-        '</div>';
+      const popupHtml = '<div style="min-width:200px; max-width:280px; font-family:system-ui, -apple-system, sans-serif; line-height:1.45; padding:3px;">' +
+        '<div style="font-weight:700; font-size:14px; color:#0f172a; margin-bottom:5px;">' + title + '</div>' +
+        '<div style="margin-bottom:6px;">' +
+          '<span style="color:#dc3545; font-weight:800; font-size:15px;">' + <?= json_for_script(format_price($property['price'])) ?> + '</span>' +
+          '<span style="color:#64748b; font-weight:600; font-size:13px;"> • ' + <?= json_for_script($property['area'] . ' m²') ?> + '</span>' +
+        '</div>' +
+        '<div style="font-size:12px; color:#64748b; border-top:1px solid #f1f5f9; padding-top:4px; margin-bottom:8px;">' +
+          '📍 ' + <?= json_for_script(($property['address_detail'] ? $property['address_detail'] . ', ' : '') . $property['ward_name'] . ', ' . $property['district_name']) ?> +
+        '</div>' +
+        '<div class="d-flex gap-1 pt-1 border-top">' +
+          '<a href="https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=%2C%3B' + lat + '%2C' + lng + '" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-success py-0 px-2 text-decoration-none" style="font-size:0.75rem;">' +
+            '<i class="bi bi-signpost-2 me-1"></i>Chỉ đường OSM' +
+          '</a>' +
+          '<a href="https://www.google.com/maps/dir/?api=1&destination=' + lat + ',' + lng + '" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary py-0 px-2 text-decoration-none" style="font-size:0.75rem;">' +
+            '<i class="bi bi-geo-alt me-1"></i>Google Maps' +
+          '</a>' +
+        '</div>' +
+      '</div>';
 
       detailMapInstance = window.BdsMap.initViewer({
         mapId: 'propertyMap',
@@ -1081,12 +1116,24 @@ if (!$hasValidCoords) {
 
       // Đảm bảo bản đồ vẽ lại đầy đủ gạch (chống khung xám trắng khi render)
       if (detailMapInstance && detailMapInstance.map) {
-        setTimeout(function () {
-          detailMapInstance.map.invalidateSize();
-        }, 300);
-        setTimeout(function () {
-          detailMapInstance.map.invalidateSize();
-        }, 1000);
+        detailMapInstance.map.invalidateSize();
+        setTimeout(function () { detailMapInstance.map.invalidateSize(); }, 150);
+        setTimeout(function () { detailMapInstance.map.invalidateSize(); }, 500);
+        setTimeout(function () { detailMapInstance.map.invalidateSize(); }, 1000);
+      }
+
+      // Xử lý khi cuộn đến vùng bản đồ bằng IntersectionObserver
+      const mapContainerEl = document.getElementById('propertyMap');
+      if (mapContainerEl && typeof IntersectionObserver !== 'undefined') {
+        const mapObserver = new IntersectionObserver(function(entries) {
+          entries.forEach(function(entry) {
+            if (entry.isIntersecting && detailMapInstance && detailMapInstance.map) {
+              setTimeout(function () { detailMapInstance.map.invalidateSize(); }, 50);
+              setTimeout(function () { detailMapInstance.map.invalidateSize(); }, 200);
+            }
+          });
+        }, { threshold: 0.1 });
+        mapObserver.observe(mapContainerEl);
       }
 
       // Lắng nghe sự kiện click các nút lọc POI
