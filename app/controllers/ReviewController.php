@@ -37,7 +37,7 @@ class ReviewController extends Controller
 
         // Không cho phép chủ tin tự đánh giá tin của chính mình
         $property = (new Property())->find($propertyId);
-        if (!$property) {
+        if (!$property || $property['status'] !== 'approved') {
             $this->respond('Không tìm thấy bất động sản.', false, 404);
             return;
         }
@@ -48,6 +48,10 @@ class ReviewController extends Controller
         }
 
         $reviewModel = new Review();
+        if ($reviewModel->getUserReview($propertyId, (int)Auth::id())) {
+            $this->respond('Bạn đã đánh giá tin này.', false, 409);
+            return;
+        }
         $ok = $reviewModel->saveReview($propertyId, Auth::id(), $rating, $comment ?: null);
 
         if ($ok) {
@@ -102,10 +106,4 @@ class ReviewController extends Controller
         $this->redirect($redirectUrl);
     }
 
-    private function wantsJson(): bool
-    {
-        $accept = $_SERVER['HTTP_ACCEPT'] ?? '';
-        return str_contains($accept, 'application/json')
-            || (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest');
-    }
 }

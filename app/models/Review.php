@@ -53,7 +53,10 @@ class Review extends Model
     public function saveReview(int $propertyId, int $userId, int $rating, ?string $comment = null): bool
     {
         $rating = max(1, min(5, $rating));
-        $comment = $comment !== null ? mb_substr(trim($comment), 0, 500, 'UTF-8') : null;
+        if ($comment !== null) {
+            preg_match('/^.{0,500}/us', trim($comment), $matches);
+            $comment = $matches[0] ?? '';
+        }
 
         // Kiểm tra xem tin có tồn tại không
         $propExists = (bool)$this->query('SELECT 1 FROM properties WHERE id = ?', [$propertyId])->fetchColumn();
@@ -61,12 +64,17 @@ class Review extends Model
             return false;
         }
 
-        $stmt = $this->query(
-            'INSERT INTO reviews (property_id, user_id, rating, comment)
-             VALUES (?, ?, ?, ?)
-             ON DUPLICATE KEY UPDATE rating = VALUES(rating), comment = VALUES(comment), created_at = CURRENT_TIMESTAMP',
-            [$propertyId, $userId, $rating, $comment]
-        );
+        try {
+            $stmt = $this->query(
+                'INSERT INTO reviews (property_id, user_id, rating, comment) VALUES (?, ?, ?, ?)',
+                [$propertyId, $userId, $rating, $comment]
+            );
+        } catch (PDOException $error) {
+            if ((int)($error->errorInfo[1] ?? 0) === 1062) {
+                return false;
+            }
+            throw $error;
+        }
 
         return $stmt->rowCount() > 0;
     }

@@ -9,16 +9,19 @@ class GeocodeController extends Controller
             $this->json(null, false, 'Vui lòng cung cấp địa chỉ cần tìm.', 400);
         }
 
-        // Chính sách sử dụng Nominatim: tối đa 1 request / giây
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
+        // Điều phối các phiên trên cùng máy chủ.
+        $lock = fopen(sys_get_temp_dir() . '/bds-nominatim-rate.lock', 'c+');
+        if ($lock === false || !flock($lock, LOCK_EX)) {
+            if ($lock !== false) fclose($lock);
+            $this->json(null, false, 'Khong the dieu phoi yeu cau ban do.', 503);
         }
-        $last = $_SESSION['last_nominatim_request'] ?? 0;
-        $now = microtime(true);
-        if ($now - $last < 1.0) {
-            usleep((int)((1.0 - ($now - $last)) * 1000000));
-        }
-        $_SESSION['last_nominatim_request'] = microtime(true);
+        $last = (float)stream_get_contents($lock);
+        $wait = 1.0 - (microtime(true) - $last);
+        if ($wait > 0) usleep((int)ceil($wait * 1000000));
+        ftruncate($lock, 0);
+        rewind($lock);
+        fwrite($lock, (string)microtime(true));
+        fflush($lock);
 
         $url = 'https://nominatim.openstreetmap.org/search?' . http_build_query([
             'q'              => $q,
@@ -46,6 +49,8 @@ class GeocodeController extends Controller
         $err = curl_error($ch);
         $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
+        flock($lock, LOCK_UN);
+        fclose($lock);
 
         if ($raw === false || $status !== 200) {
             $this->json(null, false, 'Không thể kết nối đến dịch vụ bản đồ OpenStreetMap (' . ($err ?: "HTTP $status") . ').', 502);
