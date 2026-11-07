@@ -35,7 +35,7 @@ app/helpers/       functions.php (e(), base_url(), csrf_field(), flash()...)
 
 ## Đăng tin môi giới
 - Đăng nhập bằng tài khoản môi giới, mở `/agent/create`, điền thông tin và gửi từ 1 đến 10 ảnh JPG/PNG/WEBP (tối đa 5 MB mỗi ảnh).
-- Chọn ảnh bìa, vị trí được tải theo tỉnh/thành bằng AJAX; tiện ích được lưu cùng tin đăng.
+- Chọn ảnh bìa, nhập địa chỉ chi tiết và chọn tọa độ trên bản đồ; cả địa chỉ và cặp tọa độ đều bắt buộc. Vị trí được tải theo tỉnh/thành bằng AJAX; tiện ích được lưu cùng tin đăng.
 - Tin mới được lưu với trạng thái `pending` để quản trị viên duyệt.
 - Mở `/agent` để xem và lọc tin theo trạng thái; môi giới có thể sửa, ẩn tin đã duyệt, gửi tin đã ẩn duyệt lại hoặc xóa tin của mình.
 - Dashboard agent hỗ trợ đổi trạng thái bằng AJAX; routine `hai.sql` có thể bỏ qua nếu hosting không cho tạo stored procedure vì code có SQL dự phòng.
