@@ -264,3 +264,170 @@ function bindAgentStatusForms() {
 
 bindAgentStatusForms();
 setupAgentForm();
+
+// =============================================================================
+// Module So Sánh Bất Động Sản (Property Comparison Manager - Hà Ngọc Thiện)
+// Hỗ trợ lưu tối đa 3 tin trong localStorage, hiển thị Floating Bar & Sync UI
+// =============================================================================
+window.PropertyCompare = (function () {
+  const STORAGE_KEY = 'bds_compare_properties';
+  const MAX_COMPARE = 3;
+
+  function getList() {
+    try {
+      const data = localStorage.getItem(STORAGE_KEY);
+      return data ? JSON.parse(data) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveList(list) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    } catch (e) {}
+    renderUI();
+  }
+
+  function has(id) {
+    return getList().some(function (p) { return Number(p.id) === Number(id); });
+  }
+
+  function add(property) {
+    var list = getList();
+    if (list.some(function (p) { return Number(p.id) === Number(property.id); })) {
+      return true;
+    }
+    if (list.length >= MAX_COMPARE) {
+      window.alert('Bạn chỉ có thể so sánh tối đa ' + MAX_COMPARE + ' bất động sản cùng lúc. Vui lòng gỡ bớt tin để thêm tin mới.');
+      return false;
+    }
+    list.push(property);
+    saveList(list);
+    return true;
+  }
+
+  function remove(id) {
+    var list = getList().filter(function (p) { return Number(p.id) !== Number(id); });
+    saveList(list);
+  }
+
+  function clear() {
+    saveList([]);
+  }
+
+  function toggle(property) {
+    if (!property || !property.id) return false;
+    if (has(property.id)) {
+      remove(property.id);
+      return false;
+    } else {
+      return add(property);
+    }
+  }
+
+  function renderUI() {
+    var list = getList();
+    var bar = document.getElementById('floatingCompareBar');
+    var badge = document.getElementById('compareNavBadge');
+    var countText = document.getElementById('compareCountText');
+    var thumbsContainer = document.getElementById('compareThumbnails');
+    var btnGo = document.getElementById('btnGoCompare');
+
+    // Cập nhật badge trên thanh Navbar
+    if (badge) {
+      badge.textContent = list.length;
+      if (list.length > 0) {
+        badge.classList.remove('d-none');
+      } else {
+        badge.classList.add('d-none');
+      }
+    }
+
+    // Cập nhật Floating Bar ở chân trang
+    if (bar) {
+      if (list.length > 0) {
+        bar.classList.remove('d-none');
+      } else {
+        bar.classList.add('d-none');
+      }
+    }
+
+    if (countText) {
+      countText.textContent = 'Đã chọn ' + list.length + '/' + MAX_COMPARE + ' tin';
+    }
+
+    if (btnGo) {
+      var ids = list.map(function (p) { return p.id; }).join(',');
+      btnGo.href = (BASE_URL || '') + '/property/compare?ids=' + encodeURIComponent(ids);
+    }
+
+    if (thumbsContainer) {
+      thumbsContainer.innerHTML = '';
+      list.forEach(function (p) {
+        var item = document.createElement('div');
+        item.className = 'compare-thumb-item';
+        item.title = p.title || '';
+        var imgUrl = p.cover_url || '';
+        item.innerHTML = (imgUrl
+          ? '<img src="' + imgUrl + '" alt="' + (p.title || '') + '">'
+          : '<div class="d-flex align-items-center justify-content-center h-100 text-white small">🏠</div>') +
+          '<span class="compare-thumb-remove" title="Xóa khỏi so sánh" onclick="window.PropertyCompare.remove(' + p.id + ')">&times;</span>';
+        thumbsContainer.appendChild(item);
+      });
+    }
+
+    // Đồng bộ trạng thái các nút so sánh trên các Card BĐS
+    document.querySelectorAll('.btn-compare-card').forEach(function (btn) {
+      var id = btn.dataset.compareId;
+      if (id && has(id)) {
+        btn.classList.add('active');
+        btn.innerHTML = '<i class="bi bi-check2"></i>';
+        btn.title = 'Đã thêm vào so sánh (bấm để gỡ)';
+      } else {
+        btn.classList.remove('active');
+        btn.innerHTML = '<i class="bi bi-arrow-left-right"></i>';
+        btn.title = 'Thêm vào danh sách so sánh';
+      }
+    });
+
+    // Đồng bộ nút so sánh tại trang Chi tiết tin nếu có
+    var detailBtn = document.getElementById('btnDetailCompare');
+    if (detailBtn) {
+      var detailId = detailBtn.dataset.compareId;
+      if (detailId && has(detailId)) {
+        detailBtn.classList.remove('btn-outline-primary');
+        detailBtn.classList.add('btn-primary');
+        detailBtn.innerHTML = '<i class="bi bi-check2-circle me-1"></i>Đã thêm so sánh';
+      } else {
+        detailBtn.classList.remove('btn-primary');
+        detailBtn.classList.add('btn-outline-primary');
+        detailBtn.innerHTML = '<i class="bi bi-arrow-left-right me-1"></i>So sánh BĐS này';
+      }
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    renderUI();
+  });
+
+  return {
+    get: getList,
+    add: add,
+    remove: remove,
+    clear: clear,
+    has: has,
+    toggle: toggle,
+    renderUI: renderUI
+  };
+})();
+
+function toggleCardCompare(event, propertyId, btn, propertyData) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  if (!window.PropertyCompare) return;
+  window.PropertyCompare.toggle(propertyData);
+}
+
