@@ -118,6 +118,19 @@ $initialMapProperties = array_map(function ($p) {
       </div>
     </div>
   </div>
+
+  <!-- Lịch sử Bất động sản vừa xem -->
+  <div id="recently-viewed-section" class="mt-4 mb-4" style="display:none;" data-current-id="0">
+    <div class="card border-0 shadow-sm rounded-4 p-4">
+      <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <h4 class="fw-bold text-dark mb-0"><i class="bi bi-clock-history text-primary me-2"></i>Bất động sản vừa xem</h4>
+        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3" onclick="if(window.RecentlyViewed){window.RecentlyViewed.clear();}">
+          <i class="bi bi-trash3 me-1"></i>Xóa lịch sử xem
+        </button>
+      </div>
+      <div id="recently-viewed-list" class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-6 g-3"></div>
+    </div>
+  </div>
 </div>
 
 <!-- Dữ liệu ban đầu truyền vào JS -->
@@ -129,6 +142,12 @@ $initialMapProperties = array_map(function ($p) {
     totalPages: <?= (int)$totalPages ?>,
     limit: <?= (int)$limit ?>
   };
+
+  document.addEventListener('DOMContentLoaded', function () {
+    if (window.RecentlyViewed && typeof window.RecentlyViewed.render === 'function') {
+      window.RecentlyViewed.render(0);
+    }
+  });
 </script>
 
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>

@@ -618,23 +618,21 @@ if (!$hasValidCoords) {
 
         <!-- Chia sẻ, Yêu thích, So sánh & Báo cáo vi phạm -->
         <div class="d-flex flex-column gap-2">
-          <div class="d-flex gap-2">
-            <button id="btnFavorite" class="btn <?= !empty($isFavorited) ? 'btn-danger' : 'btn-outline-danger' ?> flex-grow-1 bds-btn-touch" onclick="handleToggleFavorite(<?= (int)$property['id'] ?>)">
+          <div class="d-flex gap-2 align-items-center">
+            <button id="btnFavorite" class="btn <?= !empty($isFavorited) ? 'btn-danger' : 'btn-outline-danger' ?> rounded-pill py-2 flex-grow-1 fw-medium bds-btn-touch shadow-sm" onclick="handleToggleFavorite(<?= (int)$property['id'] ?>)">
               <span id="favIcon" class="me-1"><?= !empty($isFavorited) ? '❤️' : '🤍' ?></span>
               <span id="favText"><?= !empty($isFavorited) ? 'Đã lưu tin' : 'Lưu tin' ?></span>
             </button>
-            <button type="button" id="btnShareLink" class="btn btn-outline-secondary bds-btn-touch px-3" onclick="handleCopyShareLink()">
-              🔗 Chia sẻ
-            </button>
+            <button type="button" class="btn btn-outline-primary rounded-pill px-3 py-2 fw-medium shadow-sm" data-bs-toggle="modal" data-bs-target="#shareModal"><i class="bi bi-share me-1"></i> Chia sẻ</button>
           </div>
 
           <!-- Nút So sánh BĐS này & Tính lãi suất vay -->
           <div class="d-flex gap-2">
-            <button type="button" id="btnDetailCompare" data-compare-id="<?= (int)$property['id'] ?>" class="btn btn-outline-primary btn-sm flex-grow-1 d-flex align-items-center justify-content-center gap-1 py-2 fw-semibold bds-btn-touch" onclick="handleToggleDetailCompare()">
+            <button type="button" id="btnDetailCompare" data-compare-id="<?= (int)$property['id'] ?>" class="btn btn-outline-primary btn-sm rounded-pill flex-grow-1 d-flex align-items-center justify-content-center gap-1 py-2 fw-semibold bds-btn-touch" onclick="handleToggleDetailCompare()">
               <i class="bi bi-arrow-left-right"></i>
               <span id="detailCompareText">So sánh tin này</span>
             </button>
-            <a href="#mortgageSection" class="btn btn-outline-success btn-sm d-flex align-items-center justify-content-center gap-1 py-2 px-3 fw-semibold bds-btn-touch" title="Tính khoản vay mua nhà">
+            <a href="#mortgageSection" class="btn btn-outline-success btn-sm rounded-pill d-flex align-items-center justify-content-center gap-1 py-2 px-3 fw-semibold bds-btn-touch" title="Tính khoản vay mua nhà">
               <i class="bi bi-calculator"></i> Tính vay
             </a>
           </div>
@@ -659,36 +657,181 @@ if (!$hasValidCoords) {
     </div>
   </div>
 
-  <!-- Tin đăng tương tự -->
-  <?php if (!empty($similar)): ?>
-    <div class="mt-5 pt-3 border-top">
-      <h4 class="fw-bold mb-3">Bất động sản cùng phân khúc</h4>
-      <div class="row g-3">
-        <?php foreach ($similar as $item): ?>
-          <div class="col-sm-6 col-lg-4">
-            <div class="card h-100 shadow-sm property-card">
-              <?php if (!empty($item['cover_url'])): ?>
-                <img src="<?= e(base_url($item['cover_url'])) ?>" class="card-img-top" alt="<?= e($item['title']) ?>" style="height: 180px; object-fit: cover;">
-              <?php else: ?>
-                <div class="card-img-top bg-secondary-subtle d-flex align-items-center justify-content-center text-muted" style="height: 180px;">Chưa có ảnh</div>
-              <?php endif; ?>
-              <div class="card-body">
-                <span class="badge text-bg-<?= $item['listing_type'] === 'sale' ? 'success' : 'info' ?>"><?= $item['listing_type'] === 'sale' ? 'Bán' : 'Cho thuê' ?></span>
-                <span class="badge text-bg-primary"><?= e($item['type_name']) ?></span>
-                <h6 class="card-title mt-2">
-                  <a class="text-decoration-none text-dark" href="<?= e(base_url('property/detail/' . $item['id'])) ?>">
+  <!-- Gợi ý Bất động sản tương tự trong khu vực -->
+  <?php $similarList = !empty($similarProperties) ? $similarProperties : ($similar ?? []); ?>
+  <div class="card border-0 shadow-sm rounded-4 p-4 mt-4 mb-4" id="similarPropertiesSection">
+    <h4 class="fw-bold text-dark mb-4"><i class="bi bi-houses text-primary me-2"></i>Bất động sản tương tự trong khu vực</h4>
+    <?php if (!empty($similarList)): ?>
+      <div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-3">
+        <?php foreach ($similarList as $item): ?>
+          <?php
+            $simAvatar = !empty($item['cover_url'])
+              ? base_url($item['cover_url'])
+              : (!empty($item['avatar_url']) ? $item['avatar_url'] : property_avatar_url($item['avatar'] ?? null));
+            $simDetailUrl = base_url('property/detail/' . (int)$item['id']);
+            $simListingType = $item['listing_type'] ?? 'sale';
+          ?>
+          <div class="col">
+            <div class="card h-100 property-card position-relative border shadow-sm">
+              <div class="property-card-img-wrap" style="height: 185px;">
+                <a href="<?= e($simDetailUrl) ?>" class="d-block h-100 w-100">
+                  <img src="<?= e($simAvatar) ?>" class="card-img-top h-100 w-100" style="object-fit: cover;" alt="<?= e($item['title']) ?>" loading="lazy">
+                </a>
+                <button type="button" class="btn btn-sm btn-light position-absolute top-0 start-0 m-2 rounded-circle btn-compare-card"
+                        title="Thêm vào danh sách so sánh"
+                        data-compare-id="<?= (int)$item['id'] ?>"
+                        onclick="toggleCardCompare(event, <?= (int)$item['id'] ?>, this, <?= e(json_encode([
+                            'id'            => (int)$item['id'],
+                            'title'         => $item['title'],
+                            'price'         => format_price($item['price']) . ($simListingType === 'rent' ? '/tháng' : ''),
+                            'raw_price'     => (float)$item['price'],
+                            'area'          => $item['area'] . ' m²',
+                            'raw_area'      => (float)$item['area'],
+                            'bedrooms'      => (int)($item['bedrooms'] ?? 0),
+                            'district_name' => $item['district_name'] ?? '',
+                            'listing_type'  => $simListingType,
+                            'cover_url'     => $simAvatar,
+                            'detail_url'    => $simDetailUrl,
+                        ], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE)) ?>)">
+                  <i class="bi bi-arrow-left-right"></i>
+                </button>
+                <button type="button" class="btn btn-sm btn-light position-absolute top-0 end-0 m-2 rounded-circle btn-fav-card"
+                        title="Lưu tin yêu thích"
+                        onclick="toggleCardFavorite(event, <?= (int)$item['id'] ?>, this)">
+                  🤍
+                </button>
+              </div>
+              <div class="card-body d-flex flex-column p-3">
+                <div class="d-flex flex-wrap gap-1 align-items-center mb-2">
+                  <span class="badge <?= $simListingType === 'rent' ? 'badge-rent' : 'badge-sale' ?>">
+                    <?= $simListingType === 'rent' ? 'Cho thuê' : 'Bán' ?>
+                  </span>
+                  <?php if (!empty($item['type_name'])): ?>
+                    <span class="badge badge-type"><?= e($item['type_name']) ?></span>
+                  <?php endif; ?>
+                </div>
+                <h6 class="card-title mb-2">
+                  <a class="text-decoration-none text-dark fw-bold" href="<?= e($simDetailUrl) ?>" title="<?= e($item['title']) ?>">
                     <?= e($item['title']) ?>
                   </a>
                 </h6>
-                <p class="text-danger fw-bold mb-1"><?= format_price($item['price']) ?><?= $item['listing_type'] === 'rent' ? '/tháng' : '' ?></p>
-                <p class="small text-muted mb-0"><?= e($item['area']) ?> m² · <?= e($item['ward_name']) ?>, <?= e($item['district_name']) ?></p>
+                <div class="d-flex align-items-baseline gap-2 mb-2 mt-auto">
+                  <span class="property-price text-danger fw-bold">
+                    <?= e(format_price($item['price'])) ?><?= $simListingType === 'rent' ? '<small class="fs-6 fw-normal text-muted">/tháng</small>' : '' ?>
+                  </span>
+                </div>
+                <div class="property-specs pt-2 border-top mb-3">
+                  <span><i class="bi bi-aspect-ratio text-muted"></i> <?= e($item['area']) ?> m²</span>
+                  <span>•</span>
+                  <span><i class="bi bi-door-closed text-muted"></i> <?= (int)($item['bedrooms'] ?? 0) ?> PN</span>
+                  <span>•</span>
+                  <span class="text-truncate" style="max-width: 105px;" title="<?= e($item['district_name'] ?? '') ?>">
+                    <i class="bi bi-geo-alt text-muted"></i> <?= e($item['district_name'] ?? '') ?>
+                  </span>
+                </div>
+                <a href="<?= e($simDetailUrl) ?>" class="btn btn-outline-primary btn-sm rounded-pill w-100 fw-semibold">
+                  Xem chi tiết <i class="bi bi-arrow-right ms-1"></i>
+                </a>
               </div>
             </div>
           </div>
         <?php endforeach; ?>
       </div>
+    <?php else: ?>
+      <p class="text-muted small mb-0">Hiện chưa có bất động sản tương tự khác trong cùng khu vực.</p>
+    <?php endif; ?>
+  </div>
+
+  <!-- Lịch sử Bất động sản vừa xem -->
+  <div id="recently-viewed-section" class="mt-4 mb-4" style="display:none;" data-current-id="<?= (int)$property['id'] ?>">
+    <div class="card border-0 shadow-sm rounded-4 p-4">
+      <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <h4 class="fw-bold text-dark mb-0"><i class="bi bi-clock-history text-primary me-2"></i>Bất động sản vừa xem</h4>
+        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3" onclick="clearRecentlyViewedHistory()">
+          <i class="bi bi-trash3 me-1"></i>Xóa lịch sử xem
+        </button>
+      </div>
+      <div id="recently-viewed-list" class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-6 g-3"></div>
     </div>
-  <?php endif; ?>
+  </div>
+</div>
+
+<?php
+  $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+  $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+  $shareFullUrl = $scheme . '://' . $host . base_url('property/detail/' . (int)$property['id']);
+  $shareMailSubject = 'Chia sẻ bất động sản: ' . ($property['title'] ?? '');
+  $shareMailBody = ($property['title'] ?? '') . ' - Giá: ' . format_price($property['price']) . ' - Xem chi tiết tại: ' . $shareFullUrl;
+?>
+<!-- Modal Chia sẻ đa kênh & Quét mã QR -->
+<div class="modal fade" id="shareModal" tabindex="-1" aria-labelledby="shareModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow rounded-4">
+      <div class="modal-header border-bottom px-4 py-3">
+        <h5 class="modal-title fw-bold mb-0" id="shareModalLabel"><i class="bi bi-share-fill text-primary me-2"></i>Chia sẻ bất động sản</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+      </div>
+      <div class="modal-body p-4">
+        <!-- Mã QR Code xem trên điện thoại -->
+        <div class="text-center mb-4">
+          <img id="share-qr-code"
+               src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=<?= rawurlencode($shareFullUrl) ?>"
+               alt="QR Code"
+               width="180"
+               height="180"
+               class="img-fluid rounded-3 border p-2 shadow-sm mb-2">
+          <p class="small text-muted mb-0"><em>Quét mã QR bằng điện thoại để xem nhanh tin này</em></p>
+        </div>
+
+        <!-- Khung sao chép liên kết -->
+        <div class="mb-4">
+          <label for="shareModalUrlInput" class="form-label small fw-semibold text-dark">Liên kết tin đăng</label>
+          <div class="input-group">
+            <span class="input-group-text bg-light"><i class="bi bi-link-45deg"></i></span>
+            <input type="text" id="shareModalUrlInput" class="form-control bg-light small" value="<?= e($shareFullUrl) ?>" readonly>
+            <button type="button" class="btn btn-primary fw-semibold px-3" id="btnCopyShareModalUrl" onclick="copyShareModalUrl()">
+              <i class="bi bi-clipboard me-1"></i>Sao chép
+            </button>
+          </div>
+        </div>
+
+        <!-- Chia sẻ nhanh qua Mạng xã hội -->
+        <div>
+          <label class="form-label small fw-semibold text-dark d-block mb-2">Chia sẻ nhanh qua mạng xã hội</label>
+          <div class="row g-2">
+            <div class="col-4">
+              <a id="shareZaloLink"
+                 href="https://zalo.me/share?url=<?= rawurlencode($shareFullUrl) ?>"
+                 target="_blank"
+                 rel="noopener noreferrer"
+                 class="btn btn-outline-info w-100 rounded-3 py-2 fw-semibold d-flex flex-column align-items-center gap-1 text-dark">
+                <span class="badge bg-primary rounded-pill px-2">Zalo</span>
+                <span class="small">Zalo</span>
+              </a>
+            </div>
+            <div class="col-4">
+              <a id="shareFacebookLink"
+                 href="https://www.facebook.com/sharer/sharer.php?u=<?= rawurlencode($shareFullUrl) ?>"
+                 target="_blank"
+                 rel="noopener noreferrer"
+                 class="btn btn-outline-primary w-100 rounded-3 py-2 fw-semibold d-flex flex-column align-items-center gap-1">
+                <i class="bi bi-facebook fs-5"></i>
+                <span class="small">Facebook</span>
+              </a>
+            </div>
+            <div class="col-4">
+              <a id="shareEmailLink"
+                 href="mailto:?subject=<?= rawurlencode($shareMailSubject) ?>&body=<?= rawurlencode($shareMailBody) ?>"
+                 class="btn btn-outline-secondary w-100 rounded-3 py-2 fw-semibold d-flex flex-column align-items-center gap-1">
+                <i class="bi bi-envelope-fill fs-5"></i>
+                <span class="small">Gửi Email</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Modal Báo cáo vi phạm -->
@@ -739,15 +882,111 @@ if (!$hasValidCoords) {
   }
 
   function handleCopyShareLink() {
-    if (window.BDS && typeof window.BDS.copyShareLink === 'function') {
-      window.BDS.copyShareLink(window.location.href);
-    } else if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(window.location.href).then(function () {
+    copyShareModalUrl();
+  }
+
+  function copyShareModalUrl() {
+    const input = document.getElementById('shareModalUrlInput');
+    const urlToCopy = (input && input.value) ? input.value : window.location.href;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(urlToCopy).then(function () {
         if (window.BDS && typeof window.BDS.toast === 'function') {
-          window.BDS.toast('Đã sao chép liên kết vào bộ nhớ tạm', 'success', 'Chia sẻ tin đăng');
+          BDS.toast('Đã sao chép liên kết vào bộ nhớ tạm!', 'success');
+        }
+      }).catch(function () {
+        if (input) {
+          input.select();
+          document.execCommand('copy');
+        }
+        if (window.BDS && typeof window.BDS.toast === 'function') {
+          BDS.toast('Đã sao chép liên kết vào bộ nhớ tạm!', 'success');
         }
       });
+    } else {
+      if (input) {
+        input.select();
+        document.execCommand('copy');
+      }
+      if (window.BDS && typeof window.BDS.toast === 'function') {
+        BDS.toast('Đã sao chép liên kết vào bộ nhớ tạm!', 'success');
+      }
     }
+  }
+
+  function syncShareModalLinks() {
+    const currentUrl = window.location.href;
+    const qrImg = document.getElementById('share-qr-code');
+    const urlInput = document.getElementById('shareModalUrlInput');
+    const zaloLink = document.getElementById('shareZaloLink');
+    const fbLink = document.getElementById('shareFacebookLink');
+    const emailLink = document.getElementById('shareEmailLink');
+
+    if (qrImg) {
+      qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(currentUrl);
+    }
+    if (urlInput) {
+      urlInput.value = currentUrl;
+    }
+    if (zaloLink) {
+      zaloLink.href = 'https://zalo.me/share?url=' + encodeURIComponent(currentUrl);
+    }
+    if (fbLink) {
+      fbLink.href = 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(currentUrl);
+    }
+    if (emailLink) {
+      const subject = 'Chia sẻ bất động sản: ' + (currentPropertyData.title || '');
+      const body = (currentPropertyData.title || '') + ' - Giá: ' + (currentPropertyData.price_formatted || '') + '\nXem chi tiết tại: ' + currentUrl;
+      emailLink.href = 'mailto:?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+    }
+  }
+
+  function clearRecentlyViewedHistory() {
+    if (window.RecentlyViewed && typeof window.RecentlyViewed.clear === 'function') {
+      window.RecentlyViewed.clear();
+      return;
+    }
+    try {
+      localStorage.removeItem('bds_recently_viewed');
+    } catch (e) {}
+    const section = document.getElementById('recently-viewed-section');
+    if (section) section.style.display = 'none';
+    if (window.BDS && typeof window.BDS.toast === 'function') {
+      BDS.toast('Đã xóa lịch sử bất động sản vừa xem.', 'info', 'Lịch sử xem tin');
+    }
+  }
+
+  function initRecentlyViewedDetail() {
+    const detailItem = {
+      id: <?= (int)$property['id'] ?>,
+      title: <?= json_for_script($property['title']) ?>,
+      price: <?= json_for_script(format_price($property['price']) . (($property['listing_type'] ?? 'sale') === 'rent' ? '/tháng' : '')) ?>,
+      price_formatted: <?= json_for_script(format_price($property['price']) . (($property['listing_type'] ?? 'sale') === 'rent' ? '/tháng' : '')) ?>,
+      area: <?= json_for_script($property['area'] . ' m²') ?>,
+      district: <?= json_for_script($property['district_name'] ?? '') ?>,
+      district_name: <?= json_for_script($property['district_name'] ?? '') ?>,
+      image: <?= json_for_script(!empty($images[0]['image_url']) ? base_url($images[0]['image_url']) : property_avatar_url($property['avatar'] ?? null)) ?>,
+      avatar_url: <?= json_for_script(!empty($images[0]['image_url']) ? base_url($images[0]['image_url']) : property_avatar_url($property['avatar'] ?? null)) ?>,
+      url: <?= json_for_script(base_url('property/detail/' . (int)$property['id'])) ?>
+    };
+
+    if (window.RecentlyViewed && typeof window.RecentlyViewed.record === 'function') {
+      window.RecentlyViewed.record(detailItem);
+      window.RecentlyViewed.render(detailItem.id);
+      return;
+    }
+
+    try {
+      const key = 'bds_recently_viewed';
+      const raw = localStorage.getItem(key);
+      let list = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(list)) list = [];
+      list = list.filter(function (item) {
+        return item && Number(item.id) !== Number(detailItem.id);
+      });
+      list.unshift(detailItem);
+      list = list.slice(0, 6);
+      localStorage.setItem(key, JSON.stringify(list));
+    } catch (e) {}
   }
 
   function handleDeleteReview(btn) {
@@ -1192,5 +1431,15 @@ if (!$hasValidCoords) {
     // 4. Đồng bộ nút So sánh tin này
     updateDetailCompareBtn();
     window.addEventListener('storage', updateDetailCompareBtn);
+
+    // 5. Đồng bộ Modal Chia sẻ đa kênh & QR Code
+    syncShareModalLinks();
+    const shareModalEl = document.getElementById('shareModal');
+    if (shareModalEl) {
+      shareModalEl.addEventListener('show.bs.modal', syncShareModalLinks);
+    }
+
+    // 6. Ghi nhận & Hiển thị Lịch sử Bất động sản vừa xem
+    initRecentlyViewedDetail();
   });
 </script>
