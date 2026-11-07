@@ -669,3 +669,145 @@ function toggleCardCompare(event, propertyId, btn, propertyData) {
   if (!window.PropertyCompare) return;
   window.PropertyCompare.toggle(propertyData);
 }
+
+// =============================================================================
+// Bộ quản lý Lịch sử Bất động sản vừa xem (Recently Viewed Properties)
+// Lưu tối đa 6 tin mới nhất vào localStorage ('bds_recently_viewed')
+// =============================================================================
+window.RecentlyViewed = (function () {
+  const STORAGE_KEY = 'bds_recently_viewed';
+  const MAX_ITEMS = 6;
+
+  function escapeText(str) {
+    return String(str ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function getList() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveList(list) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(list.slice(0, MAX_ITEMS)));
+    } catch (e) {}
+  }
+
+  function record(property) {
+    if (!property || !property.id) return;
+    const normalized = {
+      id: Number(property.id),
+      title: property.title || '',
+      price: property.price || property.price_formatted || '',
+      price_formatted: property.price_formatted || property.price || '',
+      area: property.area || '',
+      district: property.district || property.district_name || '',
+      district_name: property.district_name || property.district || '',
+      image: property.image || property.avatar_url || '',
+      avatar_url: property.avatar_url || property.image || '',
+      url: property.url || ((BASE_URL || '') + '/property/detail/' + Number(property.id))
+    };
+
+    const filtered = getList().filter(function (item) {
+      return Number(item.id) !== normalized.id;
+    });
+    filtered.unshift(normalized);
+    saveList(filtered.slice(0, MAX_ITEMS));
+  }
+
+  function clear() {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (e) {}
+    const section = document.getElementById('recently-viewed-section');
+    if (section) {
+      section.style.display = 'none';
+    }
+    const listEl = document.getElementById('recently-viewed-list');
+    if (listEl) {
+      listEl.innerHTML = '';
+    }
+    if (window.BDS && typeof window.BDS.toast === 'function') {
+      window.BDS.toast('Đã xóa toàn bộ lịch sử bất động sản vừa xem.', 'info', 'Lịch sử xem tin');
+    }
+  }
+
+  function render(currentPropertyId = 0) {
+    const section = document.getElementById('recently-viewed-section');
+    if (!section) return;
+
+    const excludeId = Number(currentPropertyId || section.dataset.currentId || 0);
+    const items = getList().filter(function (item) {
+      return item && Number(item.id) > 0 && Number(item.id) !== excludeId;
+    });
+
+    if (items.length === 0) {
+      section.style.display = 'none';
+      return;
+    }
+
+    let listEl = document.getElementById('recently-viewed-list');
+    if (!listEl) {
+      section.innerHTML =
+        '<div class="card border-0 shadow-sm rounded-4 p-4">' +
+          '<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">' +
+            '<h4 class="fw-bold text-dark mb-0"><i class="bi bi-clock-history text-primary me-2"></i>Bất động sản vừa xem</h4>' +
+            '<button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3" onclick="window.RecentlyViewed.clear()">' +
+              '<i class="bi bi-trash3 me-1"></i>Xóa lịch sử xem' +
+            '</button>' +
+          '</div>' +
+          '<div id="recently-viewed-list" class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-6 g-3"></div>' +
+        '</div>';
+      listEl = document.getElementById('recently-viewed-list');
+    }
+
+    const fallbackImg = (BASE_URL || '') + '/uploads/sample-property-01.jpg';
+    listEl.innerHTML = items.map(function (item) {
+      const title = escapeText(item.title || 'Bất động sản');
+      const price = escapeText(item.price || item.price_formatted || 'Liên hệ');
+      const areaVal = String(item.area ?? '').trim();
+      const areaText = areaVal ? escapeText(areaVal.includes('m²') ? areaVal : (areaVal + ' m²')) : '';
+      const district = escapeText(item.district || item.district_name || '');
+      const img = escapeText(item.image || item.avatar_url || fallbackImg);
+      const url = escapeText(item.url || ((BASE_URL || '') + '/property/detail/' + Number(item.id)));
+
+      return '<div class="col">' +
+        '<div class="card h-100 border rounded-3 shadow-sm overflow-hidden property-card">' +
+          '<a href="' + url + '" class="d-block overflow-hidden" style="height: 115px;">' +
+            '<img src="' + img + '" alt="' + title + '" class="w-100 h-100" style="object-fit: cover;" loading="lazy">' +
+          '</a>' +
+          '<div class="card-body p-2 d-flex flex-column">' +
+            '<a href="' + url + '" class="text-decoration-none text-dark fw-semibold small text-truncate mb-1" title="' + title + '">' +
+              title +
+            '</a>' +
+            '<div class="text-danger fw-bold small mb-1">' + price + '</div>' +
+            '<div class="text-muted mt-auto text-truncate" style="font-size: 0.75rem;">' +
+              (areaText ? ('<span>' + areaText + '</span>') : '') +
+              (areaText && district ? ' • ' : '') +
+              (district ? ('<span>' + district + '</span>') : '') +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    section.style.display = 'block';
+  }
+
+  return {
+    get: getList,
+    record: record,
+    clear: clear,
+    render: render
+  };
+})();

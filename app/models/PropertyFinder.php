@@ -348,4 +348,10 @@ class PropertyFinder extends Model
                 ORDER BY p.created_at DESC LIMIT " . (int)$limit;
         return $this->query($sql, [$propertyId, $typeId])->fetchAll();
     }
+
+    /** Lấy danh sách bất động sản tương tự theo khu vực, phân khúc & mức giá */
+    public function getSimilarProperties(int $currentId, int $districtId, int $typeId, float $price, int $limit = 4): array
+    {
+        return (new Property())->getSimilarProperties($currentId, $districtId, $typeId, $price, $limit);
+    }
 }

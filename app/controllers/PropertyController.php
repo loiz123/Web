@@ -126,6 +126,14 @@ class PropertyController extends Controller
         $images = $finder->getImages($id);
         $amenities = $finder->getAmenities($id);
         $similar = $finder->getSimilar($id, (int)$property['type_id'], 3);
+        $propertyModel = new Property();
+        $similarProperties = $propertyModel->getSimilarProperties(
+            (int)$id,
+            (int)($property['district_id'] ?? 0),
+            (int)($property['type_id'] ?? 0),
+            (float)($property['price'] ?? 0),
+            4
+        );
         $isFavorited = Auth::check() ? (new Favorite())->isFavorited((int)Auth::id(), $id) : false;
 
         // Đánh giá và báo cáo của tin đăng [C - Thiện & D - Quốc]
@@ -136,16 +144,17 @@ class PropertyController extends Controller
         $hasReported = Auth::check() ? (new Report())->hasOpenReport($id, (int)Auth::id()) : false;
 
         $this->view('property/detail', [
-            'title'       => $property['title'],
-            'property'    => $property,
-            'images'      => $images,
-            'amenities'   => $amenities,
-            'similar'     => $similar,
-            'isFavorited' => $isFavorited,
-            'reviews'     => $reviews,
-            'reviewStats' => $reviewStats,
-            'userReview'  => $userReview,
-            'hasReported' => $hasReported,
+            'title'             => $property['title'],
+            'property'          => $property,
+            'images'            => $images,
+            'amenities'         => $amenities,
+            'similar'           => $similar,
+            'similarProperties' => $similarProperties,
+            'isFavorited'       => $isFavorited,
+            'reviews'           => $reviews,
+            'reviewStats'       => $reviewStats,
+            'userReview'        => $userReview,
+            'hasReported'       => $hasReported,
         ]);
     }
 
