@@ -48,6 +48,8 @@ class AgentController extends Controller
         $bedrooms = filter_var($input['bedrooms'] ?? '', FILTER_VALIDATE_INT);
         $bathrooms = filter_var($input['bathrooms'] ?? '', FILTER_VALIDATE_INT);
         $address = trim($input['address_detail'] ?? '');
+        $latitude = ($input['latitude'] ?? '') !== '' ? filter_var($input['latitude'], FILTER_VALIDATE_FLOAT) : null;
+        $longitude = ($input['longitude'] ?? '') !== '' ? filter_var($input['longitude'], FILTER_VALIDATE_FLOAT) : null;
         $errors = [];
 
         $titleLength = function_exists('mb_strlen') ? mb_strlen($title, 'UTF-8') : strlen($title);
@@ -61,6 +63,12 @@ class AgentController extends Controller
             $errors[] = 'Số phòng ngủ và phòng tắm không hợp lệ.';
         }
         if (strlen($address) > 200) $errors[] = 'Địa chỉ chi tiết tối đa 200 ký tự.';
+        if ($latitude !== null && $latitude !== false && ($latitude < -90 || $latitude > 90)) {
+            $errors[] = 'Vĩ độ (latitude) không hợp lệ (-90 đến 90).';
+        }
+        if ($longitude !== null && $longitude !== false && ($longitude < -180 || $longitude > 180)) {
+            $errors[] = 'Kinh độ (longitude) không hợp lệ (-180 đến 180).';
+        }
 
         if ($errors) {
             foreach ($errors as $error) flash('danger', $error);
@@ -78,6 +86,8 @@ class AgentController extends Controller
             'bedrooms' => (int)$bedrooms,
             'bathrooms' => (int)$bathrooms,
             'address_detail' => $address ?: null,
+            'latitude' => ($latitude !== null && $latitude !== false) ? (float)$latitude : null,
+            'longitude' => ($longitude !== null && $longitude !== false) ? (float)$longitude : null,
         ]);
         if (!$updated) {
             flash('danger', 'Không thể cập nhật tin đăng. Vui lòng thử lại.');
@@ -202,6 +212,14 @@ class AgentController extends Controller
             || strlen($input['address_detail'] ?? '') > 800) {
             $errors[] = 'Thông tin hướng, pháp lý hoặc địa chỉ vượt quá độ dài cho phép.';
         }
+        $latitude = ($input['latitude'] ?? '') !== '' ? filter_var($input['latitude'], FILTER_VALIDATE_FLOAT) : null;
+        $longitude = ($input['longitude'] ?? '') !== '' ? filter_var($input['longitude'], FILTER_VALIDATE_FLOAT) : null;
+        if ($latitude !== null && $latitude !== false && ($latitude < -90 || $latitude > 90)) {
+            $errors[] = 'Vĩ độ (latitude) không hợp lệ (-90 đến 90).';
+        }
+        if ($longitude !== null && $longitude !== false && ($longitude < -180 || $longitude > 180)) {
+            $errors[] = 'Kinh độ (longitude) không hợp lệ (-180 đến 180).';
+        }
         if (!$provinceId || !$districtId || !$wardId
             || !(new Location())->isValidWard((int)$provinceId, (int)$districtId, (int)$wardId)) {
             $errors[] = 'Vui lòng chọn đầy đủ tỉnh/thành, quận/huyện và phường/xã.';
@@ -295,6 +313,8 @@ class AgentController extends Controller
             'furniture' => $furniture,
             'pets_allowed' => $petsAllowed,
             'address_detail' => trim($input['address_detail'] ?? '') ?: null,
+            'latitude' => ($latitude !== null && $latitude !== false) ? (float)$latitude : null,
+            'longitude' => ($longitude !== null && $longitude !== false) ? (float)$longitude : null,
         ];
 
         try {
