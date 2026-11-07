@@ -3,7 +3,7 @@ $values = $values ?? [];
 $selectedAmenities = is_array($values['amenities'] ?? null) ? $values['amenities'] : [];
 ?>
 <h1 class="h3 mb-4">Đăng tin bất động sản</h1>
-<form method="post" action="<?= e(base_url('agent/create')) ?>" enctype="multipart/form-data" class="row g-3">
+<form id="agent-create-form" method="post" action="<?= e(base_url('agent/create')) ?>" enctype="multipart/form-data" class="row g-3">
   <?= csrf_field() ?>
   <div class="col-12 col-md-6">
     <label for="title" class="form-label">Tiêu đề</label>
@@ -98,7 +98,7 @@ $selectedAmenities = is_array($values['amenities'] ?? null) ? $values['amenities
   </div>
   <div class="col-12 col-md-6">
     <label for="address-detail" class="form-label">Địa chỉ chi tiết</label>
-    <input id="address-detail" name="address_detail" maxlength="200" class="form-control" value="<?= e($values['address_detail'] ?? '') ?>">
+    <input id="address-detail" name="address_detail" maxlength="200" class="form-control" required value="<?= e($values['address_detail'] ?? '') ?>">
   </div>
   <div class="col-12 col-md-6">
     <label for="legal-status" class="form-label">Pháp lý</label>
@@ -125,13 +125,13 @@ $selectedAmenities = is_array($values['amenities'] ?? null) ? $values['amenities
           <div class="col-6">
             <div class="input-group input-group-sm">
               <span class="input-group-text">Vĩ độ (Lat)</span>
-              <input type="text" id="latitudeInput" name="latitude" class="form-control bg-white" value="<?= e($values['latitude'] ?? '') ?>" placeholder="10.776889">
+              <input type="text" id="latitudeInput" name="latitude" class="form-control bg-white" required value="<?= e($values['latitude'] ?? '') ?>" placeholder="10.776889">
             </div>
           </div>
           <div class="col-6">
             <div class="input-group input-group-sm">
               <span class="input-group-text">Kinh độ (Lng)</span>
-              <input type="text" id="longitudeInput" name="longitude" class="form-control bg-white" value="<?= e($values['longitude'] ?? '') ?>" placeholder="106.700806">
+              <input type="text" id="longitudeInput" name="longitude" class="form-control bg-white" required value="<?= e($values['longitude'] ?? '') ?>" placeholder="106.700806">
             </div>
           </div>
         </div>
@@ -169,6 +169,10 @@ $selectedAmenities = is_array($values['amenities'] ?? null) ? $values['amenities
 <script src="<?= e(base_url('assets/js/map.js')) ?>"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+  var form = document.getElementById('agent-create-form');
+  var latitudeInput = document.getElementById('latitudeInput');
+  var longitudeInput = document.getElementById('longitudeInput');
+  var mapStatus = document.getElementById('mapStatus');
   if (window.BdsMap) {
     window.BdsMap.initPicker({
       mapId: 'agentMapPicker',
@@ -180,6 +184,16 @@ document.addEventListener('DOMContentLoaded', function () {
       defaultLat: <?= !empty($values['latitude']) ? (float)$values['latitude'] : '10.776889' ?>,
       defaultLng: <?= !empty($values['longitude']) ? (float)$values['longitude'] : '106.700806' ?>,
       defaultZoom: 15
+    });
+  }
+  if (form) {
+    form.addEventListener('submit', function (event) {
+      if (latitudeInput.value === '10.776889' && longitudeInput.value === '106.700806') {
+        event.preventDefault();
+        mapStatus.className = 'alert alert-warning py-2 small mb-2';
+        mapStatus.textContent = 'Vui lòng bấm lên bản đồ hoặc kéo marker để chọn tọa độ.';
+        mapStatus.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
     });
   }
 });
