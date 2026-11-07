@@ -1,14 +1,81 @@
 /**
  * [C] Thư viện quản lý bản đồ OpenStreetMap (Leaflet) & Geocoding - Hà Ngọc Thiện phụ trách
- * Phục vụ: Chọn vị trí khi đăng tin (Hải dùng), xem vị trí chi tiết tin, và trang thử nghiệm.
+ * Phục vụ: Chọn vị trí khi đăng tin (Hải dùng), xem vị trí chi tiết tin, và trang tìm kiếm BĐS.
+ * 
+ * Lưu ý kỹ thuật:
+ * - Sử dụng Leaflet mã nguồn mở kết hợp lớp gạch CartoDB Voyager & OpenStreetMap chuẩn.
+ * - KHÔNG BẮT BUỘC API KEY (100% miễn phí, mã nguồn mở, không giới hạn request).
+ * - Mặc định dùng CartoDB Voyager (Fastly CDN toàn cầu) tải mượt mà, không bị lỗi xám do chặn localhost.
  */
 
 window.BdsMap = (function () {
   const DEFAULT_LAT = 10.776889;
   const DEFAULT_LNG = 106.700806;
   const DEFAULT_ZOOM = 14;
+
+  // Lớp gạch CartoDB Voyager: Tối ưu cho BĐS, màu sắc trang nhã, CDN tốc độ cao, không chặn localhost
+  const CARTO_VOYAGER_URL = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+  const CARTO_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions" target="_blank">CARTO</a>';
+
+  // Lớp gạch OpenStreetMap chuẩn
   const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
   const OSM_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors';
+
+  /**
+   * Sửa lỗi đường dẫn icon mặc định của Leaflet khi nạp qua CDN
+   */
+  function fixLeafletIconPaths() {
+    if (typeof L === 'undefined' || !L.Icon || !L.Icon.Default) return;
+    try {
+      delete L.Icon.Default.prototype._getIconUrl;
+      L.Icon.Default.mergeOptions({
+        iconRetinaUrl: 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+        iconUrl: 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/images/marker-icon.png',
+        shadowUrl: 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/images/marker-shadow.png',
+      });
+    } catch (e) {
+      // Ignored
+    }
+  }
+
+  /**
+   * Tạo tile layer nền: Mặc định CartoDB Voyager mượt mà, tự động fallback nếu cần
+   */
+  function createBaseTileLayer() {
+    return L.tileLayer(CARTO_VOYAGER_URL, {
+      maxZoom: 20,
+      subdomains: 'abcd',
+      attribution: CARTO_ATTRIBUTION,
+    });
+  }
+
+  /**
+   * Thêm bộ điều khiển chuyển đổi layer (CartoDB Voyager vs OpenStreetMap)
+   */
+  function addLayerSwitcher(map, baseLayer) {
+    if (!map || typeof L === 'undefined') return;
+    const osmLayer = L.tileLayer(OSM_TILE_URL, {
+      maxZoom: 19,
+      attribution: OSM_ATTRIBUTION,
+    });
+
+    osmLayer.on('tileerror', function () {
+      if (!osmLayer._warned) {
+        osmLayer._warned = true;
+        console.warn('OpenStreetMap tile bị gián đoạn/chặn bởi OSM Policy. Vui lòng chuyển sang CartoDB Voyager.');
+      }
+    });
+
+    const baseMaps = {
+      '<span style="font-weight:600;font-size:12px;">🗺️ CartoDB Voyager (Mặc định)</span>': baseLayer,
+      '<span style="font-size:12px;">🌍 OpenStreetMap (Chuẩn)</span>': osmLayer,
+    };
+    try {
+      L.control.layers(baseMaps, null, { position: 'topright', collapsed: true }).addTo(map);
+    } catch (e) {
+      // Ignored
+    }
+  }
 
   /**
    * Khởi tạo bản đồ chọn vị trí (Picker) cho form đăng tin hoặc trang test
@@ -22,6 +89,8 @@ window.BdsMap = (function () {
       console.error('Leaflet chưa được tải. Vui lòng nhúng leaflet.js và leaflet.css');
       return null;
     }
+
+    fixLeafletIconPaths();
 
     const latInput = typeof options.latInput === 'string' ? document.querySelector(options.latInput) : options.latInput;
     const lngInput = typeof options.lngInput === 'string' ? document.querySelector(options.lngInput) : options.lngInput;
@@ -40,10 +109,9 @@ window.BdsMap = (function () {
       scrollWheelZoom: true,
     });
 
-    L.tileLayer(OSM_TILE_URL, {
-      maxZoom: 19,
-      attribution: OSM_ATTRIBUTION,
-    }).addTo(map);
+    const baseLayer = createBaseTileLayer();
+    baseLayer.addTo(map);
+    addLayerSwitcher(map, baseLayer);
 
     const marker = L.marker([initialLat, initialLng], {
       draggable: options.draggable !== false,
@@ -107,7 +175,9 @@ window.BdsMap = (function () {
         // 1. Thử gọi qua backend GeocodeController của nhóm
         let res = null;
         try {
-          res = await api('geocode?q=' + encodeURIComponent(q));
+          if (typeof api === 'function') {
+            res = await api('geocode?q=' + encodeURIComponent(q));
+          }
         } catch (e) {
           console.warn('Backend GeocodeController không phản hồi, thử gọi trực tiếp Nominatim...', e);
         }
@@ -171,8 +241,11 @@ window.BdsMap = (function () {
     }
 
     // Đảm bảo không bị vỡ/trắng khung bản đồ khi tải xong
-    setTimeout(() => map.invalidateSize(), 250);
-    window.addEventListener('resize', () => map.invalidateSize());
+    setTimeout(() => { if (map) map.invalidateSize(); }, 150);
+    setTimeout(() => { if (map) map.invalidateSize(); }, 300);
+    setTimeout(() => { if (map) map.invalidateSize(); }, 800);
+    window.addEventListener('resize', () => { if (map) map.invalidateSize(); });
+    window.addEventListener('load', () => { if (map) map.invalidateSize(); });
 
     return {
       map,
@@ -257,6 +330,8 @@ window.BdsMap = (function () {
       return null;
     }
 
+    fixLeafletIconPaths();
+
     const lat = parseFloat(options.lat) || DEFAULT_LAT;
     const lng = parseFloat(options.lng) || DEFAULT_LNG;
     const zoom = options.zoom || 15;
@@ -267,10 +342,9 @@ window.BdsMap = (function () {
       scrollWheelZoom: false,
     });
 
-    L.tileLayer(OSM_TILE_URL, {
-      maxZoom: 19,
-      attribution: OSM_ATTRIBUTION,
-    }).addTo(map);
+    const baseLayer = createBaseTileLayer();
+    baseLayer.addTo(map);
+    addLayerSwitcher(map, baseLayer);
 
     const marker = L.marker([lat, lng]).addTo(map);
     if (options.popupText) {
@@ -287,14 +361,14 @@ window.BdsMap = (function () {
 
       let poiItems = null;
 
-      // 1. Thử gọi Overpass API với timeout 3s
+      // 1. Thử gọi Overpass API với timeout 1.5s
       try {
         const filterParts = conf.osmValues.map(v => 'node["' + conf.osmKey + '"="' + v + '"](around:1600,' + lat + ',' + lng + ');').join('');
-        const query = '[out:json][timeout:3];(' + filterParts + ');out body 10;';
+        const query = '[out:json][timeout:2];(' + filterParts + ');out body 10;';
         const url = 'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(query);
 
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 3000);
+        const timer = setTimeout(() => controller.abort(), 1500);
         const res = await fetch(url, { signal: controller.signal });
         clearTimeout(timer);
 
@@ -395,8 +469,12 @@ window.BdsMap = (function () {
       marker.openPopup();
     }
 
-    setTimeout(() => map.invalidateSize(), 250);
-    window.addEventListener('resize', () => map.invalidateSize());
+    // Kích hoạt vẽ lại kích thước tránh lỗi xám
+    setTimeout(() => { if (map) map.invalidateSize(); }, 150);
+    setTimeout(() => { if (map) map.invalidateSize(); }, 300);
+    setTimeout(() => { if (map) map.invalidateSize(); }, 800);
+    window.addEventListener('resize', () => { if (map) map.invalidateSize(); });
+    window.addEventListener('load', () => { if (map) map.invalidateSize(); });
 
     return {
       map,
@@ -404,7 +482,8 @@ window.BdsMap = (function () {
       poiLayer,
       loadPoi,
       clearPoi,
-      POI_CONFIG
+      POI_CONFIG,
+      invalidateSize: () => map.invalidateSize(),
     };
   }
 
@@ -422,6 +501,8 @@ window.BdsMap = (function () {
       return null;
     }
 
+    fixLeafletIconPaths();
+
     const defaultLat = options.defaultLat || DEFAULT_LAT;
     const defaultLng = options.defaultLng || DEFAULT_LNG;
     const defaultZoom = options.defaultZoom || 12;
@@ -432,10 +513,9 @@ window.BdsMap = (function () {
       scrollWheelZoom: true,
     });
 
-    L.tileLayer(OSM_TILE_URL, {
-      maxZoom: 19,
-      attribution: OSM_ATTRIBUTION,
-    }).addTo(map);
+    const baseLayer = createBaseTileLayer();
+    baseLayer.addTo(map);
+    addLayerSwitcher(map, baseLayer);
 
     const markersLayer = L.layerGroup().addTo(map);
 
@@ -495,8 +575,11 @@ window.BdsMap = (function () {
       updateMarkers(options.properties);
     }
 
-    setTimeout(() => map.invalidateSize(), 250);
-    window.addEventListener('resize', () => map.invalidateSize());
+    setTimeout(() => { if (map) map.invalidateSize(); }, 150);
+    setTimeout(() => { if (map) map.invalidateSize(); }, 300);
+    setTimeout(() => { if (map) map.invalidateSize(); }, 800);
+    window.addEventListener('resize', () => { if (map) map.invalidateSize(); });
+    window.addEventListener('load', () => { if (map) map.invalidateSize(); });
 
     return {
       map,

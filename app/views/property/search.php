@@ -42,7 +42,7 @@ $initialMapProperties = array_map(function ($p) {
 ?>
 
 <!-- Leaflet CSS -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
 
 <div class="search-page-container">
   <!-- Tiêu đề & Thống kê nhanh -->
@@ -135,7 +135,7 @@ $initialMapProperties = array_map(function ($p) {
 </script>
 
 <!-- Leaflet JS & Map Manager -->
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="<?= e(base_url('assets/js/map.js')) ?>"></script>
 
 <script>

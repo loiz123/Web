@@ -1,7 +1,29 @@
-<!-- Leaflet 1.9 CSS & JS -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<?php
+// Tọa độ an toàn cho bản đồ Leaflet OpenStreetMap & CartoDB [C - Thiện]
+$propLat = (float)($property['latitude'] ?? 0);
+$propLng = (float)($property['longitude'] ?? 0);
+$hasValidCoords = ($propLat >= 8.0 && $propLat <= 24.0 && $propLng >= 102.0 && $propLng <= 110.0);
+
+if (!$hasValidCoords) {
+    $pName = mb_strtolower($property['province_name'] ?? '');
+    $dName = mb_strtolower($property['district_name'] ?? '');
+    if (str_contains($pName, 'đà nẵng') || str_contains($pName, 'da nang') || str_contains($dName, 'đà nẵng') || str_contains($dName, 'hải châu') || str_contains($dName, 'sơn trà')) {
+        $propLat = 16.054400;
+        $propLng = 108.202200;
+    } elseif (str_contains($pName, 'hà nội') || str_contains($pName, 'ha noi') || str_contains($dName, 'hà nội') || str_contains($dName, 'ba đình') || str_contains($dName, 'cầu giấy')) {
+        $propLat = 21.028511;
+        $propLng = 105.804817;
+    } else {
+        $propLat = 10.776889;
+        $propLng = 106.700806;
+    }
+}
+?>
+<!-- Leaflet 1.9.4 CSS (jsDelivr CDN ổn định, tải nhanh, không lỗi integrity) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
 <style>
-  #propertyMap { height: 360px; width: 100%; border-radius: 8px; z-index: 1; }
+  #propertyMap { height: 420px; min-height: 380px; width: 100%; border-radius: 12px; z-index: 1; background-color: #f1f5f9; position: relative; }
+  .leaflet-container { font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif !important; }
   .gallery-main { height: 420px; object-fit: cover; border-radius: 8px; width: 100%; }
   .gallery-thumb { height: 80px; object-fit: cover; border-radius: 6px; cursor: pointer; transition: opacity .2s; }
   .gallery-thumb:hover, .gallery-thumb.active { opacity: .75; border: 2px solid #0d6efd; }
@@ -210,13 +232,16 @@
           </div>
 
           <!-- Bản đồ Leaflet -->
-          <div id="propertyMap" class="border rounded-3" style="height: 380px;"></div>
+          <div id="propertyMap" class="border rounded-3 shadow-sm position-relative" style="height: 420px; min-height: 380px; width: 100%;"></div>
 
-          <div class="d-flex justify-content-between align-items-center mt-2">
+          <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mt-2">
             <p class="small text-muted mb-0">
               📍 <?= e($property['address_detail'] ? $property['address_detail'] . ', ' : '') ?><?= e($property['ward_name']) ?>, <?= e($property['district_name']) ?>, <?= e($property['province_name']) ?>
             </p>
-            <span class="badge bg-light text-muted border small">Tọa độ: <?= round((float)($property['latitude'] ?? 10.776889), 4) ?>, <?= round((float)($property['longitude'] ?? 106.700806), 4) ?></span>
+            <div class="d-flex align-items-center gap-2">
+              <span class="badge bg-light text-muted border small">Tọa độ: <?= round($propLat, 4) ?>, <?= round($propLng, 4) ?></span>
+              <span class="badge bg-success-subtle text-success border border-success-subtle small"><i class="bi bi-shield-check me-1"></i>Bản đồ mở (Không cần API key)</span>
+            </div>
           </div>
 
           <!-- Danh sách kết quả tiện ích gần nhất -->
@@ -694,8 +719,8 @@
   </div>
 </div>
 
-<!-- Script Leaflet & Map.js -->
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<!-- Script Leaflet 1.9.4 & Map.js (jsDelivr CDN ổn định) -->
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="<?= e(base_url('assets/js/map.js')) ?>"></script>
 <script>
   function switchGalleryImg(url, el) {
@@ -1034,9 +1059,9 @@
       });
     });
 
-    // 2. Leaflet viewer + POI
-    const lat = <?= !empty($property['latitude']) ? (float)$property['latitude'] : 10.776889 ?>;
-    const lng = <?= !empty($property['longitude']) ? (float)$property['longitude'] : 106.700806 ?>;
+    // 2. Leaflet viewer + POI (Sử dụng tọa độ an toàn & CartoDB Voyager không cần API key)
+    const lat = <?= $propLat ?>;
+    const lng = <?= $propLng ?>;
     const title = <?= json_for_script($property['title']) ?>;
 
     if (window.BdsMap && typeof window.BdsMap.initViewer === 'function') {
@@ -1053,6 +1078,16 @@
         zoom: 15,
         popupText: popupHtml
       });
+
+      // Đảm bảo bản đồ vẽ lại đầy đủ gạch (chống khung xám trắng khi render)
+      if (detailMapInstance && detailMapInstance.map) {
+        setTimeout(function () {
+          detailMapInstance.map.invalidateSize();
+        }, 300);
+        setTimeout(function () {
+          detailMapInstance.map.invalidateSize();
+        }, 1000);
+      }
 
       // Lắng nghe sự kiện click các nút lọc POI
       document.querySelectorAll('.poi-btn').forEach(btn => {
