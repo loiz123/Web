@@ -32,8 +32,9 @@ class Review extends Model
         $avg = $total > 0 ? round((float)$row['avg_rating'], 1) : 0.0;
 
         return [
-            'total'      => $total,
-            'avg_rating' => $avg,
+            'total'         => $total,
+            'total_reviews' => $total,
+            'avg_rating'    => $avg,
         ];
     }
 
