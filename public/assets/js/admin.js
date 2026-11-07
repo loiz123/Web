@@ -83,3 +83,149 @@
     await call('admin/properties/moderate/' + row.dataset.id, { action: 'reject', reason: reason }, row);
   });
 })();
+
+// [D] Quốc: trang quản lý người dùng - lọc, phân trang, khóa/mở khóa bằng AJAX.
+(function () {
+  const body = document.getElementById('users-body');
+  if (!body) return;
+
+  const form = document.getElementById('users-filter');
+  const alertBox = document.getElementById('users-alert');
+  const pager = document.getElementById('users-pager');
+  const totalEl = document.getElementById('users-total');
+  const roleLabels = { admin: 'Quản trị', agent: 'Môi giới', customer: 'Khách' };
+  let currentPage = 1;
+
+  const initial = new URLSearchParams(location.search);
+  ['q', 'role', 'status'].forEach(function (name) {
+    if (!initial.has(name)) return;
+    const field = form.elements[name];
+    field.value = initial.get(name);
+    if (field.value !== initial.get(name)) field.value = '';
+  });
+  currentPage = Math.max(1, parseInt(initial.get('page'), 10) || 1);
+
+  function notify(message, ok) {
+    alertBox.className = 'alert alert-' + (ok ? 'success' : 'danger');
+    alertBox.textContent = message;
+  }
+
+  function cell(text, className) {
+    const td = document.createElement('td');
+    td.textContent = text;
+    if (className) td.className = className;
+    return td;
+  }
+
+  function formatDate(value) {
+    return String(value).slice(0, 10).split('-').reverse().join('/');
+  }
+
+  function renderRows(items) {
+    body.replaceChildren();
+    if (!items.length) {
+      const tr = document.createElement('tr');
+      const td = cell('Không có người dùng phù hợp.', 'text-muted');
+      td.colSpan = 8;
+      tr.append(td);
+      body.append(tr);
+      return;
+    }
+    items.forEach(function (u) {
+      const tr = document.createElement('tr');
+      tr.dataset.id = u.id;
+
+      const badge = document.createElement('span');
+      badge.className = 'badge ' + (u.status === 'locked' ? 'text-bg-danger' : 'text-bg-success');
+      badge.textContent = u.status === 'locked' ? 'Đã khóa' : 'Hoạt động';
+      const statusTd = document.createElement('td');
+      statusTd.append(badge);
+
+      const actionTd = document.createElement('td');
+      actionTd.className = 'text-end text-nowrap';
+      if (u.can_toggle) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.dataset.act = u.status === 'locked' ? 'unlock' : 'lock';
+        btn.className = 'btn btn-sm ' + (u.status === 'locked' ? 'btn-success' : 'btn-outline-danger');
+        btn.textContent = u.status === 'locked' ? 'Mở khóa' : 'Khóa';
+        actionTd.append(btn);
+      } else {
+        actionTd.textContent = '-';
+        actionTd.title = 'Không thể khóa tài khoản admin';
+      }
+
+      tr.append(
+        cell(u.id), cell(u.full_name), cell(u.email), cell(u.phone || '-'),
+        cell(roleLabels[u.role] || u.role), statusTd, cell(formatDate(u.created_at)), actionTd
+      );
+      body.append(tr);
+    });
+  }
+
+  function renderPager(total, perPage, page) {
+    pager.replaceChildren();
+    const pages = Math.max(1, Math.ceil(total / perPage));
+    if (pages <= 1) return;
+    for (let i = 1; i <= pages; i++) {
+      const li = document.createElement('li');
+      li.className = 'page-item' + (i === page ? ' active' : '');
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'page-link';
+      btn.dataset.page = i;
+      btn.textContent = i;
+      li.append(btn);
+      pager.append(li);
+    }
+  }
+
+  async function load(page) {
+    currentPage = page || 1;
+    const params = new URLSearchParams({
+      q: form.elements['q'].value.trim(),
+      role: form.elements['role'].value,
+      status: form.elements['status'].value,
+      page: currentPage
+    });
+    history.replaceState(null, '', '?' + params.toString());
+    try {
+      const res = await api('admin/users/data?' + params.toString());
+      if (!res.success) throw new Error(res.message);
+      renderRows(res.data.items);
+      renderPager(res.data.total, res.data.per_page, res.data.page);
+      totalEl.textContent = 'Tổng: ' + res.data.total + ' người dùng.';
+    } catch (err) {
+      notify('Không tải được danh sách người dùng. Thử lại sau.', false);
+    }
+  }
+
+  form.addEventListener('submit', function (ev) { ev.preventDefault(); load(1); });
+  form.elements['role'].addEventListener('change', function () { load(1); });
+  form.elements['status'].addEventListener('change', function () { load(1); });
+
+  pager.addEventListener('click', function (ev) {
+    const btn = ev.target.closest('button[data-page]');
+    if (btn) load(parseInt(btn.dataset.page, 10));
+  });
+
+  body.addEventListener('click', async function (ev) {
+    const btn = ev.target.closest('button[data-act]');
+    if (!btn) return;
+    const row = btn.closest('tr');
+    const act = btn.dataset.act;
+    if (act === 'lock' && !confirm('Khóa tài khoản #' + row.dataset.id + '? Người này sẽ bị đăng xuất ở lần thao tác tiếp theo.')) return;
+
+    btn.disabled = true;
+    try {
+      const res = await api('admin/users/toggle/' + row.dataset.id, { method: 'POST', body: { action: act } });
+      notify(res.message || (res.success ? 'Thành công.' : 'Có lỗi xảy ra.'), res.success);
+      await load(currentPage);
+    } catch (err) {
+      notify('Không kết nối được máy chủ. Thử lại sau.', false);
+      btn.disabled = false;
+    }
+  });
+
+  load(currentPage);
+})();
