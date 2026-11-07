@@ -1,4 +1,4 @@
-# BÁO CÁO CÔNG VIỆC HOÀN THIỆN MODULE C: TÌM KIẾM, CHI TIẾT & BẢN ĐỒ
+﻿# BÁO CÁO CÔNG VIỆC HOÀN THIỆN MODULE C: TÌM KIẾM, CHI TIẾT & BẢN ĐỒ
 **Dự án:** Website Bất Động Sản (PHP 8.2 MVC, MySQL, Bootstrap 5, Leaflet OpenStreetMap Web API)  
 **Kỹ sư phụ trách:** Hà Ngọc Thiện (Module C — Tìm kiếm, Chi tiết tin, Bản đồ tương tác, Tiện ích xung quanh, Yêu thích, Đánh giá, Bảng tính vay & So sánh)  
 **Thời gian hoàn thành:** 07/11/2026  
@@ -24,7 +24,7 @@ Theo phân công đồ án môn học, Module C chịu trách nhiệm toàn bộ
 
 3. **Bản đồ tương tác Web API (Leaflet OpenStreetMap):**
    - **Form đăng/sửa tin (`agent/create.php`, `agent/edit.php`):** Map Picker kéo thả marker hoặc click trên bản đồ để tự động điền kinh độ/vĩ độ, Geolocation định vị vị trí hiện tại và tìm kiếm địa chỉ qua Nominatim API.
-   - **Trang chi tiết tin (`property/detail.php`):** Bản đồ tương tác Leaflet với 3 lớp bản đồ Tile Layer (CartoDB Voyager, OpenStreetMap Standard, ESRI World Imagery Vệ tinh), Marker BĐS tùy biến (Red Pin), Popup giá to đỏ và 2 nút chỉ đường thông minh (OpenStreetMap OSRM và Google Maps Direction).
+   - **Trang chi tiết tin (`property/detail.php`):** Bản đồ tương tác Leaflet với 3 lớp bản đồ Tile Layer (OpenStreetMap Tiêu chuẩn, OpenStreetMap HOT, ESRI World Imagery Vệ tinh), Marker BĐS tùy biến (Red Pin), Popup giá to đỏ và 2 nút chỉ đường thông minh (OpenStreetMap OSRM và Google Maps Direction).
    - **Tiện ích xung quanh (Nearby POI):** 5 danh mục thiết yếu (Trường học, Bệnh viện, Siêu thị/Chợ, Trạm xe buýt, Công viên), tính cự ly địa lý chính xác bằng công thức Haversine, danh sách trực quan có thể click để panTo và mở popup.
    - **Giải pháp chống màn hình xám (Anti-Grey Screen):** Đa điểm `invalidateSize()` kết hợp `IntersectionObserver` đảm bảo gạch bản đồ render đầy đủ 100% không bị xám khi tải hoặc cuộn trang.
 
@@ -48,8 +48,8 @@ Nhiều người thường nhầm lẫn việc nhúng bản đồ vào website c
 1. **Tile Map API (Web Map Tile Service - RESTful):**
    - Bản đồ thế giới được chia thành một ma trận các ô gạch ảnh kích thước chuẩn 256x256 pixel theo hệ tọa độ chiếu cầu Spherical Mercator (EPSG:3857).
    - Trình duyệt gửi các HTTP GET request trực tiếp đến các máy chủ Tile Server theo cấu trúc định tuyến RESTful chuẩn:
-     * **CartoDB Voyager Tile API (Mặc định - UI/UX trang nhã, hiện đại):**
-       `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png`
+     * **OpenStreetMap Standard Tile API (Mặc định - Chuẩn quốc tế, không watermark):**
+       `https://tile.openstreetmap.org/{z}/{x}/{y}.png`
      * **OpenStreetMap Standard Tile API:**
        `https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png`
      * **ESRI World Imagery Tile API (Bản đồ ảnh chụp vệ tinh độ nét cao):**
@@ -82,8 +82,8 @@ Nhiều người thường nhầm lẫn việc nhúng bản đồ vào website c
 | **Chi phí vận hành (Cost)** | **100% Miễn phí vĩnh viễn**, không giới hạn lượt truy vấn, không phát sinh chi phí. | Thu phí đắt sau hạn mức $200 miễn phí ($7 / 1,000 lượt load bản đồ, $5 / 1,000 lượt Places API). | **OSM thắng thế tuyệt đối**: Tránh rủi ro phát sinh hóa đơn nghìn đô cho doanh nghiệp vừa & nhỏ. |
 | **Ràng buộc thanh toán (Payment Lock-in)** | **Không yêu cầu thẻ tín dụng** hay thông tin tài chính cá nhân. | **Bắt buộc nhập thẻ Visa/Mastercard quốc tế** để kích hoạt Cloud Billing. Nếu thẻ hết hạn hoặc bị ngân hàng khóa, web bị sập bản đồ ngay lập tức (`For development purposes only`). | **OSM an toàn và dễ triển khai**: Phù hợp 100% cho môi trường đào tạo đại học và demo đồ án. |
 | **Độc lập công nghệ (Vendor Lock-in)** | Dữ liệu mở phi tập trung (Open Geospatial Data), chuẩn mở OGC, không bị phụ thuộc vào một tập đoàn độc quyền. | Độc quyền của Google. Google có thể tăng giá, cắt giảm API hoặc thay đổi chính sách bất cứ lúc nào (từng tăng giá 1400% năm 2018). | **OSM bảo vệ quyền tự chủ dữ liệu** của dự án phần mềm theo xu hướng kiến trúc hiện đại. |
-| **Tốc độ tải trang & Dung lượng (Performance)** | Thư viện Leaflet siêu nhẹ (~**38 KB gzipped**), tile map nạp từ CartoDB/OSM CDN cực nhanh, không gây block main thread. | Bộ script Google Maps JS API rất nặng (~**250 - 300 KB**), nạp nhiều dependency (auth, quota, telemetry, fonts). | **OSM tối ưu Core Web Vitals** (LCP, FID), tăng điểm SEO cho website bất động sản. |
-| **Khả năng tùy biến giao diện (Customizability)** | Hỗ trợ chuyển đổi tự do giữa **nhiều lớp bản đồ** (CartoDB Voyager, OSM, ESRI Vệ tinh), CSS tùy biến tự do, marker SVG đa sắc. | Bị giới hạn trong khuôn khổ Google Maps theme, khó tích hợp nguồn tile vệ tinh của nhà cung cấp khác. | **OSM linh hoạt hơn**, mang lại trải nghiệm bản đồ đa dạng và độc đáo. |
+| **Tốc độ tải trang & Dung lượng (Performance)** | Thư viện Leaflet siêu nhẹ (~**38 KB gzipped**), tile map nạp từ OpenStreetMap/ESRI CDN cực nhanh, không gây block main thread. | Bộ script Google Maps JS API rất nặng (~**250 - 300 KB**), nạp nhiều dependency (auth, quota, telemetry, fonts). | **OSM tối ưu Core Web Vitals** (LCP, FID), tăng điểm SEO cho website bất động sản. |
+| **Khả năng tùy biến giao diện (Customizability)** | Hỗ trợ chuyển đổi tự do giữa **nhiều lớp bản đồ** (OpenStreetMap Tiêu chuẩn, OSM, ESRI Vệ tinh), CSS tùy biến tự do, marker SVG đa sắc. | Bị giới hạn trong khuôn khổ Google Maps theme, khó tích hợp nguồn tile vệ tinh của nhà cung cấp khác. | **OSM linh hoạt hơn**, mang lại trải nghiệm bản đồ đa dạng và độc đáo. |
 | **Sự chuẩn bị kỹ lưỡng của đồ án** | **Hệ thống web chạy độc lập, mượt mà** với Leaflet OSM. Đồng thời trong `config/config.php` vẫn giữ cấu hình `google_maps_api_key` với ghi chú rõ ràng, sẵn sàng mở rộng khi cần. | | Chứng minh nhóm sinh viên hiểu sâu sắc cả 2 nền tảng, có năng lực chuyển đổi linh hoạt. |
 
 ---
@@ -97,14 +97,14 @@ Dưới đây là cẩm nang trả lời phỏng vấn chuyên nghiệp giúp si
 > *"Thưa Thầy/Cô, trong quá trình phân tích bài toán thực tế cho website Bất Động Sản, nhóm đã đánh giá kỹ lưỡng cả hai giải pháp trên 3 khía cạnh: Chi phí, Hiệu năng và Tính độc lập công nghệ:  
 > 1. **Về chi phí vận hành:** Một website BĐS có lưu lượng truy cập lớn, mỗi lượt xem tin đều tải bản đồ và tiện ích xung quanh. Google Maps tính phí $7 trên mỗi 1.000 lượt tải sau ngưỡng $200, và bắt buộc liên kết thẻ tín dụng quốc tế (rủi ro ngưng trệ hệ thống nếu lỗi thanh toán). Trong khi đó, OpenStreetMap là chuẩn mở toàn cầu, hoàn toàn miễn phí giúp doanh nghiệp tối ưu 100% chi phí hạ tầng bản đồ.  
 > 2. **Về hiệu năng:** Leaflet JS chỉ nặng khoảng 38KB, nhẹ hơn 8 lần so với bộ script Google Maps (gần 300KB), giúp điểm Core Web Vitals của website cao hơn và tải trang tức thì.  
-> 3. **Về trải nghiệm người dùng:** Nhóm đã cấu hình sẵn 3 lớp bản đồ Tile Layer: CartoDB Voyager hiện đại, OSM truyền thống và ESRI World Imagery vệ tinh độ nét cao. Người dùng có thể xem rõ hình ảnh nóc nhà và đường sá từ vệ tinh mà không tốn một đồng chi phí nào.  
+> 3. **Về trải nghiệm người dùng:** Nhóm đã cấu hình sẵn 3 lớp bản đồ Tile Layer: OpenStreetMap Tiêu chuẩn hiện đại, OSM truyền thống và ESRI World Imagery vệ tinh độ nét cao. Người dùng có thể xem rõ hình ảnh nóc nhà và đường sá từ vệ tinh mà không tốn một đồng chi phí nào.  
 > Đặc biệt, trong file cấu hình `config/config.php`, nhóm vẫn lưu trữ cấu hình `google_maps_api_key` để thể hiện kiến trúc mở, sẵn sàng tích hợp Google Maps khi khách hàng doanh nghiệp có nhu cầu riêng."*
 
 #### Câu 2: "Việc tích hợp này có phải là Web API không? Em hãy chỉ ra điểm thể hiện việc gọi Web API?"
 > **Trả lời:**  
 > *"Dạ thưa Thầy/Cô, đây hoàn toàn là tích hợp Web API theo kiến trúc RESTful Client-Server, chứ không phải nhúng mã nhúng `iframe` tĩnh:  
 > 1. **Web Map Tile Service API:** Trình duyệt gọi trực tiếp API lấy dữ liệu gạch ảnh đa tỷ lệ theo chuẩn RESTful:  
->    `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png`  
+>    `https://tile.openstreetmap.org/{z}/{x}/{y}.png`  
 >    Tham số `{z}` (zoom level), `{x}` (tọa độ trục hoành), `{y}` (tọa độ trục tung) được client tính toán động theo thời gian thực và gửi request HTTP GET.  
 > 2. **Nominatim Geocoding API:** Tích hợp endpoint RESTful chuyển đổi địa chỉ thành tọa độ GPS (`search?format=json&q=...`) trong chức năng đăng tin của môi giới.  
 > 3. **Routing API:** Tích hợp giao thức điều hướng OSRM của OpenStreetMap để vẽ lộ trình chỉ đường cho khách mua nhà.  
@@ -135,7 +135,7 @@ Toàn bộ mã nguồn đã được tối ưu hóa, chuẩn hóa theo chuẩn P
 
 | STT | Đường dẫn File | Loại thay đổi | Chi tiết nội dung thực hiện |
 | :---: | :--- | :---: | :--- |
-| 1 | `public/assets/js/map.js` | Nâng cấp lớn | Tích hợp 3 lớp bản đồ Tile Layer (CartoDB, OSM, ESRI), bộ điều khiển layer switcher, động cơ chống màn hình xám `applyAntiGreyScreen` đa thời điểm, marker đỏ BĐS tùy biến, hệ thống POI tiện ích 5 danh mục và tính cự ly Haversine. |
+| 1 | `public/assets/js/map.js` | Nâng cấp lớn | Tích hợp 3 lớp bản đồ Tile Layer (OSM Tiêu chuẩn, OSM HOT, ESRI), bộ điều khiển layer switcher, động cơ chống màn hình xám `applyAntiGreyScreen` đa thời điểm, marker đỏ BĐS tùy biến, hệ thống POI tiện ích 5 danh mục và tính cự ly Haversine. |
 | 2 | `app/views/property/detail.php` | Nâng cấp lớn | Thiết kế container `#propertyMap` 450px bo góc hiện đại, badge OpenStreetMap Web API, 2 nút chỉ đường (OSRM & Google Maps), hệ sinh thái tiện ích xung quanh (POI), bảng tính vay mua nhà (Mortgage Calculator), tích hợp `IntersectionObserver`. |
 | 3 | `config/config.php` | Cập nhật | Ghi chú rõ ràng chiến lược bản đồ độc lập OpenStreetMap Web API, lưu trữ sẵn `google_maps_api_key` phục vụ học thuật và mở rộng tương lai. |
 | 4 | `app/controllers/PropertyController.php` | Nâng cấp | Content Negotiation cho AJAX JSON, lọc đa tiêu chí (diện tích, phòng ngủ, khoảng giá, sắp xếp), API so sánh BĐS (`compare`, `compareData`), API lưu/xóa bộ lọc tìm kiếm. |
@@ -252,7 +252,7 @@ KẾT QUẢ: 11/11 tests passed!
 2. **Khám phá Bản đồ Chi tiết Tin BĐS:**
    - Truy cập tin bất kỳ, ví dụ: `http://localhost/batdongsan/public/property/detail/18`
    - Quan sát bản đồ Leaflet OpenStreetMap hiển thị ngay lập tức, không có bất kỳ mảng xám nào.
-   - Thử nghiệm công cụ chọn lớp bản đồ ở góc trên bên phải: Chuyển đổi giữa **Bản đồ CartoDB**, **OpenStreetMap Chuẩn**, và **Vệ tinh ESRI**.
+   - Thử nghiệm công cụ chọn lớp bản đồ ở góc trên bên phải: Chuyển đổi giữa **Bản đồ OpenStreetMap**, **OpenStreetMap Chuẩn**, và **Vệ tinh ESRI**.
    - Bấm vào các nút danh mục tiện ích: **Trường học**, **Bệnh viện**, **Siêu thị / Chợ**, **Trạm xe buýt**, **Công viên**. Quan sát marker đổi màu và danh sách khoảng cách bên dưới cập nhật tức thì.
    - Bấm vào nút **"Chỉ đường (OpenStreetMap)"** để mở bản đồ định tuyến OSRM.
 

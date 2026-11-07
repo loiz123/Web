@@ -1,5 +1,5 @@
 <?php
-// Tọa độ an toàn cho bản đồ Leaflet OpenStreetMap & CartoDB [C - Thiện]
+// Tọa độ an toàn cho bản đồ Leaflet OpenStreetMap & ESRI [C - Thiện]
 $propLat = (float)($property['latitude'] ?? 0);
 $propLng = (float)($property['longitude'] ?? 0);
 $hasValidCoords = ($propLat >= 8.0 && $propLat <= 24.0 && $propLng >= 102.0 && $propLng <= 110.0);
@@ -1081,7 +1081,7 @@ if (!$hasValidCoords) {
       });
     });
 
-    // 2. Leaflet viewer + POI (Sử dụng tọa độ an toàn & CartoDB Voyager không cần API key)
+    // 2. Leaflet viewer + POI (Sử dụng tọa độ an toàn & OpenStreetMap chuẩn không cần API key)
     const lat = <?= $propLat ?>;
     const lng = <?= $propLng ?>;
     const title = <?= json_for_script($property['title']) ?>;

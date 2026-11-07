@@ -3,9 +3,9 @@
  * Phục vụ: Chọn vị trí khi đăng tin (Hải dùng), xem vị trí chi tiết tin, và trang tìm kiếm BĐS.
  * 
  * Lưu ý kỹ thuật:
- * - Sử dụng Leaflet mã nguồn mở kết hợp lớp gạch CartoDB Voyager & OpenStreetMap chuẩn.
- * - KHÔNG BẮT BUỘC API KEY (100% miễn phí, mã nguồn mở, không giới hạn request).
- * - Mặc định dùng CartoDB Voyager (Fastly CDN toàn cầu) tải mượt mà, không bị lỗi xám do chặn localhost.
+ * - Sử dụng Leaflet mã nguồn mở kết hợp các lớp gạch OpenStreetMap chuẩn & ESRI World Imagery.
+ * - KHÔNG BẮT BUỘC API KEY (100% miễn phí, mã nguồn mở, không giới hạn request, không watermark).
+ * - Mặc định dùng OpenStreetMap tiêu chuẩn tải mượt mà, sạch sẽ 100%.
  */
 
 window.BdsMap = (function () {
@@ -13,17 +13,17 @@ window.BdsMap = (function () {
   const DEFAULT_LNG = 106.700806;
   const DEFAULT_ZOOM = 14;
 
-  // Lớp gạch CartoDB Voyager: Tối ưu cho BĐS, màu sắc trang nhã, CDN tốc độ cao, không chặn localhost
-  const CARTO_VOYAGER_URL = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-  const CARTO_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions" target="_blank">CARTO</a>';
-
-  // Lớp gạch OpenStreetMap chuẩn
-  const OSM_TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+  // Lớp gạch OpenStreetMap chuẩn (Miễn phí, không watermark, không cần API key)
+  const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
   const OSM_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors';
+
+  // Lớp gạch OpenStreetMap nhân đạo HOT (Tối ưu hiển thị công cộng, địa danh)
+  const OSM_HOT_URL = 'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png';
+  const OSM_HOT_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors, Tiles style by <a href="https://www.hotosm.org/" target="_blank">Humanitarian OpenStreetMap Team</a>';
 
   // Lớp gạch Vệ tinh ESRI World Imagery (Sắc nét, toàn cầu, miễn phí)
   const ESRI_SATELLITE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-  const ESRI_ATTRIBUTION = 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community';
+  const ESRI_ATTRIBUTION = 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics';
 
   /**
    * Sửa lỗi đường dẫn icon mặc định của Leaflet khi nạp qua CDN
@@ -43,29 +43,27 @@ window.BdsMap = (function () {
   }
 
   /**
-   * Tạo tile layer nền: Mặc định CartoDB Voyager mượt mà, tự động fallback nếu cần
+   * Tạo tile layer nền: Mặc định OpenStreetMap tiêu chuẩn sạch sẽ 100%
    */
   function createBaseTileLayer() {
-    return L.tileLayer(CARTO_VOYAGER_URL, {
-      maxZoom: 20,
-      subdomains: 'abcd',
-      attribution: CARTO_ATTRIBUTION,
+    return L.tileLayer(OSM_TILE_URL, {
+      maxZoom: 19,
+      attribution: OSM_ATTRIBUTION,
     });
   }
 
   /**
    * Thêm bộ điều khiển chuyển đổi layer:
-   * 1. Bản đồ tiêu chuẩn (CartoDB Voyager)
-   * 2. Bản đồ OpenStreetMap gốc
-   * 3. Bản đồ Vệ tinh ESRI World Imagery
+   * 1. Bản đồ OpenStreetMap tiêu chuẩn
+   * 2. Bản đồ OpenStreetMap nhân đạo (HOT)
+   * 3. Ảnh vệ tinh ESRI World Imagery
    */
   function addLayerSwitcher(map, baseLayer) {
     if (!map || typeof L === 'undefined') return null;
 
-    const osmLayer = L.tileLayer(OSM_TILE_URL, {
+    const osmHotLayer = L.tileLayer(OSM_HOT_URL, {
       maxZoom: 19,
-      subdomains: 'abc',
-      attribution: OSM_ATTRIBUTION,
+      attribution: OSM_HOT_ATTRIBUTION,
     });
 
     const esriSatelliteLayer = L.tileLayer(ESRI_SATELLITE_URL, {
@@ -73,17 +71,10 @@ window.BdsMap = (function () {
       attribution: ESRI_ATTRIBUTION,
     });
 
-    osmLayer.on('tileerror', function () {
-      if (!osmLayer._warned) {
-        osmLayer._warned = true;
-        console.warn('OpenStreetMap tile bị gián đoạn/chặn bởi OSM Policy. Vui lòng chuyển sang CartoDB Voyager.');
-      }
-    });
-
     const baseMaps = {
-      '<span style="font-weight:600;font-size:12px;">🗺️ Bản đồ tiêu chuẩn (CartoDB Voyager)</span>': baseLayer,
-      '<span style="font-size:12px;">🌍 Bản đồ OpenStreetMap gốc</span>': osmLayer,
-      '<span style="font-size:12px;">🛰️ Bản đồ Vệ tinh (ESRI World Imagery)</span>': esriSatelliteLayer,
+      '<span style="font-weight:600;font-size:12px;">🗺️ Bản đồ OpenStreetMap tiêu chuẩn</span>': baseLayer,
+      '<span style="font-size:12px;">❤️ Bản đồ OpenStreetMap nhân đạo (HOT)</span>': osmHotLayer,
+      '<span style="font-size:12px;">🛰️ Ảnh vệ tinh ESRI World Imagery</span>': esriSatelliteLayer,
     };
     try {
       return L.control.layers(baseMaps, null, { position: 'topright', collapsed: true }).addTo(map);
