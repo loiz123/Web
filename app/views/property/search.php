@@ -244,6 +244,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // 1. Cập nhật HTML danh sách cards
         propertiesGrid.innerHTML = payload.html;
+        if (window.PropertyCompare) window.PropertyCompare.renderUI();
 
         // 2. Cập nhật phân trang
         paginationContainer.innerHTML = payload.paginationHtml || '';
