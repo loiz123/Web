@@ -644,3 +644,256 @@ body {
 .saved-filter-item:hover {
   background-color: #f8fafc;
 }
+
+/* ==========================================================================
+   10. DESIGN SYSTEM TOKENS, 8PT GRID & ACCESSIBILITY TOUCH TARGETS
+   ========================================================================== */
+:root {
+  --space-1: 0.25rem;  /* 4px */
+  --space-2: 0.5rem;   /* 8px */
+  --space-3: 0.75rem;  /* 12px */
+  --space-4: 1rem;     /* 16px */
+  --space-6: 1.5rem;   /* 24px */
+  --space-8: 2rem;     /* 32px */
+  --space-12: 3rem;    /* 48px */
+
+  --color-success: #059669;
+  --color-warning: #d97706;
+  --color-danger:  #dc2626;
+  --color-info:    #2563eb;
+}
+
+.bds-btn-touch {
+  min-height: 44px;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.property-card-modern .card-action-btn {
+  width: 44px;
+  height: 44px;
+}
+
+.property-price-tag,
+.property-specs-row {
+  font-variant-numeric: tabular-nums;
+}
+
+.shadow-xs {
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+/* ==========================================================================
+   11. SKELETON LOADING (.bds-skeleton-card) & FADE-IN TRANSITION
+   ========================================================================== */
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes bdsFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.bds-skeleton-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  overflow: hidden;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
+}
+
+.bds-skeleton-thumb {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite linear;
+}
+
+.bds-skeleton-body {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  flex-grow: 1;
+}
+
+.bds-skeleton-line {
+  height: 14px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite linear;
+}
+
+.bds-skeleton-title {
+  height: 18px;
+  width: 88%;
+}
+
+.bds-skeleton-title-sub {
+  height: 16px;
+  width: 62%;
+}
+
+.bds-skeleton-price {
+  height: 22px;
+  width: 48%;
+  border-radius: 8px;
+}
+
+.bds-skeleton-location {
+  height: 13px;
+  width: 72%;
+}
+
+.bds-skeleton-specs {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding-top: 0.75rem;
+  margin-top: auto;
+  border-top: 1px solid #f1f5f9;
+}
+
+.bds-skeleton-spec-pill {
+  height: 16px;
+  flex: 1;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite linear;
+}
+
+.bds-fade-in {
+  animation: bdsFadeIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ==========================================================================
+   12. FLOATING TOAST SYSTEM & LUXURY CONFIRM MODAL
+   ========================================================================== */
+@keyframes bdsToastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(28px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes bdsToastProgress {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+.bds-toast-container {
+  position: fixed;
+  top: 84px;
+  right: 20px;
+  z-index: 1095;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 390px;
+  width: calc(100vw - 32px);
+  pointer-events: none;
+}
+
+.bds-toast {
+  pointer-events: auto;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-left-width: 4px;
+  border-radius: 14px;
+  box-shadow: 0 14px 30px -6px rgba(15, 23, 42, 0.14), 0 4px 10px -2px rgba(15, 23, 42, 0.06);
+  overflow: hidden;
+  animation: bdsToastSlideIn 0.26s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  position: relative;
+}
+
+.bds-toast.bds-toast-success { border-left-color: var(--color-success); }
+.bds-toast.bds-toast-danger  { border-left-color: var(--color-danger); }
+.bds-toast.bds-toast-warning { border-left-color: var(--color-warning); }
+.bds-toast.bds-toast-info    { border-left-color: var(--color-info); }
+
+.bds-toast-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.15rem;
+  flex-shrink: 0;
+}
+
+.bds-toast-success .bds-toast-icon { background: #ecfdf5; color: var(--color-success); }
+.bds-toast-danger  .bds-toast-icon { background: #fef2f2; color: var(--color-danger); }
+.bds-toast-warning .bds-toast-icon { background: #fffbeb; color: var(--color-warning); }
+.bds-toast-info    .bds-toast-icon { background: #eff6ff; color: var(--color-info); }
+
+.bds-toast-progress {
+  height: 3px;
+  width: 100%;
+  transform-origin: left center;
+  animation: bdsToastProgress 3.5s linear forwards;
+}
+
+.bds-toast-success .bds-toast-progress { background: var(--color-success); }
+.bds-toast-danger  .bds-toast-progress { background: var(--color-danger); }
+.bds-toast-warning .bds-toast-progress { background: var(--color-warning); }
+.bds-toast-info    .bds-toast-progress { background: var(--color-info); }
+
+.bds-confirm-modal .modal-content {
+  border: 0;
+  border-radius: 18px;
+  box-shadow: 0 24px 48px -12px rgba(15, 23, 42, 0.24);
+}
+
+.bds-confirm-icon-wrap {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: #fef2f2;
+  color: #dc2626;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bds-skeleton-thumb,
+  .bds-skeleton-line,
+  .bds-skeleton-spec-pill,
+  .bds-fade-in,
+  .bds-toast,
+  .bds-toast-progress {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+

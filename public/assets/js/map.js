@@ -1,11 +1,6 @@
 /**
- * [C] Thư viện quản lý bản đồ OpenStreetMap (Leaflet) & Geocoding - Hà Ngọc Thiện phụ trách
- * Phục vụ: Chọn vị trí khi đăng tin (Hải dùng), xem vị trí chi tiết tin, và trang tìm kiếm BĐS.
- * 
- * Lưu ý kỹ thuật:
- * - Sử dụng Leaflet mã nguồn mở kết hợp các lớp gạch OpenStreetMap chuẩn & ESRI World Imagery.
- * - KHÔNG BẮT BUỘC API KEY (100% miễn phí, mã nguồn mở, không giới hạn request, không watermark).
- * - Mặc định dùng OpenStreetMap tiêu chuẩn tải mượt mà, sạch sẽ 100%.
+ * Thư viện quản lý bản đồ tương tác & Định vị tọa độ BĐS Việt
+ * Phục vụ: Chọn vị trí khi đăng/sửa tin, xem vị trí & tiện ích xung quanh, và bản đồ tìm kiếm BĐS.
  */
 
 window.BdsMap = (function () {
@@ -13,21 +8,15 @@ window.BdsMap = (function () {
   const DEFAULT_LNG = 106.700806;
   const DEFAULT_ZOOM = 14;
 
-  // Lớp gạch OpenStreetMap chuẩn (Miễn phí, không watermark, không cần API key)
   const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-  const OSM_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors';
+  const OSM_ATTRIBUTION = '&copy; Bản đồ số BĐS Việt';
 
-  // Lớp gạch OpenStreetMap nhân đạo HOT (Tối ưu hiển thị công cộng, địa danh)
   const OSM_HOT_URL = 'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png';
-  const OSM_HOT_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors, Tiles style by <a href="https://www.hotosm.org/" target="_blank">Humanitarian OpenStreetMap Team</a>';
+  const OSM_HOT_ATTRIBUTION = '&copy; Bản đồ giao thông & tiện ích';
 
-  // Lớp gạch Vệ tinh ESRI World Imagery (Sắc nét, toàn cầu, miễn phí)
   const ESRI_SATELLITE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-  const ESRI_ATTRIBUTION = 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics';
+  const ESRI_ATTRIBUTION = '&copy; Dữ liệu vệ tinh độ phân giải cao';
 
-  /**
-   * Sửa lỗi đường dẫn icon mặc định của Leaflet khi nạp qua CDN
-   */
   function fixLeafletIconPaths() {
     if (typeof L === 'undefined' || !L.Icon || !L.Icon.Default) return;
     try {
@@ -42,9 +31,6 @@ window.BdsMap = (function () {
     }
   }
 
-  /**
-   * Tạo tile layer nền: Mặc định OpenStreetMap tiêu chuẩn sạch sẽ 100%
-   */
   function createBaseTileLayer() {
     return L.tileLayer(OSM_TILE_URL, {
       maxZoom: 19,
@@ -52,12 +38,6 @@ window.BdsMap = (function () {
     });
   }
 
-  /**
-   * Thêm bộ điều khiển chuyển đổi layer:
-   * 1. Bản đồ OpenStreetMap tiêu chuẩn
-   * 2. Bản đồ OpenStreetMap nhân đạo (HOT)
-   * 3. Ảnh vệ tinh ESRI World Imagery
-   */
   function addLayerSwitcher(map, baseLayer) {
     if (!map || typeof L === 'undefined') return null;
 
@@ -72,9 +52,9 @@ window.BdsMap = (function () {
     });
 
     const baseMaps = {
-      '<span style="font-weight:600;font-size:12px;">🗺️ Bản đồ OpenStreetMap tiêu chuẩn</span>': baseLayer,
-      '<span style="font-size:12px;">❤️ Bản đồ OpenStreetMap nhân đạo (HOT)</span>': osmHotLayer,
-      '<span style="font-size:12px;">🛰️ Ảnh vệ tinh ESRI World Imagery</span>': esriSatelliteLayer,
+      '<span style="font-weight:600;font-size:12px;">🗺️ Bản đồ hành chính tiêu chuẩn</span>': baseLayer,
+      '<span style="font-size:12px;">🧭 Bản đồ giao thông & tiện ích</span>': osmHotLayer,
+      '<span style="font-size:12px;">🛰️ Ảnh vệ tinh thực tế</span>': esriSatelliteLayer,
     };
     try {
       return L.control.layers(baseMaps, null, { position: 'topright', collapsed: true }).addTo(map);
@@ -83,13 +63,12 @@ window.BdsMap = (function () {
     }
   }
 
-  /**
-   * Xử lý triệt để lỗi màn hình xám của Leaflet:
-   * Gọi invalidateSize ngay, sau 150ms, 500ms, 1000ms, khi resize, khi load và IntersectionObserver khi cuộn tới
-   */
   function applyAntiGreyScreen(map, mapEl) {
     if (!map) return;
     try {
+      if (map.attributionControl && typeof map.attributionControl.setPrefix === 'function') {
+        map.attributionControl.setPrefix('Định vị trực tuyến');
+      }
       map.invalidateSize();
       setTimeout(() => { if (map) map.invalidateSize(); }, 150);
       setTimeout(() => { if (map) map.invalidateSize(); }, 500);
@@ -110,20 +89,37 @@ window.BdsMap = (function () {
         observer.observe(mapEl);
       }
     } catch (e) {
-      console.warn('Lỗi applyAntiGreyScreen:', e);
+      console.warn('Lỗi hiển thị khung bản đồ:', e);
     }
   }
 
+  function escapeHtml(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   /**
-   * Khởi tạo bản đồ chọn vị trí (Picker) cho form đăng tin hoặc trang test
+   * Khởi tạo bản đồ chọn vị trí (Picker) cho form đăng tin / sửa tin
+   * Hỗ trợ cả 2 cú pháp: initPicker(containerId, options) và initPicker(options)
    */
-  function initPicker(options = {}) {
+  function initPicker(containerIdOrOptions = {}, maybeOptions = {}) {
+    let options = {};
+    if (typeof containerIdOrOptions === 'string') {
+      options = Object.assign({}, maybeOptions, { mapId: containerIdOrOptions });
+    } else if (containerIdOrOptions && typeof containerIdOrOptions === 'object') {
+      options = Object.assign({}, containerIdOrOptions);
+    }
+
     const mapId = options.mapId || 'map';
     const mapEl = document.getElementById(mapId);
     if (!mapEl) return null;
 
     if (typeof L === 'undefined') {
-      console.error('Leaflet chưa được tải. Vui lòng nhúng leaflet.js và leaflet.css');
+      console.error('Chưa tải được thư viện bản đồ.');
       return null;
     }
 
@@ -132,10 +128,22 @@ window.BdsMap = (function () {
     const latInput = typeof options.latInput === 'string' ? document.querySelector(options.latInput) : options.latInput;
     const lngInput = typeof options.lngInput === 'string' ? document.querySelector(options.lngInput) : options.lngInput;
     const addressInput = typeof options.addressInput === 'string' ? document.querySelector(options.addressInput) : options.addressInput;
+    const detailAddressInput = typeof options.detailAddressInput === 'string'
+      ? document.querySelector(options.detailAddressInput)
+      : (options.detailAddressInput || document.querySelector('#address, #address-detail, input[name="address_detail"], input[name="address"]'));
     const searchBtn = typeof options.searchBtn === 'string' ? document.querySelector(options.searchBtn) : options.searchBtn;
     const statusEl = typeof options.statusEl === 'string' ? document.querySelector(options.statusEl) : options.statusEl;
 
-    // Lấy tọa độ ban đầu từ input hoặc mặc định
+    // Tạo hoặc lấy vùng hiển thị gợi ý Reverse Geocoding ngay dưới bản đồ
+    let suggestionEl = document.getElementById(options.suggestionId || 'reverseGeocodeSuggestion');
+    if (!suggestionEl && mapEl.parentNode) {
+      suggestionEl = document.createElement('div');
+      suggestionEl.id = 'reverseGeocodeSuggestion';
+      suggestionEl.className = 'reverse-geocode-box d-none mt-2 mb-2';
+      suggestionEl.setAttribute('aria-live', 'polite');
+      mapEl.insertAdjacentElement('afterend', suggestionEl);
+    }
+
     let initialLat = parseFloat(latInput?.value) || options.defaultLat || DEFAULT_LAT;
     let initialLng = parseFloat(lngInput?.value) || options.defaultLng || DEFAULT_LNG;
     let initialZoom = options.defaultZoom || DEFAULT_ZOOM;
@@ -152,7 +160,7 @@ window.BdsMap = (function () {
 
     const marker = L.marker([initialLat, initialLng], {
       draggable: options.draggable !== false,
-      title: 'Kéo marker hoặc bấm lên bản đồ để chọn vị trí',
+      title: 'Kéo điểm ghim hoặc bấm lên bản đồ để chọn vị trí bất động sản',
     }).addTo(map);
 
     setCoordinates(initialLat, initialLng);
@@ -165,7 +173,7 @@ window.BdsMap = (function () {
       if (lngInput) lngInput.value = fixedLng;
 
       marker.setLatLng([fixedLat, fixedLng]);
-      const text = popupText || `<strong>Vị trí đã chọn</strong><br>Tọa độ: ${fixedLat}, ${fixedLng}`;
+      const text = popupText || `<strong>Vị trí bất động sản</strong><br>Tọa độ: ${fixedLat}, ${fixedLng}`;
       marker.bindPopup(text).openPopup();
 
       if (typeof options.onChange === 'function') {
@@ -173,53 +181,174 @@ window.BdsMap = (function () {
       }
     }
 
+    function applySuggestedAddress(suggestedText, isAuto = false) {
+      if (!suggestedText) return;
+      const targetField = detailAddressInput || document.querySelector('#address, #address-detail, input[name="address_detail"]') || addressInput;
+      if (targetField) {
+        targetField.value = suggestedText;
+        targetField.dispatchEvent(new Event('input', { bubbles: true }));
+        targetField.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      if (addressInput && addressInput !== targetField && !addressInput.value.trim()) {
+        addressInput.value = suggestedText;
+      }
+      if (!isAuto && window.BDS && typeof window.BDS.toast === 'function') {
+        window.BDS.toast('Đã áp dụng địa chỉ gợi ý vào ô Địa chỉ.', 'success', 'Định vị địa chỉ');
+      }
+    }
+
+    let reverseAbortController = null;
+
+    /**
+     * Gọi Reverse Geocoding API (/geocode/reverse?lat=...&lng=...) khi chọn vị trí hoặc kéo marker
+     */
+    async function reverseGeocode(lat, lng) {
+      const fixedLat = Number(lat).toFixed(6);
+      const fixedLng = Number(lng).toFixed(6);
+
+      if (reverseAbortController) {
+        try { reverseAbortController.abort(); } catch (e) {}
+      }
+      reverseAbortController = typeof AbortController !== 'undefined' ? new AbortController() : null;
+
+      if (statusEl) {
+        statusEl.className = 'alert alert-info py-2 small mb-2 d-flex align-items-center gap-2';
+        statusEl.innerHTML = `<span class="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true"></span><span>Đang định vị địa chỉ tại tọa độ <strong>${fixedLat}, ${fixedLng}</strong>...</span>`;
+      }
+
+      if (suggestionEl) {
+        suggestionEl.classList.remove('d-none');
+        suggestionEl.innerHTML = `
+          <div class="p-2 px-3 rounded-3 border bg-white shadow-xs d-flex align-items-center gap-2 small text-secondary">
+            <span class="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true"></span>
+            <span>Đang định vị địa chỉ...</span>
+          </div>
+        `;
+      }
+
+      try {
+        const baseUrl = (typeof BASE_URL !== 'undefined' && BASE_URL)
+          ? BASE_URL
+          : (document.querySelector('meta[name="base-url"]')?.content || '');
+        const endpoint = `${baseUrl}/geocode/reverse?lat=${encodeURIComponent(fixedLat)}&lng=${encodeURIComponent(fixedLng)}`;
+
+        const res = await fetch(endpoint, {
+          method: 'GET',
+          headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+          signal: reverseAbortController ? reverseAbortController.signal : undefined,
+        });
+
+        let payload = null;
+        if (res.ok) {
+          payload = await res.json();
+        }
+
+        const displayName = payload?.display_name || payload?.data?.display_name || '';
+
+        if (payload && payload.success && displayName) {
+          setCoordinates(lat, lng, `<strong>Vị trí đã chọn</strong><br><span class="small">${escapeHtml(displayName)}</span>`);
+
+          // Tự động điền nếu ô Địa chỉ (#address hoặc #address-detail) đang trống
+          const targetField = detailAddressInput || document.querySelector('#address, #address-detail, input[name="address_detail"]');
+          let autoFilled = false;
+          if (targetField && !targetField.value.trim()) {
+            applySuggestedAddress(displayName, true);
+            autoFilled = true;
+          }
+
+          if (statusEl) {
+            statusEl.className = 'alert alert-success py-2 small mb-2';
+            statusEl.innerHTML = `<i class="bi bi-geo-alt-fill text-danger me-1"></i>Đã xác định tọa độ: <strong>${fixedLat}, ${fixedLng}</strong>`;
+          }
+
+          if (suggestionEl) {
+            suggestionEl.classList.remove('d-none');
+            suggestionEl.innerHTML = `
+              <div class="p-3 rounded-3 border border-primary-subtle bg-primary-subtle bg-opacity-10 d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2">
+                <div class="small">
+                  <div class="fw-semibold text-dark d-flex align-items-center gap-1 mb-1">
+                    <i class="bi bi-pin-map-fill text-primary"></i>
+                    <span>Địa chỉ gợi ý từ vị trí đã ghim:</span>
+                    ${autoFilled ? '<span class="badge bg-success-subtle text-success border border-success-subtle ms-1">Đã tự động điền</span>' : ''}
+                  </div>
+                  <div class="text-secondary" id="reverseSuggestedText">${escapeHtml(displayName)}</div>
+                </div>
+                <button type="button" class="btn btn-sm btn-primary fw-semibold flex-shrink-0 bds-btn-touch px-3" id="btnApplyReverseAddress">
+                  <i class="bi bi-check2-circle me-1"></i>Áp dụng vào ô Địa chỉ
+                </button>
+              </div>
+            `;
+
+            const applyBtn = suggestionEl.querySelector('#btnApplyReverseAddress');
+            if (applyBtn) {
+              applyBtn.addEventListener('click', function () {
+                applySuggestedAddress(displayName, false);
+                applyBtn.classList.remove('btn-primary');
+                applyBtn.classList.add('btn-success');
+                applyBtn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Đã áp dụng địa chỉ';
+              });
+            }
+          }
+        } else {
+          if (statusEl) {
+            statusEl.className = 'alert alert-info py-2 small mb-2';
+            statusEl.innerHTML = `Đã lưu tọa độ: <strong>${fixedLat}, ${fixedLng}</strong>. Vui lòng nhập thêm địa chỉ chi tiết vào ô bên trên.`;
+          }
+          if (suggestionEl) {
+            suggestionEl.classList.add('d-none');
+          }
+        }
+      } catch (err) {
+        if (err && err.name === 'AbortError') return;
+        if (statusEl) {
+          statusEl.className = 'alert alert-info py-2 small mb-2';
+          statusEl.innerHTML = `Đã cập nhật vị trí: <strong>${fixedLat}, ${fixedLng}</strong>`;
+        }
+        if (suggestionEl) {
+          suggestionEl.classList.add('d-none');
+        }
+      }
+    }
+
     // Sự kiện kéo marker
     marker.on('dragend', function (e) {
       const pos = e.target.getLatLng();
       setCoordinates(pos.lat, pos.lng);
-      if (statusEl) {
-        statusEl.className = 'alert alert-info py-2 small mb-3';
-        statusEl.innerHTML = `Đã cập nhật vị trí: <strong>${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)}</strong> (kéo marker)`;
-      }
+      reverseGeocode(pos.lat, pos.lng);
     });
 
     // Sự kiện click lên bản đồ để dời marker
     map.on('click', function (e) {
       setCoordinates(e.latlng.lat, e.latlng.lng);
-      if (statusEl) {
-        statusEl.className = 'alert alert-info py-2 small mb-3';
-        statusEl.innerHTML = `Đã chọn vị trí: <strong>${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}</strong>`;
-      }
+      reverseGeocode(e.latlng.lat, e.latlng.lng);
     });
 
     // Hàm tìm kiếm địa chỉ qua GeocodeController
     async function searchLocation(query) {
-      const q = (query || addressInput?.value || '').trim();
+      const q = (query || addressInput?.value || detailAddressInput?.value || '').trim();
       if (!q) {
         if (statusEl) {
-          statusEl.className = 'alert alert-warning py-2 small mb-3';
-          statusEl.innerHTML = 'Vui lòng nhập địa chỉ cần tìm trên bản đồ.';
+          statusEl.className = 'alert alert-warning py-2 small mb-2';
+          statusEl.innerHTML = 'Vui lòng nhập địa chỉ cần tìm kiếm trên bản đồ.';
         }
         return;
       }
 
       if (statusEl) {
-        statusEl.className = 'alert alert-info py-2 small mb-3';
-        statusEl.innerHTML = 'Đang tìm kiếm tọa độ cho: <em>' + q + '</em>...';
+        statusEl.className = 'alert alert-info py-2 small mb-2 d-flex align-items-center gap-2';
+        statusEl.innerHTML = '<span class="spinner-border spinner-border-sm text-primary" role="status"></span><span>Đang định vị địa chỉ: <em>' + escapeHtml(q) + '</em>...</span>';
       }
 
       try {
-        // 1. Thử gọi qua backend GeocodeController của nhóm
         let res = null;
         try {
           if (typeof api === 'function') {
             res = await api('geocode?q=' + encodeURIComponent(q));
           }
         } catch (e) {
-          console.warn('Backend GeocodeController không phản hồi, thử gọi trực tiếp Nominatim...', e);
+          // Chuyển sang truy vấn dự phòng
         }
 
-        // 2. Dự phòng nếu host chặn cURL: gọi trực tiếp Nominatim phía client (CORS)
         let data = res && res.success ? res.data : null;
         if (!data || data.length === 0) {
           const directUrl = 'https://nominatim.openstreetmap.org/search?' + new URLSearchParams({
@@ -242,21 +371,40 @@ window.BdsMap = (function () {
         if (data && data.length > 0) {
           const target = data[0];
           map.setView([target.lat, target.lng], 16);
-          setCoordinates(target.lat, target.lng, `<strong>${target.display_name}</strong>`);
+          setCoordinates(target.lat, target.lng, `<strong>${escapeHtml(target.display_name)}</strong>`);
           if (statusEl) {
-            statusEl.className = 'alert alert-success py-2 small mb-3';
-            statusEl.innerHTML = `Tìm thấy tọa độ: <strong>${target.lat.toFixed(6)}, ${target.lng.toFixed(6)}</strong> (${target.display_name})`;
+            statusEl.className = 'alert alert-success py-2 small mb-2';
+            statusEl.innerHTML = `Đã định vị tọa độ: <strong>${target.lat.toFixed(6)}, ${target.lng.toFixed(6)}</strong> (${escapeHtml(target.display_name)})`;
+          }
+          if (suggestionEl && target.display_name) {
+            suggestionEl.classList.remove('d-none');
+            suggestionEl.innerHTML = `
+              <div class="p-3 rounded-3 border border-primary-subtle bg-primary-subtle bg-opacity-10 d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2">
+                <div class="small">
+                  <div class="fw-semibold text-dark mb-1"><i class="bi bi-pin-map-fill text-primary me-1"></i>Địa chỉ tìm thấy:</div>
+                  <div class="text-secondary">${escapeHtml(target.display_name)}</div>
+                </div>
+                <button type="button" class="btn btn-sm btn-primary fw-semibold flex-shrink-0 bds-btn-touch px-3" id="btnApplyReverseAddress">
+                  <i class="bi bi-check2-circle me-1"></i>Áp dụng vào ô Địa chỉ
+                </button>
+              </div>
+            `;
+            suggestionEl.querySelector('#btnApplyReverseAddress')?.addEventListener('click', function () {
+              applySuggestedAddress(target.display_name, false);
+              this.classList.replace('btn-primary', 'btn-success');
+              this.innerHTML = '<i class="bi bi-check-lg me-1"></i>Đã áp dụng địa chỉ';
+            });
           }
         } else {
           if (statusEl) {
-            statusEl.className = 'alert alert-warning py-2 small mb-3';
-            statusEl.innerHTML = 'Không tìm thấy tọa độ chính xác. Bạn có thể bấm trực tiếp lên bản đồ để chọn vị trí.';
+            statusEl.className = 'alert alert-warning py-2 small mb-2';
+            statusEl.innerHTML = 'Không tìm thấy tọa độ chính xác cho địa chỉ này. Bạn có thể bấm trực tiếp lên bản đồ để ghim vị trí.';
           }
         }
       } catch (err) {
         if (statusEl) {
-          statusEl.className = 'alert alert-danger py-2 small mb-3';
-          statusEl.innerHTML = 'Lỗi tìm kiếm vị trí: ' + err.message;
+          statusEl.className = 'alert alert-danger py-2 small mb-2';
+          statusEl.innerHTML = 'Không thể tra cứu vị trí lúc này. Vui lòng thử lại hoặc ghim trực tiếp trên bản đồ.';
         }
       }
     }
@@ -277,7 +425,6 @@ window.BdsMap = (function () {
       });
     }
 
-    // Đảm bảo không bị vỡ/trắng khung bản đồ khi tải xong (Anti Grey Screen đa thời điểm)
     applyAntiGreyScreen(map, mapEl);
 
     return {
@@ -285,6 +432,7 @@ window.BdsMap = (function () {
       marker,
       setCoordinates,
       searchLocation,
+      reverseGeocode,
       invalidateSize: () => map.invalidateSize(),
     };
   }
@@ -496,7 +644,7 @@ window.BdsMap = (function () {
             '<div class="text-muted small mb-1">Loại: <span class="badge bg-light text-dark border">' + item.type + '</span></div>' +
             '<div class="text-danger fw-bold small mb-2">📍 Cách ' + item.formattedDistance + ' <span class="fw-normal text-muted">(~' + walkMinutes + ' phút đi bộ)</span></div>' +
             '<div class="d-flex gap-1">' +
-              '<a href="https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=%2C%3B' + item.lat + '%2C' + item.lng + '" target="_blank" rel="noopener noreferrer" class="btn btn-outline-success btn-sm py-0 px-2 text-decoration-none" style="font-size:0.75rem;"><i class="bi bi-signpost-2 me-1"></i>Chỉ đường OSM</a>' +
+              '<a href="https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=%2C%3B' + item.lat + '%2C' + item.lng + '" target="_blank" rel="noopener noreferrer" class="btn btn-outline-success btn-sm py-0 px-2 text-decoration-none" style="font-size:0.75rem;"><i class="bi bi-signpost-2 me-1"></i>Chỉ đường nhanh</a>' +
               '<a href="https://www.google.com/maps/dir/?api=1&destination=' + item.lat + ',' + item.lng + '" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary btn-sm py-0 px-2 text-decoration-none" style="font-size:0.75rem;"><i class="bi bi-geo-alt me-1"></i>Google Maps</a>' +
             '</div>' +
           '</div>';
