@@ -897,3 +897,341 @@ body {
   }
 }
 
+/* ==========================================================================
+   13. A4 REAL ESTATE BROCHURE PRINT STYLES (@media print)
+   ========================================================================== */
+.print-brochure-sheet {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm 12mm;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    font-family: 'Plus Jakarta Sans', Arial, sans-serif !important;
+    font-size: 10.5pt !important;
+    line-height: 1.45 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Ẩn toàn bộ thanh điều hướng, chân trang, nút bấm, công cụ tính vay, bình luận, lịch sử xem và thành phần phụ */
+  .navbar,
+  .navbar-modern,
+  header,
+  footer,
+  .footer-modern,
+  .breadcrumb,
+  nav[aria-label="breadcrumb"],
+  .btn,
+  button,
+  .mortgage-calc-card,
+  #mortgageSection,
+  #reviewsSection,
+  #appointmentSection,
+  #similarPropertiesSection,
+  #recently-viewed-section,
+  #mapSection,
+  .property-detail-page,
+  .floating-compare-bar,
+  .property-mobile-actions,
+  .modal,
+  .modal-backdrop,
+  .bds-toast-container {
+    display: none !important;
+  }
+
+  /* Hiển thị tờ rơi Brochure A4 chuyên dụng */
+  #printBrochureSheet,
+  .print-brochure-sheet {
+    display: block !important;
+    width: 100% !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .print-brochure-header {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    border-bottom: 3px solid #0f172a !important;
+    padding-bottom: 8px !important;
+    margin-bottom: 12px !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .print-brand-heading {
+    font-size: 12pt !important;
+    font-weight: 800 !important;
+    color: #0f172a !important;
+    letter-spacing: -0.01em !important;
+    text-transform: uppercase !important;
+  }
+
+  .print-brand-sub {
+    font-size: 8.5pt !important;
+    color: #475569 !important;
+  }
+
+  .print-brand-right {
+    text-align: right !important;
+    font-size: 8.5pt !important;
+    color: #1e293b !important;
+    line-height: 1.35 !important;
+  }
+
+  .print-property-banner {
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    border-left: 5px solid #e03c31 !important;
+    border-radius: 8px !important;
+    padding: 10px 14px !important;
+    margin-bottom: 14px !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .print-property-meta {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    margin-bottom: 4px !important;
+    font-size: 8.5pt !important;
+  }
+
+  .print-badge-type {
+    background: #e03c31 !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    padding: 2px 8px !important;
+    border-radius: 4px !important;
+    font-size: 8pt !important;
+  }
+
+  .print-badge-cat {
+    background: #0f172a !important;
+    color: #ffffff !important;
+    font-weight: 600 !important;
+    padding: 2px 8px !important;
+    border-radius: 4px !important;
+    font-size: 8pt !important;
+  }
+
+  .print-meta-code {
+    margin-left: auto !important;
+    color: #475569 !important;
+  }
+
+  .print-property-title {
+    font-size: 14pt !important;
+    font-weight: 800 !important;
+    color: #0f172a !important;
+    margin: 4px 0 !important;
+    line-height: 1.25 !important;
+  }
+
+  .print-property-address {
+    font-size: 9.5pt !important;
+    color: #334155 !important;
+  }
+
+  /* Bố cục 2 cột gọn gàng chuẩn A4 */
+  .print-brochure-grid {
+    display: grid !important;
+    grid-template-columns: 48% 49% !important;
+    gap: 3% !important;
+    align-items: start !important;
+    margin-bottom: 14px !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .print-col-left,
+  .print-col-right {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .print-image-box {
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    background: #f1f5f9 !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .print-main-image {
+    width: 100% !important;
+    height: 210px !important;
+    object-fit: cover !important;
+    display: block !important;
+  }
+
+  .print-section-box {
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 8px !important;
+    padding: 10px 12px !important;
+    background: #ffffff !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .print-section-title {
+    font-size: 10.5pt !important;
+    font-weight: 800 !important;
+    color: #0f172a !important;
+    text-transform: uppercase !important;
+    border-bottom: 1.5px solid #e2e8f0 !important;
+    padding-bottom: 4px !important;
+    margin: 0 0 8px 0 !important;
+  }
+
+  .print-specs-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 9.5pt !important;
+  }
+
+  .print-specs-table th,
+  .print-specs-table td {
+    padding: 5px 6px !important;
+    border-bottom: 1px solid #f1f5f9 !important;
+    text-align: left !important;
+    vertical-align: middle !important;
+  }
+
+  .print-specs-table th {
+    width: 42% !important;
+    color: #475569 !important;
+    font-weight: 600 !important;
+  }
+
+  .print-price-highlight {
+    color: #e03c31 !important;
+    font-weight: 800 !important;
+    font-size: 11.5pt !important;
+  }
+
+  .print-unit-price {
+    color: #64748b !important;
+    font-size: 8.5pt !important;
+    font-weight: 500 !important;
+  }
+
+  .print-description-text {
+    font-size: 9.5pt !important;
+    color: #1e293b !important;
+    text-align: justify !important;
+    line-height: 1.45 !important;
+  }
+
+  .print-amenities-list {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+
+  .print-amenity-tag {
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 4px !important;
+    padding: 3px 8px !important;
+    font-size: 8.5pt !important;
+    font-weight: 600 !important;
+    color: #0f172a !important;
+  }
+
+  .print-agent-box {
+    background: #f8fafc !important;
+    border-color: #94a3b8 !important;
+  }
+
+  .print-agent-name {
+    font-size: 11pt !important;
+    font-weight: 800 !important;
+    color: #0f172a !important;
+  }
+
+  .print-agent-role {
+    font-size: 8.5pt !important;
+    color: #475569 !important;
+    margin-bottom: 6px !important;
+  }
+
+  .print-agent-contact-row {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 2px !important;
+    font-size: 9.5pt !important;
+    margin-bottom: 6px !important;
+  }
+
+  .print-deposit-note {
+    font-size: 8.5pt !important;
+    background: #fffbeb !important;
+    border: 1px dashed #d97706 !important;
+    border-radius: 4px !important;
+    padding: 5px 8px !important;
+    color: #0f172a !important;
+  }
+
+  .print-brochure-footer {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 16px !important;
+    border-top: 2px solid #0f172a !important;
+    padding-top: 10px !important;
+    margin-top: 8px !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .print-footer-notes {
+    font-size: 8.2pt !important;
+    color: #475569 !important;
+    line-height: 1.4 !important;
+    flex: 1 !important;
+  }
+
+  .print-footer-qr {
+    text-align: center !important;
+    width: 145px !important;
+    flex-shrink: 0 !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 8px !important;
+    padding: 6px !important;
+    background: #ffffff !important;
+  }
+
+  .print-qr-img {
+    width: 92px !important;
+    height: 92px !important;
+    display: block !important;
+    margin: 0 auto 4px auto !important;
+  }
+
+  .print-qr-caption {
+    font-size: 7.5pt !important;
+    color: #1e293b !important;
+    font-weight: 600 !important;
+    line-height: 1.25 !important;
+  }
+}
+
+

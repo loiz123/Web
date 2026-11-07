@@ -191,6 +191,86 @@ $propCtrl->search();
 $renderedSearchHtml = ob_get_clean();
 assertTest("11.2 Render PropertyController::search() thành công, hiển thị #recently-viewed-section", strlen($renderedSearchHtml) > 3000 && strpos($renderedSearchHtml, 'id="recently-viewed-section"') !== false);
 
+// 12. Kiểm tra Tính năng Cao cấp 1: Thanh toán / Đặt cọc giữ chỗ bằng VietQR (Napas 247)
+assertTest(
+    "12.1 detail.php có nút 'Đặt cọc giữ chỗ qua VietQR' mở Modal #vietQrModal",
+    strpos($detailViewContent, 'Đặt cọc giữ chỗ qua VietQR') !== false
+    && strpos($detailViewContent, 'data-bs-target="#vietQrModal"') !== false
+    && strpos($detailViewContent, 'id="vietQrModal"') !== false
+);
+assertTest(
+    "12.2 #vietQrModal có đủ 3 mức cọc mẫu (5.000.000đ, 10.000.000đ, 20.000.000đ) và ô nhập số tiền tùy chọn",
+    strpos($detailViewContent, '5.000.000đ') !== false
+    && strpos($detailViewContent, '10.000.000đ') !== false
+    && strpos($detailViewContent, '20.000.000đ') !== false
+    && strpos($detailViewContent, 'id="vietQrCustomAmount"') !== false
+);
+assertTest(
+    "12.3 #vietQrModal sinh ảnh mã QR chuẩn VietQR (img.vietqr.io/image/MB-0988889999-compact2.png)",
+    strpos($detailViewContent, 'https://img.vietqr.io/image/MB-0988889999-compact2.png?amount=') !== false
+    && strpos($detailViewContent, '&accountName=CONG%20TY%20BDS%20VIET') !== false
+);
+assertTest(
+    "12.4 #vietQrModal hiển thị rõ MBBank, STK 0988889999, CÔNG TY BĐS VIỆT, nút Sao chép STK & Sao chép nội dung kèm BDS.toast",
+    strpos($detailViewContent, 'Ngân hàng Quân Đội (MBBank)') !== false
+    && strpos($detailViewContent, '0988889999') !== false
+    && strpos($detailViewContent, 'CÔNG TY BĐS VIỆT') !== false
+    && strpos($detailViewContent, 'Sao chép STK') !== false
+    && strpos($detailViewContent, 'Sao chép nội dung') !== false
+    && strpos($detailViewContent, 'copyVietQrText') !== false
+);
+
+// Render thử trang detail ID 18 để kiểm tra nội dung chuyển khoản BDS18 DAT COC
+$prop18 = $finder->findDetail(18);
+if ($prop18) {
+    ob_start();
+    $propCtrl->detail(18);
+    $renderedDetail18 = ob_get_clean();
+    assertTest(
+        "12.5 Render detail(18) sinh đúng nội dung chuyển khoản 'BDS18 DAT COC' và URL VietQR BDS18%20DAT%20COC",
+        strpos($renderedDetail18, 'BDS18 DAT COC') !== false
+        && strpos($renderedDetail18, 'BDS18%20DAT%20COC') !== false
+    );
+} else {
+    assertTest(
+        "12.5 Render detail(14) sinh đúng nội dung chuyển khoản 'BDS14 DAT COC' và URL VietQR BDS14%20DAT%20COC",
+        strpos($renderedDetailHtml, 'BDS14 DAT COC') !== false
+        && strpos($renderedDetailHtml, 'BDS14%20DAT%20COC') !== false
+    );
+}
+
+// 13. Kiểm tra Tính năng Cao cấp 2: Xuất tờ rơi / In Brochure BĐS chuẩn in ấn A4
+assertTest(
+    "13.1 detail.php có nút '🖨️ In tờ rơi / Xuất Brochure A4' gọi window.print()",
+    strpos($detailViewContent, '🖨️ In tờ rơi / Xuất Brochure A4') !== false
+    && strpos($detailViewContent, 'onclick="window.print()"') !== false
+);
+assertTest(
+    "13.2 Khối Brochure A4 hiển thị tiêu đề thương hiệu 'BĐS VIỆT - HỆ THỐNG PHÂN PHỐI BẤT ĐỘNG SẢN CHUYÊN NGHIỆP' kèm Hotline & Website",
+    strpos($detailViewContent, 'BĐS VIỆT - HỆ THỐNG PHÂN PHỐI BẤT ĐỘNG SẢN CHUYÊN NGHIỆP') !== false
+    && strpos($detailViewContent, 'www.bdsviet.vn') !== false
+);
+assertTest(
+    "13.3 Khối Brochure A4 có bố cục 2 cột (Ảnh chính, Bảng thông số kỹ thuật, Mô tả nổi bật, Tiện ích, Môi giới phụ trách)",
+    strpos($detailViewContent, 'print-brochure-grid') !== false
+    && strpos($detailViewContent, 'print-col-left') !== false
+    && strpos($detailViewContent, 'print-col-right') !== false
+    && strpos($detailViewContent, 'Bảng thông số kỹ thuật') !== false
+    && strpos($detailViewContent, 'Tọa độ GPS') !== false
+);
+assertTest(
+    "13.4 Khối Brochure A4 tích hợp mã QR 120x120 ở góc dưới tờ rơi kèm dòng chữ hướng dẫn quét mã",
+    strpos($detailViewContent, 'https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=') !== false
+    && strpos($detailViewContent, 'Quét mã QR để xem hình ảnh chi tiết và video trên website') !== false
+);
+assertTest(
+    "13.5 style.css có @media print khổ A4, ẩn navbar/footer/breadcrumb/buttons/mortgage/reviews và căn chỉnh page-break-inside: avoid",
+    strpos($styleCssContent, '@media print') !== false
+    && strpos($styleCssContent, 'size: A4 portrait') !== false
+    && strpos($styleCssContent, 'page-break-inside: avoid') !== false
+    && strpos($styleCssContent, '.print-brochure-grid') !== false
+);
+
 echo "\n=======================================================\n";
 echo "KẾT QUẢ: {$passed}/{$total} tests passed!\n";
 echo "=======================================================\n\n";
