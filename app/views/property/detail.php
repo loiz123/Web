@@ -1,5 +1,5 @@
 <?php
-// Tọa độ an toàn cho bản đồ Leaflet OpenStreetMap & ESRI [C - Thiện]
+// Tọa độ an toàn phục vụ hiển thị vị trí bất động sản & tiện ích khu vực
 $propLat = (float)($property['latitude'] ?? 0);
 $propLng = (float)($property['longitude'] ?? 0);
 $hasValidCoords = ($propLat >= 8.0 && $propLat <= 24.0 && $propLng >= 102.0 && $propLng <= 110.0);
@@ -19,7 +19,7 @@ if (!$hasValidCoords) {
     }
 }
 ?>
-<!-- Leaflet 1.9.4 CSS (jsDelivr CDN ổn định, tải nhanh, không lỗi integrity) -->
+<!-- Thư viện hiển thị bản đồ tương tác -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
 <style>
   #propertyMap { height: 450px; min-height: 450px; width: 100%; border-radius: 16px; z-index: 1; background-color: #f8fafc; position: relative; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
@@ -185,18 +185,18 @@ if (!$hasValidCoords) {
         </div>
       <?php endif; ?>
 
-      <!-- Vị trí trên bản đồ Leaflet OpenStreetMap Web API & Tiện ích xung quanh (POI) [C - Thiện] -->
+      <!-- Vị trí & Tiện ích khu vực xung quanh bất động sản -->
       <div class="card shadow-sm border-0 mb-4" id="mapSection">
         <div class="card-body">
           <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-3 border-bottom pb-2">
             <div>
               <h5 class="fw-bold mb-0 text-dark d-flex align-items-center gap-2">
-                <i class="bi bi-geo-alt-fill text-danger"></i> Vị trí & Tiện ích xung quanh
+                <i class="bi bi-geo-alt-fill text-danger"></i> Vị trí & Tiện ích khu vực
               </h5>
-              <span class="text-muted small">Bản đồ vị trí bất động sản • Khám phá tiện ích bán kính 1 - 2km</span>
+              <span class="text-muted small">Bản đồ vị trí bất động sản trực quan • Khám phá tiện ích bán kính 1 - 2km</span>
             </div>
             <div class="d-flex align-items-center gap-2 flex-wrap">
-              <span class="badge bg-success-subtle text-success border border-success-subtle"><i class="bi bi-map me-1"></i>OpenStreetMap Web API (Leaflet Engine)</span>
+              <span class="badge bg-success-subtle text-success border border-success-subtle"><i class="bi bi-compass me-1"></i>Vị trí & Tiện ích khu vực</span>
               <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle"><i class="bi bi-geo-alt me-1"></i>Tọa độ: <?= number_format($propLat, 4) ?>, <?= number_format($propLng, 4) ?></span>
               <!-- Nút tắt / đặt lại tiện ích -->
               <button type="button" id="btnResetPoi" class="btn btn-outline-secondary btn-sm d-none" onclick="resetNearbyPoi()">
@@ -235,7 +235,7 @@ if (!$hasValidCoords) {
             <span id="poiLoadingText">Đang tra cứu dữ liệu tiện ích xung quanh...</span>
           </div>
 
-          <!-- Khung bản đồ Leaflet OpenStreetMap (chiều cao 450px, bo góc 16px, border đẹp) -->
+          <!-- Khung bản đồ bất động sản trực quan (chiều cao 450px, bo góc 16px) -->
           <div id="propertyMap" class="shadow-sm position-relative" style="height: 450px; min-height: 450px; width: 100%; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 20px rgba(0,0,0,0.06); overflow: hidden; background-color: #f8fafc;"></div>
 
           <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mt-3">
@@ -243,8 +243,8 @@ if (!$hasValidCoords) {
               📍 <?= e($property['address_detail'] ? $property['address_detail'] . ', ' : '') ?><?= e($property['ward_name']) ?>, <?= e($property['district_name']) ?>, <?= e($property['province_name']) ?>
             </p>
             <div class="d-flex align-items-center gap-2 flex-wrap">
-              <a href="https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=%2C%3B<?= $propLat ?>%2C<?= $propLng ?>" target="_blank" rel="noopener noreferrer" class="btn btn-outline-success btn-sm rounded-pill px-3 py-1 fw-semibold" style="font-size: 0.8rem;" title="Mở chỉ đường trên OpenStreetMap">
-                <i class="bi bi-signpost-2 me-1"></i>Chỉ đường (OpenStreetMap)
+              <a href="https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=%2C%3B<?= $propLat ?>%2C<?= $propLng ?>" target="_blank" rel="noopener noreferrer" class="btn btn-outline-success btn-sm rounded-pill px-3 py-1 fw-semibold" style="font-size: 0.8rem;" title="Xem lộ trình di chuyển chi tiết">
+                <i class="bi bi-signpost-2 me-1"></i>Chỉ đường trực tuyến
               </a>
               <a href="https://www.google.com/maps/dir/?api=1&destination=<?= $propLat ?>,<?= $propLng ?>" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary btn-sm rounded-pill px-3 py-1 fw-semibold" style="font-size: 0.8rem;" title="Mở chỉ đường trên Google Maps">
                 <i class="bi bi-geo-alt me-1"></i>Chỉ đường (Google Maps)
@@ -265,7 +265,7 @@ if (!$hasValidCoords) {
         </div>
       </div>
 
-      <!-- CÔNG CỤ TÍNH LÃI SUẤT VAY MUA NHÀ (MORTGAGE / LOAN CALCULATOR) [C - Thiện] -->
+      <!-- CÔNG CỤ TÍNH LÃI SUẤT VAY MUA NHÀ -->
       <div class="card shadow-sm border-0 mb-4 mortgage-calc-card rounded-4 overflow-hidden" id="mortgageSection">
         <div class="card-header bg-white border-bottom p-3">
           <div class="d-flex align-items-center justify-content-between">
@@ -274,7 +274,7 @@ if (!$hasValidCoords) {
                 <i class="bi bi-calculator-fill fs-5"></i>
               </div>
               <div>
-                <h5 class="fw-bold text-dark mb-0">Tính lãi suất vay mua nhà</h5>
+                <h5 class="fw-bold text-dark mb-0">Công cụ tính lãi suất vay mua nhà</h5>
                 <span class="text-muted small">Ước tính lịch trả nợ & số tiền thanh toán hàng tháng tức thì</span>
               </div>
             </div>
@@ -453,7 +453,7 @@ if (!$hasValidCoords) {
         </div>
       </div>
 
-      <!-- Đánh giá & Nhận xét [C - Thiện] -->
+      <!-- Đánh giá & Nhận xét -->
       <div class="card shadow-sm border-0 mb-4" id="reviewsSection">
         <div class="card-body">
           <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
@@ -499,7 +499,7 @@ if (!$hasValidCoords) {
                       <?= $userReview ? 'Lưu thay đổi' : 'Gửi đánh giá' ?>
                     </button>
                     <?php if ($userReview): ?>
-                      <button type="submit" formaction="<?= e(base_url('review/delete/' . (int)$userReview['id'])) ?>" class="btn btn-outline-danger btn-sm" onclick="return confirm('Bạn có chắc muốn xóa đánh giá này?');">
+                      <button type="button" data-delete-action="<?= e(base_url('review/delete/' . (int)$userReview['id'])) ?>" class="btn btn-outline-danger btn-sm" onclick="handleDeleteReview(this)">
                         Xóa đánh giá
                       </button>
                     <?php endif; ?>
@@ -580,7 +580,7 @@ if (!$hasValidCoords) {
           </div>
         </div>
 
-        <!-- Card Hẹn xem nhà & Tương tác [D - Quốc] -->
+        <!-- Card Đặt lịch hẹn xem nhà -->
         <div class="card shadow-sm border-0 mb-3">
           <div class="card-body p-3">
             <h6 class="fw-bold mb-2">Đặt lịch xem nhà</h6>
@@ -619,22 +619,22 @@ if (!$hasValidCoords) {
         <!-- Chia sẻ, Yêu thích, So sánh & Báo cáo vi phạm -->
         <div class="d-flex flex-column gap-2">
           <div class="d-flex gap-2">
-            <button id="btnFavorite" class="btn <?= !empty($isFavorited) ? 'btn-danger' : 'btn-outline-danger' ?> flex-grow-1" onclick="handleToggleFavorite(<?= (int)$property['id'] ?>)">
-              <span id="favIcon"><?= !empty($isFavorited) ? '❤️' : '🤍' ?></span>
+            <button id="btnFavorite" class="btn <?= !empty($isFavorited) ? 'btn-danger' : 'btn-outline-danger' ?> flex-grow-1 bds-btn-touch" onclick="handleToggleFavorite(<?= (int)$property['id'] ?>)">
+              <span id="favIcon" class="me-1"><?= !empty($isFavorited) ? '❤️' : '🤍' ?></span>
               <span id="favText"><?= !empty($isFavorited) ? 'Đã lưu tin' : 'Lưu tin' ?></span>
             </button>
-            <button class="btn btn-outline-secondary" onclick="navigator.clipboard.writeText(window.location.href); alert('Đã sao chép link tin đăng!');">
+            <button type="button" id="btnShareLink" class="btn btn-outline-secondary bds-btn-touch px-3" onclick="handleCopyShareLink()">
               🔗 Chia sẻ
             </button>
           </div>
 
-          <!-- Nút So sánh BĐS này & Tính lãi suất vay [C - Thiện] -->
+          <!-- Nút So sánh BĐS này & Tính lãi suất vay -->
           <div class="d-flex gap-2">
-            <button type="button" id="btnDetailCompare" class="btn btn-outline-primary btn-sm flex-grow-1 d-flex align-items-center justify-content-center gap-1 py-2 fw-semibold" onclick="handleToggleDetailCompare()">
+            <button type="button" id="btnDetailCompare" data-compare-id="<?= (int)$property['id'] ?>" class="btn btn-outline-primary btn-sm flex-grow-1 d-flex align-items-center justify-content-center gap-1 py-2 fw-semibold bds-btn-touch" onclick="handleToggleDetailCompare()">
               <i class="bi bi-arrow-left-right"></i>
               <span id="detailCompareText">So sánh tin này</span>
             </button>
-            <a href="#mortgageSection" class="btn btn-outline-success btn-sm d-flex align-items-center justify-content-center gap-1 py-2 px-3 fw-semibold" title="Tính khoản vay mua nhà">
+            <a href="#mortgageSection" class="btn btn-outline-success btn-sm d-flex align-items-center justify-content-center gap-1 py-2 px-3 fw-semibold bds-btn-touch" title="Tính khoản vay mua nhà">
               <i class="bi bi-calculator"></i> Tính vay
             </a>
           </div>
@@ -691,7 +691,7 @@ if (!$hasValidCoords) {
   <?php endif; ?>
 </div>
 
-<!-- Modal Báo cáo vi phạm [D - Quốc] -->
+<!-- Modal Báo cáo vi phạm -->
 <div class="modal fade" id="reportModal" tabindex="-1" aria-labelledby="reportModalLabel" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -727,10 +727,7 @@ if (!$hasValidCoords) {
   </div>
 </div>
 
-<!-- Cấu hình Google Maps API được lưu trữ tại config/config.php phục vụ chuẩn bị đồ án -->
-<!-- Hệ thống hiển thị bản đồ sử dụng thuần Leaflet OpenStreetMap Web API RESTful -->
-
-<!-- Script Leaflet 1.9.4 & Map.js (Dự phòng và fallback mượt mà) -->
+<!-- Thư viện hiển thị bản đồ vị trí và tiện ích xung quanh -->
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="<?= e(base_url('assets/js/map.js')) ?>"></script>
 <script>
@@ -739,6 +736,34 @@ if (!$hasValidCoords) {
     if (mainImg) mainImg.src = url;
     document.querySelectorAll('.gallery-thumb').forEach(t => t.classList.remove('active'));
     if (el) el.classList.add('active');
+  }
+
+  function handleCopyShareLink() {
+    if (window.BDS && typeof window.BDS.copyShareLink === 'function') {
+      window.BDS.copyShareLink(window.location.href);
+    } else if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(window.location.href).then(function () {
+        if (window.BDS && typeof window.BDS.toast === 'function') {
+          window.BDS.toast('Đã sao chép liên kết vào bộ nhớ tạm', 'success', 'Chia sẻ tin đăng');
+        }
+      });
+    }
+  }
+
+  function handleDeleteReview(btn) {
+    const deleteAction = btn?.dataset?.deleteAction;
+    const form = btn?.closest('form');
+    if (!deleteAction || !form) return;
+    if (window.BDS && typeof window.BDS.confirm === 'function') {
+      window.BDS.confirm(
+        'Bạn có chắc chắn muốn xóa đánh giá này? Hành động này không thể hoàn tác.',
+        'Xác nhận xóa đánh giá',
+        function () {
+          form.action = deleteAction;
+          form.submit();
+        }
+      );
+    }
   }
 
   async function handleToggleFavorite(propertyId) {
@@ -756,29 +781,45 @@ if (!$hasValidCoords) {
           btn.classList.add('btn-danger');
           if (icon) icon.textContent = '❤️';
           if (text) text.textContent = 'Đã lưu tin';
+          if (window.BDS && typeof window.BDS.toast === 'function') {
+            window.BDS.toast('Đã thêm bất động sản vào danh sách yêu thích.', 'success', 'Yêu thích');
+          }
         } else {
           btn.classList.remove('btn-danger');
           btn.classList.add('btn-outline-danger');
           if (icon) icon.textContent = '🤍';
           if (text) text.textContent = 'Lưu tin';
+          if (window.BDS && typeof window.BDS.toast === 'function') {
+            window.BDS.toast('Đã xóa bất động sản khỏi danh sách yêu thích.', 'warning', 'Yêu thích');
+          }
         }
       } else {
         if (res.data && res.data.require_login) {
-          if (confirm('Vui lòng đăng nhập để lưu tin yêu thích. Bạn có muốn chuyển đến trang đăng nhập ngay không?')) {
+          if (window.BDS && typeof window.BDS.confirm === 'function') {
+            window.BDS.confirm(
+              'Vui lòng đăng nhập tài khoản để lưu bất động sản yêu thích. Bạn có muốn chuyển đến trang đăng nhập ngay không?',
+              'Yêu cầu đăng nhập',
+              function () {
+                window.location.href = '<?= e(base_url('auth/login')) ?>';
+              }
+            );
+          } else {
             window.location.href = '<?= e(base_url('auth/login')) ?>';
           }
-        } else {
-          alert(res.message || 'Không thể thực hiện thao tác.');
+        } else if (window.BDS && typeof window.BDS.toast === 'function') {
+          window.BDS.toast(res.message || 'Không thể thực hiện thao tác.', 'danger', 'Lỗi');
         }
       }
     } catch (err) {
-      alert('Không thể kết nối đến máy chủ. Vui lòng thử lại sau.');
+      if (window.BDS && typeof window.BDS.toast === 'function') {
+        window.BDS.toast('Không thể kết nối đến máy chủ. Vui lòng thử lại sau.', 'danger', 'Lỗi kết nối');
+      }
     } finally {
       if (btn) btn.disabled = false;
     }
   }
 
-  // Dữ liệu BĐS phục vụ tính năng so sánh [C - Thiện]
+  // Dữ liệu BĐS phục vụ tính năng so sánh
   const currentPropertyData = {
     id: <?= (int)$property['id'] ?>,
     title: <?= json_for_script($property['title']) ?>,
@@ -814,7 +855,7 @@ if (!$hasValidCoords) {
   }
 
   // =========================================================================
-  // BẢN ĐỒ VỊ TRÍ & TIỆN ÍCH XUNG QUANH (LEAFLET OPENSTREETMAP WEB API) [C - Thiện]
+  // BẢN ĐỒ VỊ TRÍ & TIỆN ÍCH KHU VỰC XUNG QUANH
   // =========================================================================
   const mapLat = <?= $propLat ?>;
   const mapLng = <?= $propLng ?>;
@@ -824,7 +865,7 @@ if (!$hasValidCoords) {
   const propAddressFormatted = <?= json_for_script(($property['address_detail'] ? $property['address_detail'] . ', ' : '') . $property['ward_name'] . ', ' . $property['district_name']) ?>;
   const propDistrict = <?= json_for_script($property['district_name'] ?? '') ?>;
 
-  let detailMapInstance = null; // Leaflet viewer instance
+  let detailMapInstance = null;
   let activePoiCat = null;
   let currentPoiItems = [];
 
@@ -908,7 +949,7 @@ if (!$hasValidCoords) {
     }
   }
 
-  // CÔNG CỤ TÍNH LÃI SUẤT VAY MUA NHÀ [C - Thiện]
+  // CÔNG CỤ TÍNH LÃI SUẤT VAY MUA NHÀ
   function initMortgageCalculator() {
     const priceInput = document.getElementById('calcHomePrice');
     const ratioSlider = document.getElementById('calcLoanRatio');
@@ -1081,7 +1122,7 @@ if (!$hasValidCoords) {
       });
     });
 
-    // 2. Leaflet viewer + POI (Sử dụng tọa độ an toàn & OpenStreetMap chuẩn không cần API key)
+    // 2. Khởi tạo bản đồ vị trí & tiện ích khu vực xung quanh
     const lat = <?= $propLat ?>;
     const lng = <?= $propLng ?>;
     const title = <?= json_for_script($property['title']) ?>;
@@ -1098,7 +1139,7 @@ if (!$hasValidCoords) {
         '</div>' +
         '<div class="d-flex gap-1 pt-1 border-top">' +
           '<a href="https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=%2C%3B' + lat + '%2C' + lng + '" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-success py-0 px-2 text-decoration-none" style="font-size:0.75rem;">' +
-            '<i class="bi bi-signpost-2 me-1"></i>Chỉ đường OSM' +
+            '<i class="bi bi-signpost-2 me-1"></i>Chỉ đường trực tuyến' +
           '</a>' +
           '<a href="https://www.google.com/maps/dir/?api=1&destination=' + lat + ',' + lng + '" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary py-0 px-2 text-decoration-none" style="font-size:0.75rem;">' +
             '<i class="bi bi-geo-alt me-1"></i>Google Maps' +
