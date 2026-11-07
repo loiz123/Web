@@ -14,12 +14,18 @@ $_SERVER['SCRIPT_NAME'] = '/batdongsan/index.php';
 
 $GLOBALS['config'] = require ROOT . '/config/config.php';
 
-spl_autoload_register(function (string $class): void {
+$testDatabase = getenv('BDS_TEST_DB');
+if ($testDatabase && preg_match('/^batdongsan_test_[a-z0-9_]+$/', $testDatabase)) {
+    $GLOBALS['config']['db']['name'] = $testDatabase;
+}
+
+function loadModuleCTestClass(string $class): void {
     foreach (['core', 'models', 'controllers', 'controllers/admin', 'helpers'] as $dir) {
         $file = APP . "/$dir/$class.php";
         if (is_file($file)) { require_once $file; return; }
     }
-});
+}
+spl_autoload_register('loadModuleCTestClass');
 require_once APP . '/helpers/functions.php';
 
 class TestRunner

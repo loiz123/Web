@@ -107,10 +107,7 @@ class Property extends Model
 
     public function imagesForListing(int $id): array
     {
-        return $this->query(
-            'SELECT image_url FROM property_images WHERE property_id = ?',
-            [$id]
-        )->fetchAll(PDO::FETCH_COLUMN);
+        return (new PropertyImage())->urlsByPropertyId($id);
     }
 
     public function deleteOwned(int $id, int $userId): bool
@@ -142,11 +139,13 @@ class Property extends Model
                 ]
             );
             $propertyId = (int)$this->db->lastInsertId();
+            $propertyImage = new PropertyImage();
 
             foreach ($imagePaths as $index => $imagePath) {
-                $this->query(
-                    'INSERT INTO property_images (property_id, image_url, is_cover) VALUES (?, ?, ?)',
-                    [$propertyId, $imagePath, $index === $coverIndex ? 1 : 0]
+                $propertyImage->createForProperty(
+                    $propertyId,
+                    $imagePath,
+                    $index === $coverIndex
                 );
             }
             foreach ($amenityIds as $amenityId) {

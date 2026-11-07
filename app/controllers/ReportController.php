@@ -63,10 +63,4 @@ class ReportController extends Controller
         $this->redirect($propertyId > 0 ? 'property/detail/' . $propertyId : '');
     }
 
-    protected function wantsJson(): bool
-    {
-        $accept = $_SERVER['HTTP_ACCEPT'] ?? '';
-        return str_contains($accept, 'application/json')
-            || (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest');
-    }
 }

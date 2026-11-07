@@ -12,7 +12,19 @@ class GeocodeController extends Controller
             $this->json(null, false, 'Vui lòng cung cấp địa chỉ cần tìm.', 400);
         }
 
-        $this->throttleNominatim();
+        // Điều phối các phiên trên cùng máy chủ bằng file lock
+        $lock = fopen(sys_get_temp_dir() . '/bds-nominatim-rate.lock', 'c+');
+        if ($lock === false || !flock($lock, LOCK_EX)) {
+            if ($lock !== false) fclose($lock);
+            $this->json(null, false, 'Không thể điều phối yêu cầu bản đồ.', 503);
+        }
+        $last = (float)stream_get_contents($lock);
+        $wait = 1.0 - (microtime(true) - $last);
+        if ($wait > 0) usleep((int)ceil($wait * 1000000));
+        ftruncate($lock, 0);
+        rewind($lock);
+        fwrite($lock, (string)microtime(true));
+        fflush($lock);
 
         $url = 'https://nominatim.openstreetmap.org/search?' . http_build_query([
             'q'              => $q,
@@ -22,9 +34,13 @@ class GeocodeController extends Controller
             'countrycodes'   => 'vn',
         ]);
 
-        $resp = $this->executeCurl($url, 5);
+        $resp = $this->executeCurl($url, 6);
+        flock($lock, LOCK_UN);
+        fclose($lock);
+
         if (!$resp['ok']) {
-            $this->json(null, false, 'Không thể kết nối đến dịch vụ định vị bản đồ. Vui lòng thử lại sau.', 502);
+            $errDetail = $resp['error'] ?: ('HTTP ' . $resp['status']);
+            $this->json(null, false, 'Không thể kết nối đến dịch vụ định vị bản đồ (' . $errDetail . '). Vui lòng thử lại sau.', 502);
         }
 
         $items = json_decode((string)$resp['body'], true);

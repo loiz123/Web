@@ -79,8 +79,8 @@ class PropertyController extends Controller
         }
 
         $propertyTypes = (new PropertyType())->allSorted();
-        $districts = !empty($filters['province_id']) ? $location->districts((int)$filters['province_id']) : [];
-        $wards = !empty($filters['district_id']) ? $location->wards((int)$filters['district_id']) : [];
+        $districts = !empty($filters['province_id']) ? $location->districtsByProvince((int)$filters['province_id']) : [];
+        $wards = !empty($filters['district_id']) ? $location->wardsByDistrict((int)$filters['district_id']) : [];
         $savedSearches = Auth::check() ? (new SavedSearch())->getByUser((int)Auth::id()) : [];
 
         $this->view('property/search', [
