@@ -87,70 +87,95 @@ window.BdsMap = (function () {
       }
     });
 
-    // Hàm tìm kiếm địa chỉ qua GeocodeController
+    // Tìm địa chỉ khi người dùng yêu cầu và chọn một kết quả từ API.
+    const resultsEl = document.createElement('div');
+    resultsEl.className = 'list-group mb-2';
+    resultsEl.setAttribute('aria-label', 'Kết quả tìm địa chỉ');
+    resultsEl.hidden = true;
+    if (addressInput && addressInput.parentElement) {
+      addressInput.parentElement.insertAdjacentElement('afterend', resultsEl);
+    }
+
+    function chooseLocation(target) {
+      const lat = Number(target.lat);
+      const lng = Number(target.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+      const popup = document.createElement('span');
+      popup.textContent = target.display_name || 'Vị trí đã chọn';
+      map.setView([lat, lng], 16);
+      setCoordinates(lat, lng, popup);
+      resultsEl.hidden = true;
+      if (statusEl) {
+        statusEl.className = 'alert alert-success py-2 small mb-3';
+        statusEl.textContent = 'Đã chọn: ' + (target.display_name || 'vị trí trên bản đồ') + '. Có thể kéo marker để điều chỉnh.';
+      }
+    }
+
+    function createLocationButton(target) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'list-group-item list-group-item-action';
+      button.textContent = target.display_name || 'Vị trí không có tên';
+      button.addEventListener('click', function () { chooseLocation(target); });
+      return button;
+    }
+
+    function addLocationContext(query) {
+      let fullQuery = query;
+      const fields = ['ward_id', 'district_id', 'province_id'];
+      for (const field of fields) {
+        const select = document.querySelector('select[name="' + field + '"]');
+        if (!select || !select.value || !select.selectedOptions.length) continue;
+        const name = select.selectedOptions[0].textContent.trim();
+        if (name && !fullQuery.toLocaleLowerCase('vi').includes(name.toLocaleLowerCase('vi'))) {
+          fullQuery += ', ' + name;
+        }
+      }
+      return fullQuery;
+    }
+
     async function searchLocation(query) {
-      const q = (query || addressInput?.value || '').trim();
+      const q = (query || (addressInput && addressInput.value) || '').trim();
+      resultsEl.replaceChildren();
+      resultsEl.hidden = true;
       if (!q) {
         if (statusEl) {
           statusEl.className = 'alert alert-warning py-2 small mb-3';
-          statusEl.innerHTML = 'Vui lòng nhập địa chỉ cần tìm trên bản đồ.';
+          statusEl.textContent = 'Vui lòng nhập địa chỉ cần tìm trên bản đồ.';
         }
         return;
       }
-
       if (statusEl) {
         statusEl.className = 'alert alert-info py-2 small mb-3';
-        statusEl.innerHTML = 'Đang tìm kiếm tọa độ cho: <em>' + q + '</em>...';
+        statusEl.textContent = 'Đang tìm địa chỉ...';
       }
-
+      if (searchBtn) searchBtn.disabled = true;
       try {
-        // 1. Thử gọi qua backend GeocodeController của nhóm
-        let res = null;
-        try {
+        const contextualQuery = addLocationContext(q);
+        let res = await api('geocode?q=' + encodeURIComponent(contextualQuery));
+        if ((!res.success || !Array.isArray(res.data) || res.data.length === 0) && contextualQuery !== q) {
           res = await api('geocode?q=' + encodeURIComponent(q));
-        } catch (e) {
-          console.warn('Backend GeocodeController không phản hồi, thử gọi trực tiếp Nominatim...', e);
         }
-
-        // 2. Dự phòng nếu host chặn cURL: gọi trực tiếp Nominatim phía client (CORS)
-        let data = res && res.success ? res.data : null;
-        if (!data || data.length === 0) {
-          const directUrl = 'https://nominatim.openstreetmap.org/search?' + new URLSearchParams({
-            q: q,
-            format: 'json',
-            limit: '1',
-            countrycodes: 'vn',
-          });
-          const directRes = await fetch(directUrl, {
-            headers: { 'Accept': 'application/json' },
-          });
-          if (directRes.ok) {
-            const items = await directRes.json();
-            if (items && items.length > 0) {
-              data = [{ lat: parseFloat(items[0].lat), lng: parseFloat(items[0].lon), display_name: items[0].display_name }];
-            }
-          }
-        }
-
-        if (data && data.length > 0) {
-          const target = data[0];
-          map.setView([target.lat, target.lng], 16);
-          setCoordinates(target.lat, target.lng, `<strong>${target.display_name}</strong>`);
-          if (statusEl) {
-            statusEl.className = 'alert alert-success py-2 small mb-3';
-            statusEl.innerHTML = `Tìm thấy tọa độ: <strong>${target.lat.toFixed(6)}, ${target.lng.toFixed(6)}</strong> (${target.display_name})`;
-          }
-        } else {
+        if (!res.success || !Array.isArray(res.data) || res.data.length === 0) {
           if (statusEl) {
             statusEl.className = 'alert alert-warning py-2 small mb-3';
-            statusEl.innerHTML = 'Không tìm thấy tọa độ chính xác. Bạn có thể bấm trực tiếp lên bản đồ để chọn vị trí.';
+            statusEl.textContent = 'Không tìm thấy địa chỉ cụ thể. Hãy thử tên xã, tỉnh hoặc địa danh gần đó, rồi chọn vị trí chính xác trên bản đồ.';
           }
+          return;
+        }
+        for (const target of res.data) resultsEl.appendChild(createLocationButton(target));
+        resultsEl.hidden = false;
+        if (statusEl) {
+          statusEl.className = 'alert alert-info py-2 small mb-3';
+          statusEl.textContent = 'Chọn địa chỉ phù hợp trong danh sách hoặc bấm trực tiếp trên bản đồ.';
         }
       } catch (err) {
         if (statusEl) {
           statusEl.className = 'alert alert-danger py-2 small mb-3';
-          statusEl.innerHTML = 'Lỗi tìm kiếm vị trí: ' + err.message;
+          statusEl.textContent = 'Không thể tìm địa chỉ. Bạn vẫn có thể chọn trực tiếp trên bản đồ.';
         }
+      } finally {
+        if (searchBtn) searchBtn.disabled = false;
       }
     }
 

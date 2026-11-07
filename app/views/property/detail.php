@@ -5,10 +5,16 @@
   .gallery-main { height: 420px; object-fit: cover; border-radius: 8px; width: 100%; }
   .gallery-thumb { height: 80px; object-fit: cover; border-radius: 6px; cursor: pointer; transition: opacity .2s; }
   .gallery-thumb:hover, .gallery-thumb.active { opacity: .75; border: 2px solid #0d6efd; }
+  .gallery-open { cursor: zoom-in; }
+  .gallery-modal-img { height: min(70vh, 650px); object-fit: contain; width: 100%; }
+  @media (max-width: 991.98px) {
+    .property-detail-page { padding-bottom: 85px; }
+    .property-mobile-actions { padding: 8px 12px calc(8px + env(safe-area-inset-bottom)); }
+  }
   .property-spec-item { padding: 12px; background-color: #f8f9fa; border-radius: 8px; }
 </style>
 
-<div class="container py-2">
+<div class="container py-2 property-detail-page">
   <!-- Breadcrumb -->
   <nav aria-label="breadcrumb" class="mb-3">
     <ol class="breadcrumb">
@@ -33,12 +39,30 @@
             <span class="badge text-bg-warning text-dark fs-6">✓ Đã xác thực</span>
           <?php endif; ?>
           <span class="badge text-bg-light border text-muted">👁 <?= e($property['views']) ?> lượt xem</span>
-          <span class="badge text-bg-light border text-muted">🕒 <?= date('d/m/Y', strtotime($property['created_at'])) ?></span>
+          <span class="badge text-bg-light border text-muted">Mã tin: #<?= (int)$property['id'] ?></span>
+          <span class="badge text-bg-light border text-muted">Cập nhật: <?= date('d/m/Y', strtotime($property['updated_at'] ?: $property['created_at'])) ?></span>
         </div>
         <h1 class="h3 fw-bold mb-2"><?= e($property['title']) ?></h1>
         <p class="text-muted mb-0">
           📍 <?= e($property['address_detail'] ? $property['address_detail'] . ', ' : '') ?><?= e($property['ward_name']) ?>, <?= e($property['district_name']) ?>, <?= e($property['province_name']) ?>
         </p>
+        <div class="mt-2">
+          <?php if (Auth::check()): ?>
+            <?php if (!empty($hasReported)): ?>
+              <button class="btn btn-outline-warning btn-sm w-100" disabled>
+                🚩 Bạn đã báo cáo tin đăng này
+              </button>
+            <?php elseif ((int)Auth::id() !== (int)$property['user_id']): ?>
+              <button class="btn btn-outline-danger btn-sm w-100" data-bs-toggle="modal" data-bs-target="#reportModal">
+                🚩 Báo cáo tin đăng vi phạm
+              </button>
+            <?php endif; ?>
+          <?php else: ?>
+            <a href="<?= e(base_url('auth/login')) ?>" class="btn btn-outline-danger btn-sm w-100">
+              🚩 Đăng nhập để báo cáo vi phạm
+            </a>
+          <?php endif; ?>
+        </div>
       </div>
 
       <!-- Mức giá & Diện tích nổi bật -->
@@ -65,7 +89,9 @@
       <div class="mb-4">
         <?php if (!empty($images)): ?>
           <div class="mb-2">
-            <img id="mainGalleryImg" src="<?= e(base_url($images[0]['image_url'])) ?>" alt="<?= e($property['title']) ?>" class="gallery-main shadow-sm border">
+            <button type="button" class="border-0 bg-transparent p-0 w-100 gallery-open" data-bs-toggle="modal" data-bs-target="#galleryModal" aria-label="Xem ảnh lớn">
+              <img id="mainGalleryImg" src="<?= e(base_url($images[0]['image_url'])) ?>" alt="<?= e($property['title']) ?>" class="gallery-main shadow-sm border">
+            </button>
           </div>
           <?php if (count($images) > 1): ?>
             <div class="d-flex gap-2 overflow-auto pb-2">
@@ -170,7 +196,11 @@
             <h5 class="fw-bold mb-0">Vị trí trên bản đồ</h5>
             <span class="text-muted small">OpenStreetMap</span>
           </div>
-          <div id="propertyMap" class="border"></div>
+          <?php if (empty($property['is_coord_fallback'])): ?>
+            <div id="propertyMap" class="border"></div>
+          <?php else: ?>
+            <div class="alert alert-warning mb-0">Tin này chưa có tọa độ được xác nhận, nên chưa thể hiển thị vị trí trên bản đồ.</div>
+          <?php endif; ?>
           <p class="small text-muted mt-2 mb-0">
             📍 <?= e($property['address_detail'] ? $property['address_detail'] . ', ' : '') ?><?= e($property['ward_name']) ?>, <?= e($property['district_name']) ?>
           </p>
@@ -291,7 +321,7 @@
             <div class="d-grid gap-2">
               <?php if (!empty($property['agent_phone'])): ?>
                 <a href="tel:<?= e($property['agent_phone']) ?>" class="btn btn-success fw-bold py-2">
-                  📞 <?= e($property['agent_phone']) ?>
+                  📞 Gọi <?= e($property['agent_phone']) ?>
                 </a>
               <?php else: ?>
                 <button class="btn btn-secondary disabled py-2">Chưa cập nhật SĐT</button>
@@ -307,7 +337,7 @@
         </div>
 
         <!-- Card Hẹn xem nhà & Tương tác [D - Quốc] -->
-        <div class="card shadow-sm border-0 mb-3">
+        <div class="card shadow-sm border-0 mb-3" id="appointmentSection">
           <div class="card-body p-3">
             <h6 class="fw-bold mb-2">Đặt lịch xem nhà</h6>
             <p class="small text-muted mb-3">Chọn thời gian thuận tiện nhất, môi giới sẽ xác nhận và đón bạn đến xem bất động sản.</p>
@@ -354,21 +384,6 @@
             </button>
           </div>
 
-          <?php if (Auth::check()): ?>
-            <?php if (!empty($hasReported)): ?>
-              <button class="btn btn-outline-warning btn-sm w-100" disabled>
-                🚩 Bạn đã báo cáo tin đăng này
-              </button>
-            <?php elseif ((int)Auth::id() !== (int)$property['user_id']): ?>
-              <button class="btn btn-outline-danger btn-sm w-100" data-bs-toggle="modal" data-bs-target="#reportModal">
-                🚩 Báo cáo tin đăng vi phạm
-              </button>
-            <?php endif; ?>
-          <?php else: ?>
-            <a href="<?= e(base_url('auth/login')) ?>" class="btn btn-outline-danger btn-sm w-100">
-              🚩 Đăng nhập để báo cáo vi phạm
-            </a>
-          <?php endif; ?>
         </div>
       </div>
     </div>
@@ -404,6 +419,42 @@
       </div>
     </div>
   <?php endif; ?>
+</div>
+
+<?php if (!empty($images)): ?>
+<div class="modal fade" id="galleryModal" tabindex="-1" aria-label="Xem ảnh bất động sản" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header"><h2 class="modal-title fs-5">Ảnh bất động sản</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button></div>
+      <div class="modal-body p-2">
+        <div id="propertyGalleryCarousel" class="carousel slide" data-bs-interval="false">
+          <div class="carousel-inner">
+            <?php foreach ($images as $index => $image): ?>
+              <div class="carousel-item <?= $index === 0 ? 'active' : '' ?>">
+                <img src="<?= e(base_url($image['image_url'])) ?>" class="gallery-modal-img" alt="Ảnh <?= $index + 1 ?> của <?= e($property['title']) ?>">
+                <div class="text-center py-2"><?= $index + 1 ?> / <?= count($images) ?></div>
+              </div>
+            <?php endforeach; ?>
+          </div>
+          <?php if (count($images) > 1): ?>
+            <button class="carousel-control-prev" type="button" data-bs-target="#propertyGalleryCarousel" data-bs-slide="prev" aria-label="Ảnh trước"><span class="carousel-control-prev-icon bg-dark rounded" aria-hidden="true"></span></button>
+            <button class="carousel-control-next" type="button" data-bs-target="#propertyGalleryCarousel" data-bs-slide="next" aria-label="Ảnh tiếp theo"><span class="carousel-control-next-icon bg-dark rounded" aria-hidden="true"></span></button>
+          <?php endif; ?>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<?php endif; ?>
+
+<div class="property-mobile-actions d-lg-none fixed-bottom bg-white border-top shadow d-flex gap-2">
+  <?php if (!empty($property['agent_phone'])): ?>
+    <a href="tel:<?= e($property['agent_phone']) ?>" class="btn btn-success flex-fill">Gọi ngay</a>
+  <?php else: ?>
+    <button type="button" class="btn btn-secondary flex-fill" disabled>Chưa có SĐT</button>
+  <?php endif; ?>
+  <a href="#appointmentSection" class="btn btn-primary flex-fill">Đặt lịch</a>
+  <button type="button" id="mobileFavorite" class="btn btn-outline-danger flex-fill" onclick="document.getElementById('btnFavorite').click()"><?= !empty($isFavorited) ? 'Đã lưu' : 'Lưu tin' ?></button>
 </div>
 
 <!-- Modal Báo cáo vi phạm [D - Quốc] -->
@@ -463,6 +514,8 @@
       const res = await api('favorite/toggle/' + propertyId, { method: 'POST' });
       if (res.success) {
         const liked = res.data.liked;
+        const mobileFavorite = document.getElementById('mobileFavorite');
+        if (mobileFavorite) mobileFavorite.textContent = liked ? 'Đã lưu' : 'Lưu tin';
         if (liked) {
           btn.classList.remove('btn-outline-danger');
           btn.classList.add('btn-danger');
@@ -497,12 +550,22 @@
       });
     });
 
+    const galleryModal = document.getElementById('galleryModal');
+    if (galleryModal) {
+      galleryModal.addEventListener('show.bs.modal', function () {
+        const thumbs = Array.from(document.querySelectorAll('.gallery-thumb'));
+        const selected = thumbs.indexOf(document.querySelector('.gallery-thumb.active'));
+        const carousel = document.getElementById('propertyGalleryCarousel');
+        if (carousel && selected >= 0) bootstrap.Carousel.getOrCreateInstance(carousel).to(selected);
+      });
+    }
+
     // Tọa độ BĐS từ DB hoặc tọa độ mặc định TP.HCM
     const lat = <?= !empty($property['latitude']) ? (float)$property['latitude'] : 10.776889 ?>;
     const lng = <?= !empty($property['longitude']) ? (float)$property['longitude'] : 106.700806 ?>;
     const title = <?= json_for_script($property['title']) ?>;
 
-    if (window.BdsMap && typeof window.BdsMap.initViewer === 'function') {
+    if (document.getElementById('propertyMap') && window.BdsMap && typeof window.BdsMap.initViewer === 'function') {
       const popupHtml = '<div style="min-width:180px; font-family:system-ui, sans-serif;">' +
         '<div class="fw-bold text-dark mb-1">' + title + '</div>' +
         '<div class="text-danger fw-bold mb-1">' + <?= json_for_script(format_price($property['price'])) ?> + ' - ' + <?= json_for_script($property['area'] . ' m²') ?> + '</div>' +
