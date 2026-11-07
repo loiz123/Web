@@ -1,2 +1,52 @@
+/* BatDongSan - Main Stylesheet */
 .property-card .card-img-top { height: 170px; object-fit: cover; }
 .property-card .card-img-top.bg-secondary-subtle { height: 170px; }
+
+.property-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.property-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.12) !important;
+}
+
+/* Search Form & Page */
+.search-filter-card {
+  border: 1px solid #e2e8f0;
+}
+.search-filter-card .form-select,
+.search-filter-card .form-control {
+  border-color: #cbd5e1;
+  font-size: 0.925rem;
+}
+.search-filter-card .form-select:focus,
+.search-filter-card .form-control:focus {
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 0.2rem rgba(245, 158, 11, 0.25);
+}
+
+.empty-state-box {
+  background-color: #f8fafc;
+  border: 2px dashed #e2e8f0;
+  border-radius: 0.5rem;
+}
+
+/* Leaflet Map */
+#searchMap, #detailMap, #agentMapPicker {
+  background-color: #f1f5f9;
+  z-index: 1;
+}
+
+.leaflet-popup-content {
+  margin: 10px 12px;
+  line-height: 1.4;
+}
+.leaflet-popup-content-wrapper {
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+}
+
+/* Saved filter items */
+.saved-filter-item:hover {
+  background-color: #f8fafc;
+}

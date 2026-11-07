@@ -39,6 +39,14 @@ abstract class Controller
 
     protected function isPost(): bool { return $_SERVER['REQUEST_METHOD'] === 'POST'; }
 
+    protected function wantsJson(): bool
+    {
+        $accept = $_SERVER['HTTP_ACCEPT'] ?? '';
+        return str_contains($accept, 'application/json')
+            || (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+            || isset($_GET['ajax']);
+    }
+
     protected function verifyCsrf(): void
     {
         $token = $_POST['_csrf'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
