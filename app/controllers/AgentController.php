@@ -62,7 +62,11 @@ class AgentController extends Controller
             || $bathrooms === false || $bathrooms < 0 || $bathrooms > 255) {
             $errors[] = 'Số phòng ngủ và phòng tắm không hợp lệ.';
         }
+        if ($address === '') $errors[] = 'Vui lòng nhập địa chỉ chi tiết.';
         if (strlen($address) > 200) $errors[] = 'Địa chỉ chi tiết tối đa 200 ký tự.';
+        if ($latitude === null || $latitude === false || $longitude === null || $longitude === false) {
+            $errors[] = 'Vui lòng chọn đầy đủ vị trí trên bản đồ.';
+        }
         if ($latitude !== null && $latitude !== false && ($latitude < -90 || $latitude > 90)) {
             $errors[] = 'Vĩ độ (latitude) không hợp lệ (-90 đến 90).';
         }
@@ -209,11 +213,16 @@ class AgentController extends Controller
             $errors[] = 'Số phòng ngủ và phòng tắm không hợp lệ.';
         }
         if (strlen($input['direction'] ?? '') > 120 || strlen($input['legal_status'] ?? '') > 400
-            || strlen($input['address_detail'] ?? '') > 800) {
+            || strlen($input['address_detail'] ?? '') > 200) {
             $errors[] = 'Thông tin hướng, pháp lý hoặc địa chỉ vượt quá độ dài cho phép.';
         }
+        $address = trim($input['address_detail'] ?? '');
+        if ($address === '') $errors[] = 'Vui lòng nhập địa chỉ chi tiết.';
         $latitude = ($input['latitude'] ?? '') !== '' ? filter_var($input['latitude'], FILTER_VALIDATE_FLOAT) : null;
         $longitude = ($input['longitude'] ?? '') !== '' ? filter_var($input['longitude'], FILTER_VALIDATE_FLOAT) : null;
+        if ($latitude === null || $latitude === false || $longitude === null || $longitude === false) {
+            $errors[] = 'Vui lòng chọn đầy đủ vị trí trên bản đồ.';
+        }
         if ($latitude !== null && $latitude !== false && ($latitude < -90 || $latitude > 90)) {
             $errors[] = 'Vĩ độ (latitude) không hợp lệ (-90 đến 90).';
         }

@@ -2,7 +2,7 @@
   <h1 class="h3">Sửa tin đăng</h1>
   <p class="text-muted mb-0">Sau khi lưu, tin sẽ được chuyển về trạng thái chờ duyệt.</p>
 </div>
-<form method="post" action="<?= e(base_url('agent/edit/' . (int)$listing['id'])) ?>" class="row g-3">
+<form id="agent-edit-form" method="post" action="<?= e(base_url('agent/edit/' . (int)$listing['id'])) ?>" class="row g-3">
   <?= csrf_field() ?>
   <div class="col-12 col-md-6">
     <label for="title" class="form-label">Tiêu đề</label>
@@ -45,7 +45,7 @@
   </div>
   <div class="col-12">
     <label for="address-detail" class="form-label">Địa chỉ chi tiết</label>
-    <input id="address-detail" name="address_detail" maxlength="200" class="form-control" value="<?= e($listing['address_detail'] ?? '') ?>">
+    <input id="address-detail" name="address_detail" maxlength="200" class="form-control" required value="<?= e($listing['address_detail'] ?? '') ?>">
   </div>
 
   <!-- [C - Thiện] Bản đồ Leaflet OpenStreetMap chọn vị trí khi sửa tin -->
@@ -68,13 +68,13 @@
           <div class="col-6">
             <div class="input-group input-group-sm">
               <span class="input-group-text">Vĩ độ (Lat)</span>
-              <input type="text" id="latitudeInput" name="latitude" class="form-control bg-white" value="<?= e($listing['latitude'] ?? '') ?>" placeholder="10.776889">
+              <input type="text" id="latitudeInput" name="latitude" class="form-control bg-white" required value="<?= e($listing['latitude'] ?? '') ?>" placeholder="10.776889">
             </div>
           </div>
           <div class="col-6">
             <div class="input-group input-group-sm">
               <span class="input-group-text">Kinh độ (Lng)</span>
-              <input type="text" id="longitudeInput" name="longitude" class="form-control bg-white" value="<?= e($listing['longitude'] ?? '') ?>" placeholder="106.700806">
+              <input type="text" id="longitudeInput" name="longitude" class="form-control bg-white" required value="<?= e($listing['longitude'] ?? '') ?>" placeholder="106.700806">
             </div>
           </div>
         </div>
@@ -93,6 +93,11 @@
 <script src="<?= e(base_url('assets/js/map.js')) ?>"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+  var form = document.getElementById('agent-edit-form');
+  var latitudeInput = document.getElementById('latitudeInput');
+  var longitudeInput = document.getElementById('longitudeInput');
+  var mapStatus = document.getElementById('mapStatus');
+  var hadCoordinates = <?= !empty($listing['latitude']) && !empty($listing['longitude']) ? 'true' : 'false' ?>;
   if (window.BdsMap) {
     window.BdsMap.initPicker({
       mapId: 'agentMapPicker',
@@ -104,6 +109,16 @@ document.addEventListener('DOMContentLoaded', function () {
       defaultLat: <?= !empty($listing['latitude']) ? (float)$listing['latitude'] : '10.776889' ?>,
       defaultLng: <?= !empty($listing['longitude']) ? (float)$listing['longitude'] : '106.700806' ?>,
       defaultZoom: 15
+    });
+  }
+  if (form && !hadCoordinates) {
+    form.addEventListener('submit', function (event) {
+      if (latitudeInput.value === '10.776889' && longitudeInput.value === '106.700806') {
+        event.preventDefault();
+        mapStatus.className = 'alert alert-warning py-2 small mb-2';
+        mapStatus.textContent = 'Vui lòng bấm lên bản đồ hoặc kéo marker để chọn tọa độ.';
+        mapStatus.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
     });
   }
 });
