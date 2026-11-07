@@ -338,7 +338,7 @@ class PropertyFinder extends Model
     /** Tăng lượt xem tin */
     public function incrementViews(int $propertyId): void
     {
-        $this->query("UPDATE properties SET views = views + 1 WHERE id = ?", [$propertyId]);
+        $this->query("UPDATE properties SET views = views + 1, updated_at = updated_at WHERE id = ?", [$propertyId]);
     }
 
     /** Lấy các tin cùng loại tương tự */

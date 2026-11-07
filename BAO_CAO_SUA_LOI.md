@@ -6,11 +6,20 @@
 - Chỉ cho đánh giá tin đã duyệt; từ chối đánh giá trùng bằng kiểm tra tại controller và ràng buộc duy nhất của CSDL. Giao diện thông báo khi đã đánh giá. Model không cập nhật đánh giá cũ và không yêu cầu extension mbstring để cắt bình luận.
 - Không báo đã lưu yêu thích khi câu lệnh INSERT không thêm dòng nào.
 - Điều phối yêu cầu Nominatim bằng file lock dùng chung trên một máy chủ, thay cho giới hạn theo từng session. Giới hạn này không đồng bộ giữa nhiều máy chủ.
+- Sửa tìm kiếm theo địa điểm gọi đúng `districtsByProvince()` và `wardsByDistrict()` của model `Location`.
+- Trang chi tiết: không hiển thị vị trí suy đoán khi tin thiếu tọa độ; nút gọi hiển thị rõ số điện thoại; thêm thanh Gọi ngay, Đặt lịch và Lưu tin trên màn hình nhỏ.
+- Thêm hộp xem ảnh lớn với nút chuyển ảnh và số thứ tự; mở tại ảnh thu nhỏ đang chọn.
+- Hiển thị mã tin và ngày cập nhật; tăng lượt xem không làm thay đổi ngày cập nhật.
+- Đưa nút báo cáo lên gần tiêu đề và dùng form báo cáo sẵn có với các lý do phổ biến.
+- Thanh tìm địa chỉ trên bản đồ khi đăng và sửa tin gọi API Nominatim qua backend, hiển thị danh sách kết quả để người dùng chọn; khi có xã, quận và tỉnh đã chọn, truy vấn bổ sung các thông tin này. Có thể chọn vị trí trực tiếp trên bản đồ.
 
 ## Đã kiểm tra
 
 - Kiểm tra cú pháp PHP toàn bộ thư mục app; tải ReviewController cùng lớp cha thành công.
 - Trên cơ sở dữ liệu thử nghiệm riêng: tạo đánh giá thành công, đánh giá trùng bị từ chối, điểm ban đầu được giữ nguyên.
+- Tải trang chi tiết trên database thử nghiệm trả HTTP 200; xác nhận lượt xem tăng và ngày cập nhật không đổi.
+- API địa chỉ trả lỗi 400 khi thiếu nội dung và trả kết quả cho truy vấn Chợ Bến Thành trên môi trường XAMPP.
+- Kiểm tra cú pháp các tệp PHP đã sửa và chạy Module C trên database thử nghiệm: 49/49 kiểm tra đạt.
 - `git diff --check` không báo lỗi định dạng.
 
 ## Chưa hoàn tất
@@ -25,4 +34,8 @@
 - Đã sao lưu CSDL `batdongsan` vào `C:/xampp/mysql/batdongsan_before_fixture_20261107.sql`, sau đó thêm 10 tin mẫu (ID 4–13) và ảnh bìa cho các tin đó. Script: `database/add_sample_properties.sql`.
 - Đã tạo database độc lập `batdongsan_test_module_c_20261107` gồm schema, seed, routine và `tests/fixtures_module_c.sql`; tọa độ của các fixture là giả lập.
 - Test Module C yêu cầu đặt `BDS_TEST_DB` với tên bắt đầu `batdongsan_test_`, ngăn chạy nhầm trên CSDL chính. Ví dụ PowerShell: `$env:BDS_TEST_DB="batdongsan_test_module_c_20261107"; C:/xampp/php/php.exe tests/test_module_c.php`.
-- Chưa thêm tọa độ cho tin mẫu trên database chính vì chưa có vị trí thực được xác minh. Các tin này vẫn dùng vị trí dự phòng theo quận khi hiển thị.
+- Chưa thêm tọa độ cho tin mẫu trên database chính vì chưa có vị trí thực được xác minh. Trang chi tiết thông báo chưa có tọa độ thay vì hiển thị vị trí dự phòng như vị trí thật.
+
+- Danh mục địa phương hiện chỉ có 3 tỉnh/thành, 6 quận/huyện và 8 phường/xã mẫu; cần bổ sung dữ liệu hành chính đầy đủ để chọn địa phương khác. Nominatim phụ thuộc dữ liệu OpenStreetMap và có thể không tìm thấy địa chỉ thôn, xóm.
+
+- Thử địa chỉ thôn Thành Tín, xã Tuy Phước, Gia Lai: Nominatim chưa trả kết quả trực tiếp; tìm được xã Tuy Phước và Tịnh xá Bửu Quang (Quảng Tín). Đây là địa danh tham khảo, không tự coi là vị trí bất động sản.
