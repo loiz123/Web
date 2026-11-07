@@ -1,38 +1,632 @@
-/* BatDongSan - Main Stylesheet */
-.property-card .card-img-top { height: 170px; object-fit: cover; }
-.property-card .card-img-top.bg-secondary-subtle { height: 170px; }
+/* ==========================================================================
+   BatDongSan - Modern Real Estate Stylesheet
+   UI/UX Modern Real Estate System
+   Font: Plus Jakarta Sans | Palette: Navy, Accent Red-Orange, Teal, Slate
+   ========================================================================== */
 
+:root {
+  --primary-navy: #0f172a;
+  --navy-blue: #1e3a8a;
+  --navy-light: #3b82f6;
+  --realestate-red: #e03c31;
+  --realestate-orange: #ea580c;
+  --realestate-teal: #005b52;
+  --realestate-teal-light: #0d9488;
+  --bg-page: #f8fafc;
+  --card-border: #eef2f6;
+  --card-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.06);
+  --card-shadow-hover: 0 16px 32px -4px rgba(15, 23, 42, 0.12);
+  --font-main: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Global Typography & Body */
+body {
+  font-family: var(--font-main);
+  background-color: var(--bg-page);
+  color: #1e293b;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ==========================================================================
+   1. NAVBAR - Clean Modern White Real Estate Header
+   ========================================================================== */
+.navbar-modern {
+  background-color: #ffffff !important;
+  border-bottom: 1px solid #eef2f6 !important;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.04);
+  transition: all 0.3s ease;
+  z-index: 1030;
+}
+
+.brand-logo-icon {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+  color: #ffffff;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.15);
+}
+
+.brand-title {
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+}
+
+.brand-subtitle {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: #64748b;
+  letter-spacing: 0.02em;
+}
+
+.navbar-modern .nav-link {
+  font-weight: 500;
+  font-size: 0.925rem;
+  color: #475569;
+  padding: 0.5rem 0.85rem !important;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+}
+
+.navbar-modern .nav-link:hover,
+.navbar-modern .nav-link.active {
+  color: #0f172a;
+  background-color: #f1f5f9;
+}
+
+.btn-post-property {
+  background: linear-gradient(135deg, #e03c31 0%, #ea580c 100%);
+  border: none;
+  color: #ffffff !important;
+  font-weight: 600;
+  box-shadow: 0 4px 14px rgba(224, 60, 49, 0.3);
+  transition: all 0.2s ease;
+}
+
+.btn-post-property:hover {
+  background: linear-gradient(135deg, #c53026 0%, #c2410c 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(224, 60, 49, 0.4);
+}
+
+/* ==========================================================================
+   2. BUTTONS SYSTEM (Navy, Teal, Accent, Gradient)
+   ========================================================================== */
+.btn-navy {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+.btn-navy:hover {
+  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.btn-teal {
+  background-color: var(--realestate-teal);
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+.btn-teal:hover {
+  background-color: #00453e;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.btn-accent {
+  background: linear-gradient(135deg, #e03c31 0%, #ea580c 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+.btn-accent:hover {
+  background: linear-gradient(135deg, #c53026 0%, #c2410c 100%);
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+/* ==========================================================================
+   3. PROPERTY CARD - Modern Real Estate Card (16px radius, hover -4px)
+   ========================================================================== */
 .property-card {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-.property-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.12) !important;
+  border-radius: 16px !important;
+  border: 1px solid var(--card-border) !important;
+  background-color: #ffffff;
+  box-shadow: var(--card-shadow) !important;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, border-color 0.25s ease !important;
+  overflow: hidden;
 }
 
-/* Search Form & Page */
+.property-card:hover {
+  transform: translateY(-4px) !important;
+  box-shadow: var(--card-shadow-hover) !important;
+  border-color: #cbd5e1 !important;
+}
+
+.property-card-img-wrap {
+  position: relative;
+  height: 190px;
+  overflow: hidden;
+  background-color: #f1f5f9;
+}
+
+.property-card .card-img-top {
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+
+.property-card:hover .card-img-top {
+  transform: scale(1.05);
+}
+
+.property-card .card-body {
+  padding: 1.15rem 1.15rem 1rem;
+}
+
+.property-card .card-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.4;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  height: 2.7rem;
+}
+
+.property-card .card-title a {
+  color: #1e293b;
+  transition: color 0.2s ease;
+}
+
+.property-card:hover .card-title a {
+  color: var(--realestate-red);
+}
+
+/* Badges */
+.badge-sale {
+  background: linear-gradient(135deg, #e03c31 0%, #ea580c 100%);
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 0.725rem;
+  padding: 0.35em 0.75em;
+  border-radius: 50rem;
+}
+
+.badge-rent {
+  background: linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%);
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 0.725rem;
+  padding: 0.35em 0.75em;
+  border-radius: 50rem;
+}
+
+.badge-verified {
+  background-color: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+  font-weight: 600;
+  font-size: 0.725rem;
+  padding: 0.35em 0.7em;
+  border-radius: 50rem;
+}
+
+.badge-type {
+  background-color: #f1f5f9;
+  color: #334155;
+  font-weight: 500;
+  font-size: 0.725rem;
+  padding: 0.35em 0.7em;
+  border-radius: 50rem;
+}
+
+/* Price Typography */
+.property-price {
+  font-size: 1.22rem;
+  font-weight: 800;
+  color: var(--realestate-red);
+  letter-spacing: -0.02em;
+}
+
+.property-unit-price {
+  font-size: 0.78rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.property-specs {
+  font-size: 0.825rem;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.property-specs span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* Card Action Buttons: Favorite & Compare */
+.btn-fav-card,
+.btn-compare-card {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  font-size: 0.95rem;
+  z-index: 3;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.btn-fav-card:hover,
+.btn-compare-card:hover {
+  background: #ffffff;
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+}
+
+.btn-compare-card.active {
+  background-color: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
+}
+
+/* ==========================================================================
+   4. FLOATING COMPARE BAR
+   ========================================================================= */
+.floating-compare-bar {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1050;
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 20px;
+  padding: 12px 24px;
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.35);
+  min-width: 320px;
+  max-width: 90vw;
+  animation: slideUpCompare 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUpCompare {
+  from {
+    transform: translate(-50%, 100px);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+}
+
+.compare-icon-badge {
+  font-size: 1.4rem;
+}
+
+.compare-thumb-item {
+  position: relative;
+  width: 50px;
+  height: 50px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 2px solid #38bdf8;
+  background-color: #1e293b;
+}
+
+.compare-thumb-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.compare-thumb-remove {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 18px;
+  height: 18px;
+  background: #ef4444;
+  color: #ffffff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  cursor: pointer;
+  border: 1px solid #ffffff;
+  line-height: 1;
+}
+
+.btn-accent-gradient {
+  background: linear-gradient(135deg, #e03c31 0%, #ea580c 100%);
+  color: #ffffff !important;
+  border: none;
+  font-weight: 700;
+  transition: all 0.2s ease;
+}
+.btn-accent-gradient:hover {
+  background: linear-gradient(135deg, #c53026 0%, #c2410c 100%);
+  transform: translateY(-1px);
+}
+
+/* ==========================================================================
+   5. MORTGAGE CALCULATOR WIDGET (Detail Page)
+   ========================================================================== */
+.mortgage-calc-card {
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+  overflow: hidden;
+}
+
+.mortgage-calc-header {
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+  color: #ffffff;
+  padding: 1.25rem 1.5rem;
+}
+
+.mortgage-result-box {
+  background: linear-gradient(135deg, #fef2f2 0%, #fff7ed 100%);
+  border: 1px solid #fed7aa;
+  border-radius: 12px;
+  padding: 1.25rem;
+}
+
+.mortgage-slider {
+  accent-color: #e03c31;
+}
+
+.mortgage-breakdown-bar {
+  height: 10px;
+  border-radius: 5px;
+  overflow: hidden;
+  display: flex;
+}
+
+/* ==========================================================================
+   6. NEARBY PLACES / POI (Detail Leaflet Map)
+   ========================================================================== */
+.poi-filter-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.btn-poi-filter {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  border-radius: 50rem;
+  padding: 0.4rem 0.95rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.btn-poi-filter:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.btn-poi-filter.active {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.2);
+}
+
+.poi-marker-icon {
+  background: #ffffff;
+  border-radius: 50%;
+  border: 2px solid #0f172a;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+  transition: transform 0.2s;
+}
+
+.poi-marker-icon:hover {
+  transform: scale(1.2);
+}
+
+.poi-badge-school { border-color: #2563eb; }
+.poi-badge-hospital { border-color: #dc2626; }
+.poi-badge-market { border-color: #16a34a; }
+.poi-badge-bus { border-color: #ea580c; }
+.poi-badge-park { border-color: #059669; }
+
+.poi-item-chip {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 0.825rem;
+  transition: all 0.2s ease;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.poi-item-chip:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+/* ==========================================================================
+   7. COMPARE PAGE MATRIX
+   ========================================================================== */
+.compare-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  background: #ffffff;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.06);
+}
+
+.compare-table th,
+.compare-table td {
+  padding: 1rem 1.25rem;
+  vertical-align: middle;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.compare-header-cell {
+  background-color: #ffffff;
+  position: sticky;
+  top: 70px;
+  z-index: 10;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+}
+
+.compare-category-row {
+  background-color: #f8fafc;
+  font-weight: 700;
+  color: #0f172a;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  letter-spacing: 0.05em;
+  padding: 0.75rem 1.25rem;
+}
+
+.compare-highlight-best {
+  background-color: #ecfdf5 !important;
+  color: #047857 !important;
+  font-weight: 700;
+  border-radius: 6px;
+  padding: 2px 6px;
+}
+
+/* ==========================================================================
+   8. MODERN FOOTER
+   ========================================================================== */
+.footer-modern {
+  background-color: #0f172a;
+  color: #94a3b8;
+  font-size: 0.9rem;
+  padding-top: 4rem;
+  padding-bottom: 2rem;
+  margin-top: auto;
+}
+
+.footer-modern h5,
+.footer-modern h6 {
+  color: #ffffff;
+  font-weight: 700;
+  margin-bottom: 1.25rem;
+}
+
+.footer-modern a {
+  color: #94a3b8;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.footer-modern a:hover {
+  color: #ffffff;
+}
+
+.footer-bottom-bar {
+  border-top: 1px solid #1e293b;
+  padding-top: 1.75rem;
+  margin-top: 3rem;
+  font-size: 0.825rem;
+}
+
+.social-icon-btn {
+  width: 36px;
+  height: 36px;
+  background-color: #1e293b;
+  color: #ffffff;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  margin-right: 0.5rem;
+}
+
+.social-icon-btn:hover {
+  background-color: var(--realestate-red);
+  color: #ffffff;
+  transform: translateY(-2px);
+}
+
+/* ==========================================================================
+   9. SEARCH & MAP STYLING PRESERVATION
+   ========================================================================== */
 .search-filter-card {
   border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.03);
 }
+
 .search-filter-card .form-select,
 .search-filter-card .form-control {
   border-color: #cbd5e1;
   font-size: 0.925rem;
+  border-radius: 8px;
 }
+
 .search-filter-card .form-select:focus,
 .search-filter-card .form-control:focus {
-  border-color: #f59e0b;
-  box-shadow: 0 0 0 0.2rem rgba(245, 158, 11, 0.25);
+  border-color: #e03c31;
+  box-shadow: 0 0 0 0.2rem rgba(224, 60, 49, 0.2);
 }
 
 .empty-state-box {
-  background-color: #f8fafc;
-  border: 2px dashed #e2e8f0;
-  border-radius: 0.5rem;
+  background-color: #ffffff;
+  border: 2px dashed #cbd5e1;
+  border-radius: 12px;
 }
 
-/* Leaflet Map */
-#searchMap, #detailMap, #agentMapPicker {
+#searchMap, #detailMap, #agentMapPicker, #propertyMap {
   background-color: #f1f5f9;
   z-index: 1;
 }
@@ -41,12 +635,12 @@
   margin: 10px 12px;
   line-height: 1.4;
 }
+
 .leaflet-popup-content-wrapper {
-  border-radius: 8px;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
 }
 
-/* Saved filter items */
 .saved-filter-item:hover {
   background-color: #f8fafc;
 }
