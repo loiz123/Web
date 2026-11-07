@@ -22,7 +22,7 @@ class AppointmentController extends Controller
 
         $propertyId = (int)($_POST['property_id'] ?? 0);
         $raw = trim((string)($_POST['appointment_date'] ?? ($_POST['scheduled_at'] ?? '')));
-        $note = mb_substr(trim((string)($_POST['note'] ?? '')), 0, 255);
+        $note = (preg_match('/^.{0,255}/us', trim((string)($_POST['note'] ?? '')), $m) ? $m[0] : '');
 
         if ($propertyId <= 0) {
             $this->respond('Bất động sản không hợp lệ.', false, 400, $propertyId);
@@ -114,10 +114,4 @@ class AppointmentController extends Controller
         $this->redirect($redirect ?? ($propertyId > 0 ? 'property/detail/' . $propertyId : ''));
     }
 
-    private function wantsJson(): bool
-    {
-        $accept = $_SERVER['HTTP_ACCEPT'] ?? '';
-        return str_contains($accept, 'application/json')
-            || (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest');
-    }
 }
