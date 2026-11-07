@@ -34,11 +34,12 @@
         <i class="bi bi-arrow-left-right"></i>
       </button>
 
+      <?php $isFav = !empty($p['is_favorite']) || !empty($isFavoritePage); ?>
       <!-- Nút Lưu tin yêu thích (Góc trên bên phải) -->
       <button type="button" class="btn btn-sm btn-light position-absolute top-0 end-0 m-2 rounded-circle btn-fav-card"
-              title="Lưu tin yêu thích"
+              title="<?= $isFav ? 'Bỏ lưu tin' : 'Lưu tin yêu thích' ?>"
               onclick="toggleCardFavorite(event, <?= (int)$p['id'] ?>, this)">
-        🤍
+        <?= $isFav ? '❤️' : '🤍' ?>
       </button>
     </div>
 

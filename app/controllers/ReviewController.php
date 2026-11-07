@@ -102,7 +102,7 @@ class ReviewController extends Controller
         $this->redirect($redirectUrl);
     }
 
-    private function wantsJson(): bool
+    protected function wantsJson(): bool
     {
         $accept = $_SERVER['HTTP_ACCEPT'] ?? '';
         return str_contains($accept, 'application/json')
