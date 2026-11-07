@@ -872,7 +872,7 @@ if (!$hasValidCoords) {
               '<div class="text-truncate">' +
                 '<div class="fw-semibold text-dark small text-truncate" title="' + it.name + '">' + it.name + '</div>' +
                 '<div class="text-muted" style="font-size: 0.75rem;">' + it.type + ' • ~' + walkMin + ' phút đi bộ</div>' +
-              </div>' +
+              '</div>' +
             '</div>' +
             '<span class="badge bg-danger-subtle text-danger fw-bold flex-shrink-0">' + it.formattedDistance + '</span>' +
           '</div>' +
