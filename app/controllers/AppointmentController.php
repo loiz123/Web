@@ -114,7 +114,7 @@ class AppointmentController extends Controller
         $this->redirect($redirect ?? ($propertyId > 0 ? 'property/detail/' . $propertyId : ''));
     }
 
-    private function wantsJson(): bool
+    protected function wantsJson(): bool
     {
         $accept = $_SERVER['HTTP_ACCEPT'] ?? '';
         return str_contains($accept, 'application/json')

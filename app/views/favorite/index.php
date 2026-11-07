@@ -22,8 +22,10 @@
     </div>
   </div>
 <?php else: ?>
+  <?php $isFavoritePage = true; ?>
   <div class="row g-3">
     <?php foreach ($properties as $p): ?>
+      <?php $p['is_favorite'] = true; ?>
       <?php require APP . '/views/partials/property_card.php'; ?>
     <?php endforeach; ?>
   </div>

@@ -520,7 +520,7 @@ window.BdsMap = (function () {
     const map = L.map(mapId, {
       center: [lat, lng],
       zoom: zoom,
-      scrollWheelZoom: false,
+      scrollWheelZoom: true,
     });
 
     const baseLayer = createBaseTileLayer();

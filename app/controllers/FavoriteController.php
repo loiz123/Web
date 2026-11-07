@@ -15,6 +15,10 @@ class FavoriteController extends Controller
         $this->requireLogin();
         $userId = (int)Auth::id();
         $properties = $this->favorites->forUser($userId);
+        foreach ($properties as &$p) {
+            $p['is_favorite'] = true;
+        }
+        unset($p);
 
         $this->view('favorite/index', [
             'title'      => 'Tin đăng đã lưu',
