@@ -13,6 +13,12 @@ class AdminDashboardController extends Controller
             'Tin chờ duyệt'   => (int)$db->query("SELECT COUNT(*) FROM properties WHERE status='pending'")->fetchColumn(),
             'Báo cáo mới'     => (int)$db->query("SELECT COUNT(*) FROM reports WHERE status='open'")->fetchColumn(),
         ];
-        $this->view('admin/dashboard', ['title' => 'Quản trị', 'stats' => $stats]);
+        $summary = new AdminStats();
+        $this->view('admin/dashboard', [
+            'title'      => 'Quản trị',
+            'stats'      => $stats,
+            'byStatus'   => $summary->propertiesByStatus(),
+            'byDistrict' => $summary->propertiesByDistrict(),
+        ]);
     }
 }
