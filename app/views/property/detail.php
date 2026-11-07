@@ -607,6 +607,10 @@ if (!$hasValidCoords) {
                   ✉️ Gửi Email liên hệ
                 </a>
               <?php endif; ?>
+
+              <button type="button" id="btnOpenVietQr" class="btn btn-accent-gradient fw-bold py-2 rounded-3 shadow-sm d-flex align-items-center justify-content-center gap-2" data-bs-toggle="modal" data-bs-target="#vietQrModal">
+                <i class="bi bi-qr-code-scan"></i> Đặt cọc giữ chỗ qua VietQR
+              </button>
             </div>
           </div>
         </div>
@@ -667,6 +671,11 @@ if (!$hasValidCoords) {
               <i class="bi bi-calculator"></i> Tính vay
             </a>
           </div>
+
+          <!-- Nút In tờ rơi / Xuất Brochure A4 -->
+          <button type="button" id="btnPrintBrochure" class="btn btn-outline-dark btn-sm rounded-pill w-100 d-flex align-items-center justify-content-center gap-2 py-2 fw-semibold bds-btn-touch shadow-xs" onclick="window.print()">
+            🖨️ In tờ rơi / Xuất Brochure A4
+          </button>
 
           <?php if (Auth::check()): ?>
             <?php if (!empty($hasReported)): ?>
@@ -793,7 +802,255 @@ if (!$hasValidCoords) {
   $shareFullUrl = $scheme . '://' . $host . base_url('property/detail/' . (int)$property['id']);
   $shareMailSubject = 'Chia sẻ bất động sản: ' . ($property['title'] ?? '');
   $shareMailBody = ($property['title'] ?? '') . ' - Giá: ' . format_price($property['price']) . ' - Xem chi tiết tại: ' . $shareFullUrl;
+  $vietQrDefaultAmount = 5000000;
+  $vietQrTransferNote = 'BDS' . (int)$property['id'] . ' DAT COC';
+  $vietQrAddInfoEncoded = 'BDS' . (int)$property['id'] . '%20DAT%20COC';
+  $vietQrImgDefault = 'https://img.vietqr.io/image/MB-0988889999-compact2.png?amount=' . $vietQrDefaultAmount . '&addInfo=' . $vietQrAddInfoEncoded . '&accountName=CONG%20TY%20BDS%20VIET';
+  $mainPrintImage = !empty($images[0]['image_url']) ? base_url($images[0]['image_url']) : property_avatar_url($property['avatar'] ?? null);
 ?>
+
+<!-- KHỐI TỜ RƠI / BROCHURE BẤT ĐỘNG SẢN CHUẨN IN ẤN A4 (Chỉ hiển thị khi in @media print) -->
+<div id="printBrochureSheet" class="print-brochure-sheet d-none d-print-block" aria-hidden="true">
+  <!-- Header thương hiệu A4 -->
+  <div class="print-brochure-header">
+    <div class="print-brand-left">
+      <div class="print-brand-heading">BĐS VIỆT - HỆ THỐNG PHÂN PHỐI BẤT ĐỘNG SẢN CHUYÊN NGHIỆP</div>
+      <div class="print-brand-sub">Cổng thông tin giao dịch & ký gửi bất động sản xác thực hàng đầu Việt Nam</div>
+    </div>
+    <div class="print-brand-right">
+      <div><strong>Hotline:</strong> 1900 6868 • 0988 889 999</div>
+      <div><strong>Website:</strong> www.bdsviet.vn | <strong>Email:</strong> cskh@bdsviet.vn</div>
+    </div>
+  </div>
+
+  <!-- Tiêu đề & Địa chỉ bất động sản -->
+  <div class="print-property-banner">
+    <div class="print-property-meta">
+      <span class="print-badge-type"><?= $property['listing_type'] === 'sale' ? 'BÁN BẤT ĐỘNG SẢN' : 'CHO THUÊ BẤT ĐỘNG SẢN' ?></span>
+      <span class="print-badge-cat"><?= e($property['type_name'] ?? 'Bất động sản') ?></span>
+      <span class="print-meta-code">Mã tin: <strong>#<?= (int)$property['id'] ?></strong> • Ngày in: <?= date('d/m/Y') ?></span>
+    </div>
+    <h1 class="print-property-title"><?= e($property['title']) ?></h1>
+    <div class="print-property-address">
+      📍 Địa chỉ: <?= e($property['address_detail'] ? $property['address_detail'] . ', ' : '') ?><?= e($property['ward_name']) ?>, <?= e($property['district_name']) ?>, <?= e($property['province_name']) ?>
+    </div>
+  </div>
+
+  <!-- Bố cục 2 cột chuẩn A4 -->
+  <div class="print-brochure-grid">
+    <!-- Cột trái: Ảnh chính BĐS + Bảng thông số kỹ thuật -->
+    <div class="print-col-left">
+      <div class="print-image-box">
+        <img src="<?= e($mainPrintImage) ?>" alt="<?= e($property['title']) ?>" class="print-main-image">
+      </div>
+
+      <div class="print-section-box">
+        <h3 class="print-section-title">Bảng thông số kỹ thuật</h3>
+        <table class="print-specs-table">
+          <tbody>
+            <tr>
+              <th>Mức giá niêm yết</th>
+              <td class="print-price-highlight">
+                <?= format_price($property['price']) ?><?= $property['listing_type'] === 'rent' ? '/tháng' : '' ?>
+                <?php if ($property['area'] > 0 && $property['listing_type'] === 'sale'): ?>
+                  <span class="print-unit-price">(~<?= number_format($property['price'] / $property['area'] / 1e6, 1) ?> triệu/m²)</span>
+                <?php endif; ?>
+              </td>
+            </tr>
+            <tr>
+              <th>Diện tích sử dụng</th>
+              <td><strong><?= e($property['area']) ?> m²</strong></td>
+            </tr>
+            <tr>
+              <th>Số phòng ngủ</th>
+              <td><?= (int)$property['bedrooms'] > 0 ? (int)$property['bedrooms'] . ' phòng ngủ' : 'Chưa cập nhật' ?></td>
+            </tr>
+            <tr>
+              <th>Phòng tắm / WC</th>
+              <td><?= (int)$property['bathrooms'] > 0 ? (int)$property['bathrooms'] . ' phòng tắm' : 'Chưa cập nhật' ?></td>
+            </tr>
+            <tr>
+              <th>Hướng nhà</th>
+              <td><?= e($property['direction'] ?: 'Không xác định') ?></td>
+            </tr>
+            <tr>
+              <th>Hồ sơ pháp lý</th>
+              <td><?= e($property['legal_status'] ?: 'Đang chờ sổ / Đầy đủ hồ sơ') ?></td>
+            </tr>
+            <tr>
+              <th>Tọa độ GPS</th>
+              <td><?= number_format($propLat, 6) ?>, <?= number_format($propLng, 6) ?></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Cột phải: Đoạn mô tả nổi bật + Tiện ích nội khu + Thông tin Môi giới phụ trách -->
+    <div class="print-col-right">
+      <div class="print-section-box">
+        <h3 class="print-section-title">Mô tả nổi bật</h3>
+        <div class="print-description-text">
+          <?= nl2br(e(mb_strimwidth((string)($property['description'] ?: 'Bất động sản vị trí đắc địa, giao thông thuận tiện, kết nối nhanh chóng đến trung tâm và các tiện ích dân sinh xung quanh.'), 0, 950, '...'))) ?>
+        </div>
+      </div>
+
+      <div class="print-section-box">
+        <h3 class="print-section-title">Tiện ích nội khu & Đi kèm</h3>
+        <?php if (!empty($amenities)): ?>
+          <div class="print-amenities-list">
+            <?php foreach ($amenities as $am): ?>
+              <span class="print-amenity-tag">✓ <?= e($am['name']) ?></span>
+            <?php endforeach; ?>
+          </div>
+        <?php else: ?>
+          <div class="print-amenities-list">
+            <span class="print-amenity-tag">✓ Hạ tầng hoàn chỉnh</span>
+            <span class="print-amenity-tag">✓ An ninh khu vực 24/7</span>
+            <span class="print-amenity-tag">✓ Kết nối giao thông thuận lợi</span>
+          </div>
+        <?php endif; ?>
+      </div>
+
+      <div class="print-section-box print-agent-box">
+        <h3 class="print-section-title">Chuyên viên môi giới phụ trách</h3>
+        <div class="print-agent-details">
+          <div class="print-agent-name"><?= e($property['agent_name'] ?: 'Chuyên viên tư vấn BĐS Việt') ?></div>
+          <div class="print-agent-role">Đại diện phân phối & hỗ trợ pháp lý trực tiếp</div>
+          <div class="print-agent-contact-row">
+            <span><strong>Điện thoại:</strong> <?= e($property['agent_phone'] ?: '0988 889 999') ?></span>
+            <?php if (!empty($property['agent_email'])): ?>
+              <span><strong>Email:</strong> <?= e($property['agent_email']) ?></span>
+            <?php endif; ?>
+          </div>
+          <div class="print-deposit-note">
+            <strong>Đặt cọc giữ chỗ Napas 247 (MBBank):</strong> STK <strong>0988889999</strong> - CÔNG TY BĐS VIỆT - Nội dung: <strong><?= e($vietQrTransferNote) ?></strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chân trang tờ rơi kèm Mã QR Code của tin đăng -->
+  <div class="print-brochure-footer">
+    <div class="print-footer-notes">
+      <div class="fw-bold text-dark mb-1">THÔNG TIN NIÊM YẾT CHÍNH THỨC TẠI HỆ THỐNG BĐS VIỆT</div>
+      <div>• Tài liệu này được trích xuất trực tiếp từ cơ sở dữ liệu bất động sản xác thực của BĐS Việt.</div>
+      <div>• Quý khách hàng vui lòng liên hệ trực tiếp Chuyên viên phụ trách hoặc Hotline 1900 6868 để đặt lịch tham quan thực tế và kiểm tra tình trạng giao dịch mới nhất.</div>
+      <div class="mt-1 text-muted">Liên kết gốc: <?= e($shareFullUrl) ?></div>
+    </div>
+    <div class="print-footer-qr">
+      <img id="printBrochureQrCode"
+           src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=<?= rawurlencode($shareFullUrl) ?>"
+           alt="QR Code tin đăng #<?= (int)$property['id'] ?>"
+           width="96"
+           height="96"
+           class="print-qr-img">
+      <div class="print-qr-caption">Quét mã QR để xem hình ảnh chi tiết và video trên website</div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Đặt cọc giữ chỗ BĐS qua VietQR (Napas 247) -->
+<div class="modal fade" id="vietQrModal" tabindex="-1" aria-labelledby="vietQrModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+      <div class="modal-header text-white border-0 px-4 py-3" style="background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);">
+        <div class="d-flex align-items-center gap-2">
+          <span class="badge bg-warning text-dark fw-bold px-2 py-1">NAPAS 247</span>
+          <h5 class="modal-title fw-bold mb-0" id="vietQrModalLabel">
+            <i class="bi bi-qr-code-scan me-1"></i> Đặt cọc giữ chỗ qua VietQR
+          </h5>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Đóng"></button>
+      </div>
+      <div class="modal-body p-4">
+        <div class="row g-4 align-items-center">
+          <!-- Cột trái: Ảnh mã VietQR động -->
+          <div class="col-md-5 text-center">
+            <div class="p-3 bg-light rounded-4 border shadow-xs">
+              <div class="small fw-bold text-primary mb-2">MÃ QR THANH TOÁN TỰ ĐỘNG</div>
+              <img id="vietQrImage"
+                   src="<?= e($vietQrImgDefault) ?>"
+                   alt="Mã VietQR đặt cọc bất động sản #<?= (int)$property['id'] ?>"
+                   class="img-fluid rounded-3 border bg-white p-2 shadow-sm mb-2"
+                   style="max-width: 250px; width: 100%;">
+              <div class="small text-muted mt-1">
+                <i class="bi bi-shield-check text-success me-1"></i>Tự động điền chính xác số tiền & nội dung
+              </div>
+            </div>
+          </div>
+
+          <!-- Cột phải: Chọn mức cọc & Thông tin chuyển khoản -->
+          <div class="col-md-7">
+            <div class="mb-3">
+              <label class="form-label small fw-bold text-dark mb-2">1. Chọn mức tiền đặt cọc giữ chỗ:</label>
+              <div class="d-flex flex-wrap gap-2 mb-2" id="vietQrPresetGroup">
+                <button type="button" class="btn btn-primary btn-sm rounded-pill px-3 fw-semibold vietqr-preset-btn active" data-amount="5000000" onclick="selectVietQrPreset(5000000, this)">
+                  5.000.000đ
+                </button>
+                <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3 fw-semibold vietqr-preset-btn" data-amount="10000000" onclick="selectVietQrPreset(10000000, this)">
+                  10.000.000đ
+                </button>
+                <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3 fw-semibold vietqr-preset-btn" data-amount="20000000" onclick="selectVietQrPreset(20000000, this)">
+                  20.000.000đ
+                </button>
+              </div>
+              <div class="input-group input-group-sm">
+                <span class="input-group-text bg-light fw-semibold">Số tiền tùy chọn</span>
+                <input type="number" id="vietQrCustomAmount" class="form-control" value="5000000" min="500000" step="500000" placeholder="Nhập số tiền đặt cọc (VNĐ)..." oninput="handleVietQrCustomInput(this.value)">
+                <span class="input-group-text bg-light text-muted">VNĐ</span>
+              </div>
+            </div>
+
+            <div class="p-3 rounded-4 border bg-light mb-3">
+              <div class="small fw-bold text-dark mb-2 border-bottom pb-2">2. Thông tin tài khoản thụ hưởng:</div>
+              <div class="d-flex justify-content-between align-items-center py-1 small">
+                <span class="text-muted">Ngân hàng:</span>
+                <strong class="text-dark">Ngân hàng Quân Đội (MBBank)</strong>
+              </div>
+              <div class="d-flex justify-content-between align-items-center py-1 small">
+                <span class="text-muted">Chủ TK:</span>
+                <strong class="text-primary">CÔNG TY BĐS VIỆT</strong>
+              </div>
+              <div class="d-flex justify-content-between align-items-center py-1 small">
+                <span class="text-muted">Số tài khoản:</span>
+                <div class="d-flex align-items-center gap-2">
+                  <strong class="text-dark fs-6 font-monospace" id="vietQrAccountNo">0988889999</strong>
+                  <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2" id="btnCopyVietQrStk" onclick="copyVietQrText('0988889999', 'Đã sao chép Số tài khoản 0988889999!')">
+                    <i class="bi bi-clipboard me-1"></i>Sao chép STK
+                  </button>
+                </div>
+              </div>
+              <div class="d-flex justify-content-between align-items-center py-1 small">
+                <span class="text-muted">Số tiền cọc:</span>
+                <strong class="text-danger fs-6" id="vietQrAmountDisplay">5.000.000đ</strong>
+              </div>
+              <div class="d-flex justify-content-between align-items-center py-1 small">
+                <span class="text-muted">Nội dung CK:</span>
+                <div class="d-flex align-items-center gap-2">
+                  <strong class="badge bg-warning-subtle text-dark border border-warning px-2 py-1 font-monospace" id="vietQrTransferNote"><?= e($vietQrTransferNote) ?></strong>
+                  <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" id="btnCopyVietQrNote" onclick="copyVietQrText('<?= e($vietQrTransferNote) ?>', 'Đã sao chép nội dung chuyển khoản <?= e($vietQrTransferNote) ?>!')">
+                    <i class="bi bi-clipboard me-1"></i>Sao chép nội dung
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="alert alert-info border-0 small mb-0 py-2 px-3">
+              <i class="bi bi-phone-vibrate me-1"></i>
+              <strong>Hướng dẫn thanh toán:</strong> Mở bất kỳ ứng dụng Ngân hàng nào (<strong>Vietcombank, MB, Techcombank, BIDV, ACB, MoMo,...</strong>) chọn tính năng <strong>Quét mã QR (VietQR / Napas 247)</strong> để hoàn tất đặt cọc giữ chỗ ưu tiên xem nhà.
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer bg-light border-top px-4 py-2 d-flex justify-content-between align-items-center">
+        <span class="small text-muted"><i class="bi bi-lock-fill text-success me-1"></i>Hoàn cọc 100% nếu thông tin thực tế không đúng mô tả</span>
+        <button type="button" class="btn btn-secondary btn-sm rounded-pill px-3" data-bs-dismiss="modal">Đóng</button>
+      </div>
+    </div>
+  </div>
+</div>
 <!-- Modal Chia sẻ đa kênh & Quét mã QR -->
 <div class="modal fade" id="shareModal" tabindex="-1" aria-labelledby="shareModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
@@ -1004,6 +1261,89 @@ if (!$hasValidCoords) {
       const subject = 'Chia sẻ bất động sản: ' + (currentPropertyData.title || '');
       const body = (currentPropertyData.title || '') + ' - Giá: ' + (currentPropertyData.price_formatted || '') + '\nXem chi tiết tại: ' + currentUrl;
       emailLink.href = 'mailto:?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+    }
+    const printQrImg = document.getElementById('printBrochureQrCode');
+    if (printQrImg) {
+      printQrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=' + encodeURIComponent(currentUrl);
+    }
+  }
+
+  // =========================================================================
+  // TÍNH NĂNG ĐẶT CỌC GIỮ CHỖ BẰNG VIETQR (NAPAS 247)
+  // =========================================================================
+  const vietQrPropertyId = <?= (int)$property['id'] ?>;
+
+  function updateVietQrModal(amount) {
+    const cleanAmount = Math.max(100000, Math.round(Number(amount) || 5000000));
+    const qrImg = document.getElementById('vietQrImage');
+    const amountDisplay = document.getElementById('vietQrAmountDisplay');
+    const addInfo = 'BDS' + vietQrPropertyId + '%20DAT%20COC';
+    const qrUrl = 'https://img.vietqr.io/image/MB-0988889999-compact2.png?amount=' + cleanAmount + '&addInfo=' + addInfo + '&accountName=CONG%20TY%20BDS%20VIET';
+
+    if (qrImg) {
+      qrImg.src = qrUrl;
+    }
+    if (amountDisplay) {
+      amountDisplay.textContent = new Intl.NumberFormat('vi-VN').format(cleanAmount) + 'đ';
+    }
+  }
+
+  function selectVietQrPreset(amount, btn) {
+    document.querySelectorAll('.vietqr-preset-btn').forEach(function (b) {
+      b.classList.remove('btn-primary', 'active');
+      b.classList.add('btn-outline-primary');
+    });
+    if (btn) {
+      btn.classList.remove('btn-outline-primary');
+      btn.classList.add('btn-primary', 'active');
+    }
+    const customInput = document.getElementById('vietQrCustomAmount');
+    if (customInput) {
+      customInput.value = amount;
+    }
+    updateVietQrModal(amount);
+  }
+
+  function handleVietQrCustomInput(val) {
+    const num = Math.round(Number(val) || 0);
+    document.querySelectorAll('.vietqr-preset-btn').forEach(function (b) {
+      if (Number(b.dataset.amount) === num) {
+        b.classList.remove('btn-outline-primary');
+        b.classList.add('btn-primary', 'active');
+      } else {
+        b.classList.remove('btn-primary', 'active');
+        b.classList.add('btn-outline-primary');
+      }
+    });
+    if (num >= 100000) {
+      updateVietQrModal(num);
+    }
+  }
+
+  function copyVietQrText(textToCopy, toastMessage) {
+    const msg = toastMessage || 'Đã sao chép vào bộ nhớ tạm!';
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(textToCopy).then(function () {
+        if (window.BDS && typeof window.BDS.toast === 'function') {
+          BDS.toast(msg, 'success');
+        }
+      }).catch(function () {
+        fallbackCopyText(textToCopy, msg);
+      });
+    } else {
+      fallbackCopyText(textToCopy, msg);
+    }
+  }
+
+  function fallbackCopyText(textToCopy, msg) {
+    const tempInput = document.createElement('input');
+    tempInput.value = textToCopy;
+    document.body.appendChild(tempInput);
+    tempInput.select();
+    try { document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(tempInput);
+    if (window.BDS && typeof window.BDS.toast === 'function') {
+      BDS.toast(msg, 'success');
     }
   }
 
