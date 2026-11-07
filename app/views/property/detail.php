@@ -749,7 +749,7 @@
     price: <?= (float)($property['price'] ?? 0) ?>,
     price_formatted: <?= json_for_script(format_price($property['price'])) ?>,
     area: <?= (float)($property['area'] ?? 0) ?>,
-    avatar: <?= json_for_script(property_avatar_url($property['avatar'] ?? null)) ?>,
+    avatar: <?= json_for_script(!empty($images[0]['image_url']) ? base_url($images[0]['image_url']) : property_avatar_url($property['avatar'] ?? null)) ?>,
     listing_type: <?= json_for_script($property['listing_type'] ?? 'sale') ?>,
     address: <?= json_for_script($property['ward_name'] . ', ' . $property['district_name']) ?>,
     url: window.location.href
