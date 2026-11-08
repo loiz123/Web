@@ -25,7 +25,7 @@ class ReportController extends Controller
             $this->respond('Bất động sản không hợp lệ.', false, 400, $propertyId);
             return;
         }
-        if (str_len($reason) < 5) {
+        if (strlen($reason) < 5) {
             $this->respond('Lý do báo cáo cần tối thiểu 5 ký tự.', false, 400, $propertyId);
             return;
         }

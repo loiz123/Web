@@ -64,17 +64,12 @@ class Review extends Model
             return false;
         }
 
-        try {
-            $stmt = $this->query(
-                'INSERT INTO reviews (property_id, user_id, rating, comment) VALUES (?, ?, ?, ?)',
-                [$propertyId, $userId, $rating, $comment]
-            );
-        } catch (PDOException $error) {
-            if ((int)($error->errorInfo[1] ?? 0) === 1062) {
-                return false;
-            }
-            throw $error;
-        }
+        $stmt = $this->query(
+            'INSERT INTO reviews (property_id, user_id, rating, comment)
+             VALUES (?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE rating = VALUES(rating), comment = VALUES(comment), created_at = CURRENT_TIMESTAMP',
+            [$propertyId, $userId, $rating, $comment]
+        );
 
         return $stmt->rowCount() > 0;
     }

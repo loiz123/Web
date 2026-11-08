@@ -108,9 +108,19 @@ class PropertyFinder extends Model
         $params = [];
 
         if (!empty($f['keyword'])) {
-            $kw = '%' . $f['keyword'] . '%';
-            $where .= " AND (p.title LIKE ? OR p.address_detail LIKE ? OR w.name LIKE ? OR d.name LIKE ? OR pr.name LIKE ? OR t.name LIKE ?)";
-            array_push($params, $kw, $kw, $kw, $kw, $kw, $kw);
+            $rawKeyword = trim($f['keyword']);
+            $kw = '%' . $rawKeyword . '%';
+            if (str_contains($rawKeyword, ',')) {
+                $firstSegment = trim(explode(',', $rawKeyword)[0]);
+                $cleanSegment = trim((string)preg_replace('/^(Phường|Xã|Thị trấn|Quận|Huyện|Thành phố|TP\.?|Tỉnh)\s+/iu', '', $firstSegment));
+                $kwSegment = '%' . ($cleanSegment !== '' ? $cleanSegment : $firstSegment) . '%';
+                $where .= " AND ((p.title LIKE ? OR p.address_detail LIKE ? OR w.name LIKE ? OR d.name LIKE ? OR pr.name LIKE ? OR t.name LIKE ?)"
+                        . " OR (p.title LIKE ? OR p.address_detail LIKE ? OR w.name LIKE ? OR d.name LIKE ? OR pr.name LIKE ? OR t.name LIKE ?))";
+                array_push($params, $kw, $kw, $kw, $kw, $kw, $kw, $kwSegment, $kwSegment, $kwSegment, $kwSegment, $kwSegment, $kwSegment);
+            } else {
+                $where .= " AND (p.title LIKE ? OR p.address_detail LIKE ? OR w.name LIKE ? OR d.name LIKE ? OR pr.name LIKE ? OR t.name LIKE ?)";
+                array_push($params, $kw, $kw, $kw, $kw, $kw, $kw);
+            }
         }
 
         if (!empty($f['listing_type'])) {
@@ -181,8 +191,8 @@ class PropertyFinder extends Model
         $limit = max(1, min(100, $limit));
         $offset = max(0, $offset);
 
-        // Thử gọi stored procedure nếu bật use_routines và có cài đặt mở rộng
-        if (config('use_routines')) {
+        // Thử gọi stored procedure nếu bật use_routines và từ khóa không phải chuỗi địa chỉ đa thành phần
+        if (config('use_routines') && !str_contains((string)($f['keyword'] ?? ''), ',')) {
             $pf = $this->parseFilters($f);
             try {
                 return $this->call('sp_search_properties_v2', [
@@ -216,7 +226,7 @@ class PropertyFinder extends Model
      */
     public function countSearch(array $f): int
     {
-        if (config('use_routines')) {
+        if (config('use_routines') && !str_contains((string)($f['keyword'] ?? ''), ',')) {
             $pf = $this->parseFilters($f);
             try {
                 $rows = $this->call('sp_count_search_properties_v2', [
@@ -347,5 +357,11 @@ class PropertyFinder extends Model
         $sql = self::BASE_SELECT . " WHERE p.status = 'approved' AND p.id != ? AND p.type_id = ?
                 ORDER BY p.created_at DESC LIMIT " . (int)$limit;
         return $this->query($sql, [$propertyId, $typeId])->fetchAll();
+    }
+
+    /** Lấy danh sách bất động sản tương tự theo khu vực, phân khúc & mức giá */
+    public function getSimilarProperties(int $currentId, int $districtId, int $typeId, float $price, int $limit = 4): array
+    {
+        return (new Property())->getSimilarProperties($currentId, $districtId, $typeId, $price, $limit);
     }
 }

@@ -46,7 +46,7 @@ class User extends Model
     public static function validateProfile(string $name, string $phone): array
     {
         $errors = [];
-        $len = str_len($name);
+        $len = strlen($name);
         if ($len < 2 || $len > 100) $errors[] = 'Họ tên phải từ 2 đến 100 ký tự.';
         if ($phone !== '' && !preg_match('/^(0|\+84)[0-9]{9,10}$/', $phone)) {
             $errors[] = 'Số điện thoại không hợp lệ (VD: 0901234567 hoặc +84901234567).';

@@ -48,10 +48,6 @@ class ReviewController extends Controller
         }
 
         $reviewModel = new Review();
-        if ($reviewModel->getUserReview($propertyId, (int)Auth::id())) {
-            $this->respond('Bạn đã đánh giá tin này.', false, 409);
-            return;
-        }
         $ok = $reviewModel->saveReview($propertyId, Auth::id(), $rating, $comment ?: null);
 
         if ($ok) {
