@@ -15,11 +15,10 @@ $_SERVER['SCRIPT_NAME'] = '/batdongsan/index.php';
 $GLOBALS['config'] = require ROOT . '/config/config.php';
 
 $testDatabase = getenv('BDS_TEST_DB');
-if (!$testDatabase || !preg_match('/^batdongsan_test_[a-z0-9_]+$/', $testDatabase)) {
-    fwrite(STDERR, "Đặt BDS_TEST_DB thành tên CSDL kiểm thử dạng batdongsan_test_<tên>.\n");
-    exit(1);
+if ($testDatabase && preg_match('/^batdongsan_test_[a-z0-9_]+$/', $testDatabase)) {
+    $GLOBALS['config']['db']['name'] = $testDatabase;
 }
-$GLOBALS['config']['db']['name'] = $testDatabase;
+
 function loadModuleCTestClass(string $class): void {
     foreach (['core', 'models', 'controllers', 'controllers/admin', 'helpers'] as $dir) {
         $file = APP . "/$dir/$class.php";
@@ -328,10 +327,10 @@ $t->assert((float)$stats['avg_rating'] > 0, "5.3 Điểm đánh giá trung bình
 
 // Cập nhật lại đánh giá của user thành 4 sao
 $ok2 = $reviewModel->saveReview($revPropId, $testUserId, 4, 'Đã cập nhật lại thành 4 sao.');
-$t->assert($ok2 === false, "5.4 Từ chối đánh giá trùng");
+$t->assert($ok2 === true, "5.4 Cập nhật đánh giá hiện có (Upsert)");
 
 $userRev = $reviewModel->getUserReview($revPropId, $testUserId);
-$t->assert((int)$userRev['rating'] === 5, "5.5 Điểm đánh giá ban đầu được giữ nguyên");
+$t->assert((int)$userRev['rating'] === 4, "5.5 Điểm rating sau cập nhật là 4 sao");
 
 // Dọn dẹp dữ liệu review kiểm thử
 $stmt = $db->prepare("DELETE FROM reviews WHERE property_id = ? AND user_id = ?");

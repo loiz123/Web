@@ -126,6 +126,14 @@ class PropertyController extends Controller
         $images = $finder->getImages($id);
         $amenities = $finder->getAmenities($id);
         $similar = $finder->getSimilar($id, (int)$property['type_id'], 3);
+        $propertyModel = new Property();
+        $similarProperties = $propertyModel->getSimilarProperties(
+            (int)$id,
+            (int)($property['district_id'] ?? 0),
+            (int)($property['type_id'] ?? 0),
+            (float)($property['price'] ?? 0),
+            4
+        );
         $isFavorited = Auth::check() ? (new Favorite())->isFavorited((int)Auth::id(), $id) : false;
 
         // Đánh giá và báo cáo của tin đăng [C - Thiện & D - Quốc]
@@ -136,16 +144,17 @@ class PropertyController extends Controller
         $hasReported = Auth::check() ? (new Report())->hasOpenReport($id, (int)Auth::id()) : false;
 
         $this->view('property/detail', [
-            'title'       => $property['title'],
-            'property'    => $property,
-            'images'      => $images,
-            'amenities'   => $amenities,
-            'similar'     => $similar,
-            'isFavorited' => $isFavorited,
-            'reviews'     => $reviews,
-            'reviewStats' => $reviewStats,
-            'userReview'  => $userReview,
-            'hasReported' => $hasReported,
+            'title'             => $property['title'],
+            'property'          => $property,
+            'images'            => $images,
+            'amenities'         => $amenities,
+            'similar'           => $similar,
+            'similarProperties' => $similarProperties,
+            'isFavorited'       => $isFavorited,
+            'reviews'           => $reviews,
+            'reviewStats'       => $reviewStats,
+            'userReview'        => $userReview,
+            'hasReported'       => $hasReported,
         ]);
     }
 
@@ -224,6 +233,94 @@ class PropertyController extends Controller
         $this->view('property/map_test', [
             'title' => 'Kiểm tra bản đồ Leaflet & OpenStreetMap',
         ]);
+    }
+
+    /**
+     * Trang so sánh bất động sản đối đầu (Side-by-side Comparison) [C - Thiện]
+     * Hỗ trợ nhận danh sách ID qua query: /property/compare?ids=1,2,3
+     */
+    public function compare(): void
+    {
+        $rawIds = $_GET['ids'] ?? '';
+        $idList = [];
+
+        if (is_array($rawIds)) {
+            $idList = array_map('intval', $rawIds);
+        } elseif (is_string($rawIds) && trim($rawIds) !== '') {
+            $parts = explode(',', $rawIds);
+            foreach ($parts as $p) {
+                $id = (int)trim($p);
+                if ($id > 0 && !in_array($id, $idList, true)) {
+                    $idList[] = $id;
+                }
+            }
+        }
+
+        // Tối đa 4 tin so sánh đối đầu
+        $idList = array_slice($idList, 0, 4);
+
+        $properties = [];
+        $allAmenitiesMap = [];
+
+        if (!empty($idList)) {
+            $finder = new PropertyFinder();
+            foreach ($idList as $id) {
+                $prop = $finder->findDetail($id);
+                if ($prop) {
+                    $amenities = $finder->getAmenities($id);
+                    $prop['amenities'] = $amenities;
+                    $properties[] = $prop;
+
+                    foreach ($amenities as $am) {
+                        $allAmenitiesMap[$am['id']] = $am['name'];
+                    }
+                }
+            }
+        }
+
+        $this->view('property/compare', [
+            'title' => 'So sánh bất động sản',
+            'properties' => $properties,
+            'allAmenitiesMap' => $allAmenitiesMap,
+            'idList' => $idList,
+        ]);
+    }
+
+    /**
+     * API JSON lấy dữ liệu chi tiết các tin BĐS phục vụ modal / so sánh nhanh [C - Thiện]
+     */
+    public function compareData(): void
+    {
+        $rawIds = $_GET['ids'] ?? '';
+        $idList = [];
+
+        if (is_array($rawIds)) {
+            $idList = array_map('intval', $rawIds);
+        } elseif (is_string($rawIds) && trim($rawIds) !== '') {
+            $parts = explode(',', $rawIds);
+            foreach ($parts as $p) {
+                $id = (int)trim($p);
+                if ($id > 0 && !in_array($id, $idList, true)) {
+                    $idList[] = $id;
+                }
+            }
+        }
+
+        $idList = array_slice($idList, 0, 4);
+        $result = [];
+
+        if (!empty($idList)) {
+            $finder = new PropertyFinder();
+            foreach ($idList as $id) {
+                $prop = $finder->findDetail($id);
+                if ($prop) {
+                    $prop['amenities'] = $finder->getAmenities($id);
+                    $result[] = $prop;
+                }
+            }
+        }
+
+        $this->json($result, true);
     }
 
     /**

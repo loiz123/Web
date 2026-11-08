@@ -45,7 +45,7 @@ class AdminCatalogController extends Controller
         $parentId = null;
 
         $error = null;
-        if ($name === '' || str_len($name) > $cfg['max']) {
+        if ($name === '' || strlen($name) > $cfg['max']) {
             $error = "Tên {$cfg['noun']} bắt buộc, tối đa {$cfg['max']} ký tự.";
         } elseif ($id && !$model->find($id)) {
             $error = 'Không tìm thấy mục cần sửa.';
