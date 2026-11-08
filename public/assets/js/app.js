@@ -513,10 +513,15 @@ window.PropertyCompare = (function () {
   function getList() {
     try {
       const data = localStorage.getItem(STORAGE_KEY);
-      return data ? JSON.parse(data) : [];
+      const parsed = data ? JSON.parse(data) : [];
+      return Array.isArray(parsed) ? parsed : [];
     } catch (e) {
       return [];
     }
+  }
+
+  function count() {
+    return getList().length;
   }
 
   function saveList(list) {
@@ -598,10 +603,14 @@ window.PropertyCompare = (function () {
       countText.textContent = 'Đã chọn ' + list.length + '/' + MAX_COMPARE + ' tin';
     }
 
+    var ids = list.map(function (p) { return (p && typeof p === 'object') ? p.id : p; }).filter(Boolean).join(',');
+    var compareTargetUrl = (BASE_URL || '') + '/property/compare' + (ids ? ('?ids=' + encodeURIComponent(ids)) : '');
     if (btnGo) {
-      var ids = list.map(function (p) { return p.id; }).join(',');
-      btnGo.href = (BASE_URL || '') + '/property/compare?ids=' + encodeURIComponent(ids);
+      btnGo.href = compareTargetUrl;
     }
+    document.querySelectorAll('a[href$="/property/compare"], a[href*="/property/compare?ids="]').forEach(function (link) {
+      link.href = compareTargetUrl;
+    });
 
     if (thumbsContainer) {
       thumbsContainer.innerHTML = '';
@@ -609,7 +618,7 @@ window.PropertyCompare = (function () {
         var item = document.createElement('div');
         item.className = 'compare-thumb-item';
         item.title = p.title || '';
-        var imgUrl = p.cover_url || '';
+        var imgUrl = p.cover_url || p.avatar || '';
         item.innerHTML = (imgUrl
           ? '<img src="' + imgUrl + '" alt="' + (p.title || '') + '">'
           : '<div class="d-flex align-items-center justify-content-center h-100 text-white small">🏠</div>') +
@@ -652,6 +661,8 @@ window.PropertyCompare = (function () {
 
   return {
     get: getList,
+    getAll: function () { return this.get(); },
+    count: count,
     add: add,
     remove: remove,
     clear: clear,

@@ -67,13 +67,16 @@
     <script>
       document.addEventListener('DOMContentLoaded', function() {
         if (window.PropertyCompare) {
-          const list = window.PropertyCompare.getAll();
-          if (list && list.length > 0) {
-            const ids = list.map(item => item.id).join(',');
-            const currentUrl = new URL(window.location.href);
-            if (!currentUrl.searchParams.get('ids')) {
-              window.location.href = '<?= e(base_url('property/compare')) ?>?ids=' + ids;
-            }
+          const list = typeof window.PropertyCompare.getAll === 'function'
+            ? window.PropertyCompare.getAll()
+            : window.PropertyCompare.get();
+          const ids = (Array.isArray(list) ? list : [])
+            .map(function (item) { return Number(item && item.id ? item.id : item); })
+            .filter(function (id) { return Number.isFinite(id) && id > 0; });
+          const currentUrl = new URL(window.location.href);
+          if (ids.length > 0 && !currentUrl.searchParams.get('ids')) {
+            currentUrl.searchParams.set('ids', ids.join(','));
+            window.location.replace(currentUrl.toString());
           }
         }
       });

@@ -797,10 +797,26 @@ if (!$hasValidCoords) {
   $shareFullUrl = $scheme . '://' . $host . base_url('property/detail/' . (int)$property['id']);
   $shareMailSubject = 'Chia sẻ bất động sản: ' . ($property['title'] ?? '');
   $shareMailBody = ($property['title'] ?? '') . ' - Giá: ' . format_price($property['price']) . ' - Xem chi tiết tại: ' . $shareFullUrl;
+  $vietQrConfig = config('vietqr', []);
+  $vietQrBankId = !empty($vietQrConfig['bank_id']) ? (string)$vietQrConfig['bank_id'] : 'MB';
+  $vietQrAccountNo = !empty($vietQrConfig['account_no']) ? (string)$vietQrConfig['account_no'] : '0902910780';
+  $vietQrAccountName = !empty($vietQrConfig['account_name']) ? (string)$vietQrConfig['account_name'] : 'HA NGOC THIEN';
+  $vietQrTemplate = !empty($vietQrConfig['template']) ? (string)$vietQrConfig['template'] : 'compact2';
+  $vietQrBankNames = [
+      'MB'   => 'Ngân hàng Quân Đội (MBBank)',
+      'VCB'  => 'Ngân hàng Ngoại thương (Vietcombank)',
+      'TCB'  => 'Ngân hàng Kỹ thương (Techcombank)',
+      'ACB'  => 'Ngân hàng Á Châu (ACB)',
+      'BIDV' => 'Ngân hàng Đầu tư & Phát triển (BIDV)',
+      'ICB'  => 'Ngân hàng Công thương (VietinBank)',
+  ];
+  $vietQrBankLabel = $vietQrConfig['bank_name'] ?? ($vietQrBankNames[strtoupper($vietQrBankId)] ?? ('Ngân hàng ' . strtoupper($vietQrBankId)));
   $vietQrDefaultAmount = 5000000;
   $vietQrTransferNote = 'BDS' . (int)$property['id'] . ' DAT COC';
   $vietQrAddInfoEncoded = 'BDS' . (int)$property['id'] . '%20DAT%20COC';
-  $vietQrImgDefault = 'https://img.vietqr.io/image/MB-0988889999-compact2.png?amount=' . $vietQrDefaultAmount . '&addInfo=' . $vietQrAddInfoEncoded . '&accountName=CONG%20TY%20BDS%20VIET';
+  $vietQrAccountNameEncoded = rawurlencode($vietQrAccountName);
+  // Fallback mặc định: https://img.vietqr.io/image/MB-0902910780-compact2.png?amount=...&addInfo=...&accountName=HA%20NGOC%20THIEN
+  $vietQrImgDefault = 'https://img.vietqr.io/image/' . rawurlencode($vietQrBankId) . '-' . rawurlencode($vietQrAccountNo) . '-' . rawurlencode($vietQrTemplate) . '.png?amount=' . $vietQrDefaultAmount . '&addInfo=' . $vietQrAddInfoEncoded . '&accountName=' . $vietQrAccountNameEncoded;
 ?>
 
 <!-- Modal Đặt cọc giữ chỗ BĐS qua VietQR (Napas 247) -->
@@ -859,17 +875,17 @@ if (!$hasValidCoords) {
               <div class="small fw-bold text-dark mb-2 border-bottom pb-2">2. Thông tin tài khoản thụ hưởng:</div>
               <div class="d-flex justify-content-between align-items-center py-1 small">
                 <span class="text-muted">Ngân hàng:</span>
-                <strong class="text-dark">Ngân hàng Quân Đội (MBBank)</strong>
+                <strong class="text-dark"><?= e($vietQrBankLabel) ?></strong>
               </div>
               <div class="d-flex justify-content-between align-items-center py-1 small">
                 <span class="text-muted">Chủ TK:</span>
-                <strong class="text-primary">CÔNG TY BĐS VIỆT</strong>
+                <strong class="text-primary"><?= e($vietQrAccountName === 'CONG TY BDS VIET' ? 'CÔNG TY BĐS VIỆT' : $vietQrAccountName) ?></strong>
               </div>
               <div class="d-flex justify-content-between align-items-center py-1 small">
                 <span class="text-muted">Số tài khoản:</span>
                 <div class="d-flex align-items-center gap-2">
-                  <strong class="text-dark fs-6 font-monospace" id="vietQrAccountNo">0988889999</strong>
-                  <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2" id="btnCopyVietQrStk" onclick="copyVietQrText('0988889999', 'Đã sao chép Số tài khoản 0988889999!')">
+                  <strong class="text-dark fs-6 font-monospace" id="vietQrAccountNo"><?= e($vietQrAccountNo) ?></strong>
+                  <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2" id="btnCopyVietQrStk" onclick="copyVietQrText('<?= e($vietQrAccountNo) ?>', 'Đã sao chép Số tài khoản <?= e($vietQrAccountNo) ?>!')">
                     <i class="bi bi-clipboard me-1"></i>Sao chép STK
                   </button>
                 </div>
@@ -1120,13 +1136,17 @@ if (!$hasValidCoords) {
   // TÍNH NĂNG ĐẶT CỌC GIỮ CHỖ BẰNG VIETQR (NAPAS 247)
   // =========================================================================
   const vietQrPropertyId = <?= (int)$property['id'] ?>;
+  const vietQrBankId = <?= json_for_script($vietQrBankId) ?>;
+  const vietQrAccountNo = <?= json_for_script($vietQrAccountNo) ?>;
+  const vietQrAccountName = <?= json_for_script($vietQrAccountName) ?>;
+  const vietQrTemplate = <?= json_for_script($vietQrTemplate) ?>;
 
   function updateVietQrModal(amount) {
     const cleanAmount = Math.max(100000, Math.round(Number(amount) || 5000000));
     const qrImg = document.getElementById('vietQrImage');
     const amountDisplay = document.getElementById('vietQrAmountDisplay');
     const addInfo = 'BDS' + vietQrPropertyId + '%20DAT%20COC';
-    const qrUrl = 'https://img.vietqr.io/image/MB-0988889999-compact2.png?amount=' + cleanAmount + '&addInfo=' + addInfo + '&accountName=CONG%20TY%20BDS%20VIET';
+    const qrUrl = 'https://img.vietqr.io/image/' + encodeURIComponent(vietQrBankId) + '-' + encodeURIComponent(vietQrAccountNo) + '-' + encodeURIComponent(vietQrTemplate) + '.png?amount=' + cleanAmount + '&addInfo=' + addInfo + '&accountName=' + encodeURIComponent(vietQrAccountName);
 
     if (qrImg) {
       qrImg.src = qrUrl;
