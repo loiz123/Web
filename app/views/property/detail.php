@@ -672,11 +672,6 @@ if (!$hasValidCoords) {
             </a>
           </div>
 
-          <!-- Nút In tờ rơi / Xuất Brochure A4 -->
-          <button type="button" id="btnPrintBrochure" class="btn btn-outline-dark btn-sm rounded-pill w-100 d-flex align-items-center justify-content-center gap-2 py-2 fw-semibold bds-btn-touch shadow-xs" onclick="window.print()">
-            🖨️ In tờ rơi / Xuất Brochure A4
-          </button>
-
           <?php if (Auth::check()): ?>
             <?php if (!empty($hasReported)): ?>
               <button class="btn btn-outline-warning btn-sm w-100" disabled>
@@ -806,150 +801,7 @@ if (!$hasValidCoords) {
   $vietQrTransferNote = 'BDS' . (int)$property['id'] . ' DAT COC';
   $vietQrAddInfoEncoded = 'BDS' . (int)$property['id'] . '%20DAT%20COC';
   $vietQrImgDefault = 'https://img.vietqr.io/image/MB-0988889999-compact2.png?amount=' . $vietQrDefaultAmount . '&addInfo=' . $vietQrAddInfoEncoded . '&accountName=CONG%20TY%20BDS%20VIET';
-  $mainPrintImage = !empty($images[0]['image_url']) ? base_url($images[0]['image_url']) : property_avatar_url($property['avatar'] ?? null);
 ?>
-
-<!-- KHỐI TỜ RƠI / BROCHURE BẤT ĐỘNG SẢN CHUẨN IN ẤN A4 (Chỉ hiển thị khi in @media print) -->
-<div id="printBrochureSheet" class="print-brochure-sheet d-none d-print-block" aria-hidden="true">
-  <!-- Header thương hiệu A4 -->
-  <div class="print-brochure-header">
-    <div class="print-brand-left">
-      <div class="print-brand-heading">BĐS VIỆT - HỆ THỐNG PHÂN PHỐI BẤT ĐỘNG SẢN CHUYÊN NGHIỆP</div>
-      <div class="print-brand-sub">Cổng thông tin giao dịch & ký gửi bất động sản xác thực hàng đầu Việt Nam</div>
-    </div>
-    <div class="print-brand-right">
-      <div><strong>Hotline:</strong> 1900 6868 • 0988 889 999</div>
-      <div><strong>Website:</strong> www.bdsviet.vn | <strong>Email:</strong> cskh@bdsviet.vn</div>
-    </div>
-  </div>
-
-  <!-- Tiêu đề & Địa chỉ bất động sản -->
-  <div class="print-property-banner">
-    <div class="print-property-meta">
-      <span class="print-badge-type"><?= $property['listing_type'] === 'sale' ? 'BÁN BẤT ĐỘNG SẢN' : 'CHO THUÊ BẤT ĐỘNG SẢN' ?></span>
-      <span class="print-badge-cat"><?= e($property['type_name'] ?? 'Bất động sản') ?></span>
-      <span class="print-meta-code">Mã tin: <strong>#<?= (int)$property['id'] ?></strong> • Ngày in: <?= date('d/m/Y') ?></span>
-    </div>
-    <h1 class="print-property-title"><?= e($property['title']) ?></h1>
-    <div class="print-property-address">
-      📍 Địa chỉ: <?= e($property['address_detail'] ? $property['address_detail'] . ', ' : '') ?><?= e($property['ward_name']) ?>, <?= e($property['district_name']) ?>, <?= e($property['province_name']) ?>
-    </div>
-  </div>
-
-  <!-- Bố cục 2 cột chuẩn A4 -->
-  <div class="print-brochure-grid">
-    <!-- Cột trái: Ảnh chính BĐS + Bảng thông số kỹ thuật -->
-    <div class="print-col-left">
-      <div class="print-image-box">
-        <img src="<?= e($mainPrintImage) ?>" alt="<?= e($property['title']) ?>" class="print-main-image">
-      </div>
-
-      <div class="print-section-box">
-        <h3 class="print-section-title">Bảng thông số kỹ thuật</h3>
-        <table class="print-specs-table">
-          <tbody>
-            <tr>
-              <th>Mức giá niêm yết</th>
-              <td class="print-price-highlight">
-                <?= format_price($property['price']) ?><?= $property['listing_type'] === 'rent' ? '/tháng' : '' ?>
-                <?php if ($property['area'] > 0 && $property['listing_type'] === 'sale'): ?>
-                  <span class="print-unit-price">(~<?= number_format($property['price'] / $property['area'] / 1e6, 1) ?> triệu/m²)</span>
-                <?php endif; ?>
-              </td>
-            </tr>
-            <tr>
-              <th>Diện tích sử dụng</th>
-              <td><strong><?= e($property['area']) ?> m²</strong></td>
-            </tr>
-            <tr>
-              <th>Số phòng ngủ</th>
-              <td><?= (int)$property['bedrooms'] > 0 ? (int)$property['bedrooms'] . ' phòng ngủ' : 'Chưa cập nhật' ?></td>
-            </tr>
-            <tr>
-              <th>Phòng tắm / WC</th>
-              <td><?= (int)$property['bathrooms'] > 0 ? (int)$property['bathrooms'] . ' phòng tắm' : 'Chưa cập nhật' ?></td>
-            </tr>
-            <tr>
-              <th>Hướng nhà</th>
-              <td><?= e($property['direction'] ?: 'Không xác định') ?></td>
-            </tr>
-            <tr>
-              <th>Hồ sơ pháp lý</th>
-              <td><?= e($property['legal_status'] ?: 'Đang chờ sổ / Đầy đủ hồ sơ') ?></td>
-            </tr>
-            <tr>
-              <th>Tọa độ GPS</th>
-              <td><?= number_format($propLat, 6) ?>, <?= number_format($propLng, 6) ?></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- Cột phải: Đoạn mô tả nổi bật + Tiện ích nội khu + Thông tin Môi giới phụ trách -->
-    <div class="print-col-right">
-      <div class="print-section-box">
-        <h3 class="print-section-title">Mô tả nổi bật</h3>
-        <div class="print-description-text">
-          <?= nl2br(e(mb_strimwidth((string)($property['description'] ?: 'Bất động sản vị trí đắc địa, giao thông thuận tiện, kết nối nhanh chóng đến trung tâm và các tiện ích dân sinh xung quanh.'), 0, 950, '...'))) ?>
-        </div>
-      </div>
-
-      <div class="print-section-box">
-        <h3 class="print-section-title">Tiện ích nội khu & Đi kèm</h3>
-        <?php if (!empty($amenities)): ?>
-          <div class="print-amenities-list">
-            <?php foreach ($amenities as $am): ?>
-              <span class="print-amenity-tag">✓ <?= e($am['name']) ?></span>
-            <?php endforeach; ?>
-          </div>
-        <?php else: ?>
-          <div class="print-amenities-list">
-            <span class="print-amenity-tag">✓ Hạ tầng hoàn chỉnh</span>
-            <span class="print-amenity-tag">✓ An ninh khu vực 24/7</span>
-            <span class="print-amenity-tag">✓ Kết nối giao thông thuận lợi</span>
-          </div>
-        <?php endif; ?>
-      </div>
-
-      <div class="print-section-box print-agent-box">
-        <h3 class="print-section-title">Chuyên viên môi giới phụ trách</h3>
-        <div class="print-agent-details">
-          <div class="print-agent-name"><?= e($property['agent_name'] ?: 'Chuyên viên tư vấn BĐS Việt') ?></div>
-          <div class="print-agent-role">Đại diện phân phối & hỗ trợ pháp lý trực tiếp</div>
-          <div class="print-agent-contact-row">
-            <span><strong>Điện thoại:</strong> <?= e($property['agent_phone'] ?: '0988 889 999') ?></span>
-            <?php if (!empty($property['agent_email'])): ?>
-              <span><strong>Email:</strong> <?= e($property['agent_email']) ?></span>
-            <?php endif; ?>
-          </div>
-          <div class="print-deposit-note">
-            <strong>Đặt cọc giữ chỗ Napas 247 (MBBank):</strong> STK <strong>0988889999</strong> - CÔNG TY BĐS VIỆT - Nội dung: <strong><?= e($vietQrTransferNote) ?></strong>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Chân trang tờ rơi kèm Mã QR Code của tin đăng -->
-  <div class="print-brochure-footer">
-    <div class="print-footer-notes">
-      <div class="fw-bold text-dark mb-1">THÔNG TIN NIÊM YẾT CHÍNH THỨC TẠI HỆ THỐNG BĐS VIỆT</div>
-      <div>• Tài liệu này được trích xuất trực tiếp từ cơ sở dữ liệu bất động sản xác thực của BĐS Việt.</div>
-      <div>• Quý khách hàng vui lòng liên hệ trực tiếp Chuyên viên phụ trách hoặc Hotline 1900 6868 để đặt lịch tham quan thực tế và kiểm tra tình trạng giao dịch mới nhất.</div>
-      <div class="mt-1 text-muted">Liên kết gốc: <?= e($shareFullUrl) ?></div>
-    </div>
-    <div class="print-footer-qr">
-      <img id="printBrochureQrCode"
-           src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=<?= rawurlencode($shareFullUrl) ?>"
-           alt="QR Code tin đăng #<?= (int)$property['id'] ?>"
-           width="96"
-           height="96"
-           class="print-qr-img">
-      <div class="print-qr-caption">Quét mã QR để xem hình ảnh chi tiết và video trên website</div>
-    </div>
-  </div>
-</div>
 
 <!-- Modal Đặt cọc giữ chỗ BĐS qua VietQR (Napas 247) -->
 <div class="modal fade" id="vietQrModal" tabindex="-1" aria-labelledby="vietQrModalLabel" aria-hidden="true">
@@ -1261,10 +1113,6 @@ if (!$hasValidCoords) {
       const subject = 'Chia sẻ bất động sản: ' + (currentPropertyData.title || '');
       const body = (currentPropertyData.title || '') + ' - Giá: ' + (currentPropertyData.price_formatted || '') + '\nXem chi tiết tại: ' + currentUrl;
       emailLink.href = 'mailto:?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
-    }
-    const printQrImg = document.getElementById('printBrochureQrCode');
-    if (printQrImg) {
-      printQrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=' + encodeURIComponent(currentUrl);
     }
   }
 
