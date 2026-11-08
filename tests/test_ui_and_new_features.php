@@ -60,8 +60,8 @@ assertTest(
     "2.4 Cấu hình VietQR trong config/config.php đầy đủ bank_id, account_no, account_name, template",
     is_array($vietQrCfg)
     && ($vietQrCfg['bank_id'] ?? '') === 'MB'
-    && ($vietQrCfg['account_no'] ?? '') === '0988889999'
-    && ($vietQrCfg['account_name'] ?? '') === 'CONG TY BDS VIET'
+    && ($vietQrCfg['account_no'] ?? '') === '0902910780'
+    && ($vietQrCfg['account_name'] ?? '') === 'HA NGOC THIEN'
     && ($vietQrCfg['template'] ?? '') === 'compact2'
 );
 
@@ -224,15 +224,15 @@ assertTest(
     && strpos($detailViewContent, 'id="vietQrCustomAmount"') !== false
 );
 assertTest(
-    "12.3 #vietQrModal sinh ảnh mã QR chuẩn VietQR (img.vietqr.io/image/MB-0988889999-compact2.png)",
-    strpos($detailViewContent, 'https://img.vietqr.io/image/MB-0988889999-compact2.png?amount=') !== false
-    && strpos($detailViewContent, '&accountName=CONG%20TY%20BDS%20VIET') !== false
+    "12.3 #vietQrModal sinh ảnh mã QR chuẩn VietQR (img.vietqr.io/image/MB-0902910780-compact2.png)",
+    strpos($detailViewContent, 'https://img.vietqr.io/image/MB-0902910780-compact2.png?amount=') !== false
+    && strpos($detailViewContent, '&accountName=HA%20NGOC%20THIEN') !== false
 );
 assertTest(
-    "12.4 #vietQrModal hiển thị rõ MBBank, STK 0988889999, CÔNG TY BĐS VIỆT, nút Sao chép STK & Sao chép nội dung kèm BDS.toast",
+    "12.4 #vietQrModal hiển thị rõ MBBank, STK 0902910780, HA NGOC THIEN, nút Sao chép STK & Sao chép nội dung kèm BDS.toast",
     strpos($detailViewContent, 'Ngân hàng Quân Đội (MBBank)') !== false
-    && strpos($detailViewContent, '0988889999') !== false
-    && strpos($detailViewContent, 'CÔNG TY BĐS VIỆT') !== false
+    && strpos($detailViewContent, '0902910780') !== false
+    && strpos($detailViewContent, 'HA NGOC THIEN') !== false
     && strpos($detailViewContent, 'Sao chép STK') !== false
     && strpos($detailViewContent, 'Sao chép nội dung') !== false
     && strpos($detailViewContent, 'copyVietQrText') !== false
@@ -338,7 +338,7 @@ assertTest(
     $detail18Resp['code'] === 200
     && strpos($detail18Resp['body'], 'Đặt cọc giữ chỗ qua VietQR') !== false
     && strpos($detail18Resp['body'], 'id="vietQrModal"') !== false
-    && strpos($detail18Resp['body'], 'https://img.vietqr.io/image/MB-0988889999-compact2.png') !== false
+    && strpos($detail18Resp['body'], 'https://img.vietqr.io/image/MB-0902910780-compact2.png') !== false
     && strpos($detail18Resp['body'], 'btnPrintBrochure') === false
     && strpos($detail18Resp['body'], 'printBrochureSheet') === false
     && strpos($styleCssContent, 'print-brochure') === false

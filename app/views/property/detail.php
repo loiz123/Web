@@ -799,8 +799,8 @@ if (!$hasValidCoords) {
   $shareMailBody = ($property['title'] ?? '') . ' - Giá: ' . format_price($property['price']) . ' - Xem chi tiết tại: ' . $shareFullUrl;
   $vietQrConfig = config('vietqr', []);
   $vietQrBankId = !empty($vietQrConfig['bank_id']) ? (string)$vietQrConfig['bank_id'] : 'MB';
-  $vietQrAccountNo = !empty($vietQrConfig['account_no']) ? (string)$vietQrConfig['account_no'] : '0988889999';
-  $vietQrAccountName = !empty($vietQrConfig['account_name']) ? (string)$vietQrConfig['account_name'] : 'CONG TY BDS VIET';
+  $vietQrAccountNo = !empty($vietQrConfig['account_no']) ? (string)$vietQrConfig['account_no'] : '0902910780';
+  $vietQrAccountName = !empty($vietQrConfig['account_name']) ? (string)$vietQrConfig['account_name'] : 'HA NGOC THIEN';
   $vietQrTemplate = !empty($vietQrConfig['template']) ? (string)$vietQrConfig['template'] : 'compact2';
   $vietQrBankNames = [
       'MB'   => 'Ngân hàng Quân Đội (MBBank)',
@@ -815,7 +815,7 @@ if (!$hasValidCoords) {
   $vietQrTransferNote = 'BDS' . (int)$property['id'] . ' DAT COC';
   $vietQrAddInfoEncoded = 'BDS' . (int)$property['id'] . '%20DAT%20COC';
   $vietQrAccountNameEncoded = rawurlencode($vietQrAccountName);
-  // Fallback mặc định: https://img.vietqr.io/image/MB-0988889999-compact2.png?amount=...&addInfo=...&accountName=CONG%20TY%20BDS%20VIET
+  // Fallback mặc định: https://img.vietqr.io/image/MB-0902910780-compact2.png?amount=...&addInfo=...&accountName=HA%20NGOC%20THIEN
   $vietQrImgDefault = 'https://img.vietqr.io/image/' . rawurlencode($vietQrBankId) . '-' . rawurlencode($vietQrAccountNo) . '-' . rawurlencode($vietQrTemplate) . '.png?amount=' . $vietQrDefaultAmount . '&addInfo=' . $vietQrAddInfoEncoded . '&accountName=' . $vietQrAccountNameEncoded;
 ?>
 

@@ -17,9 +17,9 @@ $config = [
     // Google Maps Platform API Key (Để trống khi không sử dụng - Hệ thống web hiện tại chuyển hoàn toàn sang Leaflet OpenStreetMap Web API miễn phí, mã nguồn mở, không cần thẻ tín dụng)
     'google_maps_api_key' => '',
     'vietqr' => [
-        'bank_id'      => 'MB', // Mã ngân hàng (MB, VCB, TCB, ACB, ...)
-        'account_no'   => '0988889999', // Số tài khoản thụ hưởng
-        'account_name' => 'CONG TY BDS VIET', // Tên chủ tài khoản
+        'bank_id'      => 'MB',
+        'account_no'   => '0902910780',
+        'account_name' => 'HA NGOC THIEN',
         'template'     => 'compact2',
     ],
 ];
