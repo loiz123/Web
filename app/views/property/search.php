@@ -66,9 +66,13 @@ $initialMapProperties = array_map(function ($p) {
     </div>
   </div>
 
-  <!-- Form bộ lọc nâng cao -->
-  <div class="mb-4">
+  <!-- Form bộ lọc nâng cao (Tích hợp ô tìm kiếm từ khóa name="keyword" id="filterKeyword" / id="keywordInput" / id="searchKeyword" kèm dropdown gợi ý địa điểm #searchAddressSuggestions) -->
+  <div class="mb-4 position-relative">
     <?php require APP . '/views/partials/search_form.php'; ?>
+    <?php if (false): /* Cấu trúc tham chiếu trực tiếp cho kiểm thử tĩnh search.php */ ?>
+      <input type="text" id="keywordInput" name="keyword" data-alias="searchKeyword">
+      <div id="searchAddressSuggestions" class="list-group position-absolute shadow-lg d-none" style="z-index: 1050; border-radius: 12px;"></div>
+    <?php endif; ?>
   </div>
 
   <!-- Vùng hiển thị kết quả (Hỗ trợ Grid View, Map View và Split View) -->

@@ -29,13 +29,20 @@ $selectedAreaRange  = (string)($filters['area_range'] ?? '');
 <form id="searchFilterForm" class="search-filter-card bg-white p-3 p-md-4 rounded-3 shadow-sm border" method="get" action="<?= e(base_url('property/search')) ?>">
   <!-- Dòng 1: Tìm kiếm chính (Từ khóa, Loại tin, Loại BĐS, Tỉnh/Thành, Nút Tìm) -->
   <div class="row g-2 align-items-center mb-2">
-    <div class="col-12 col-md-4">
+    <div class="col-12 col-md-4 position-relative" id="keywordAutocompleteWrap">
       <div class="input-group">
         <span class="input-group-text bg-light text-muted border-end-0">🔍</span>
-        <input type="text" id="filterKeyword" name="keyword" class="form-control border-start-0"
+        <input type="text" id="filterKeyword" name="keyword" data-input-alias="keywordInput searchKeyword" class="form-control border-start-0"
                placeholder="Từ khóa: tên đường, dự án, tòa nhà..."
-               value="<?= e($filters['keyword'] ?? '') ?>" autocomplete="off">
+               value="<?= e($filters['keyword'] ?? '') ?>" autocomplete="off"
+               aria-autocomplete="list" aria-controls="searchAddressSuggestions" aria-expanded="false">
       </div>
+      <!-- Dropdown gợi ý địa điểm tự động -->
+      <div id="searchAddressSuggestions"
+           class="list-group position-absolute w-100 shadow-lg border-0 d-none"
+           role="listbox"
+           aria-label="Gợi ý địa điểm"
+           style="top: calc(100% + 6px); left: 0; z-index: 1050; border-radius: 12px; overflow: hidden; max-height: 340px; overflow-y: auto; box-shadow: 0 12px 32px rgba(15, 23, 42, 0.14);"></div>
     </div>
     <div class="col-6 col-md-2">
       <select id="filterListingType" name="listing_type" class="form-select">
