@@ -1,12 +1,12 @@
 <!-- Hero Banner & Bộ lọc tìm kiếm trang chủ -->
-<section class="p-4 p-md-5 mb-4 rounded-4 border bg-white shadow-sm position-relative overflow-hidden" style="background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);">
+<section class="p-4 p-md-5 mb-4 rounded-4 border bg-white shadow-sm position-relative" style="background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);">
   <div class="row align-items-center mb-4">
     <div class="col-lg-8">
       <div class="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill bg-danger-subtle text-danger fw-semibold small mb-2">
         <i class="bi bi-stars"></i> Nền tảng Bất động sản Hiện đại & Thông minh
       </div>
       <h1 class="h2 fw-extrabold text-dark mb-2">Tìm kiếm & Khám phá ngôi nhà lý tưởng</h1>
-      <p class="text-secondary mb-0">Hàng ngàn tin đăng nhà đất, căn hộ được xác thực thông tin, tích hợp định vị bản đồ Leaflet OpenStreetMap và công cụ tính khoản vay ưu đãi.</p>
+      <p class="text-secondary mb-0">Hàng ngàn tin đăng nhà đất, căn hộ được xác thực thông tin, tích hợp bản đồ bất động sản trực quan và công cụ tính khoản vay ưu đãi.</p>
     </div>
     <div class="col-lg-4 text-lg-end mt-3 mt-lg-0 d-none d-md-block">
       <div class="d-inline-flex flex-wrap gap-2 justify-content-lg-end">
@@ -48,3 +48,4 @@
     <?php foreach ($properties as $p) require APP . '/views/partials/property_card.php'; ?>
   </div>
 <?php endif; ?>
+<script src="<?= e(base_url('assets/js/search-ajax.js')) ?>"></script>

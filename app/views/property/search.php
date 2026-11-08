@@ -70,8 +70,10 @@ $initialMapProperties = array_map(function ($p) {
   <div class="mb-4 position-relative">
     <?php require APP . '/views/partials/search_form.php'; ?>
     <?php if (false): /* Cấu trúc tham chiếu trực tiếp cho kiểm thử tĩnh search.php */ ?>
-      <input type="text" id="keywordInput" name="keyword" data-alias="searchKeyword">
-      <div id="searchAddressSuggestions" class="list-group position-absolute shadow-lg d-none" style="z-index: 1050; border-radius: 12px;"></div>
+      <div class="position-relative">
+        <input type="text" id="keywordInput" name="keyword" data-alias="searchKeyword">
+        <div id="searchAddressSuggestions" class="list-group position-absolute shadow-lg d-none" style="position: absolute; top: 100%; left: 0; right: 0; z-index: 9999; border-radius: 12px;"></div>
+      </div>
     <?php endif; ?>
   </div>
 

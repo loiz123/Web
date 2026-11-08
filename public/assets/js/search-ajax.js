@@ -225,6 +225,15 @@ document.addEventListener('DOMContentLoaded', function () {
   let autocompleteTimer = null;
   let autocompleteAbortCtrl = null;
 
+  const DEFAULT_POPULAR_LOCATIONS = [
+    { display_name: 'Phường Thảo Điền, Thành phố Thủ Đức, Thành phố Hồ Chí Minh, Việt Nam', lat: 10.8031, lng: 106.7318 },
+    { display_name: 'Quận 1, Thành phố Hồ Chí Minh, Việt Nam', lat: 10.7757, lng: 106.7004 },
+    { display_name: 'Khu đô thị Phú Mỹ Hưng, Quận 7, Thành phố Hồ Chí Minh, Việt Nam', lat: 10.7295, lng: 106.7061 },
+    { display_name: 'Quận Bình Thạnh, Thành phố Hồ Chí Minh, Việt Nam', lat: 10.8106, lng: 106.7091 },
+    { display_name: 'Quận Hải Châu, Thành phố Đà Nẵng, Việt Nam', lat: 16.0544, lng: 108.2022 },
+    { display_name: 'Quận Cầu Giấy, Thành phố Hà Nội, Việt Nam', lat: 21.0362, lng: 105.7906 }
+  ];
+
   function hideAddressSuggestions() {
     if (!suggestionsBox) return;
     suggestionsBox.classList.add('d-none');
@@ -240,6 +249,46 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!escapedKw) return safeText;
     const regex = new RegExp(`(${escapedKw})`, 'gi');
     return safeText.replace(regex, '<strong class="text-primary fw-bold">$1</strong>');
+  }
+
+  function renderSuggestionItems(items, keyword) {
+    if (!suggestionsBox || !keywordInput) return;
+    if (!Array.isArray(items) || !items.length) {
+      hideAddressSuggestions();
+      return;
+    }
+
+    suggestionsBox.innerHTML = items.map(item => {
+      const displayName = String(item.display_name || '').trim();
+      if (!displayName) return '';
+      return `
+        <button type="button"
+                class="list-group-item list-group-item-action d-flex align-items-start gap-2 py-2 px-3 border-0 border-bottom search-suggestion-item"
+                role="option"
+                data-display-name="${escapeHtml(displayName)}"
+                data-lat="${escapeHtml(item.lat ?? '')}"
+                data-lng="${escapeHtml(item.lng ?? '')}">
+          <span class="fs-6 lh-sm mt-1 flex-shrink-0">📍</span>
+          <span class="flex-grow-1 text-start small text-dark lh-sm">${highlightKeyword(displayName, keyword)}</span>
+        </button>
+      `;
+    }).join('');
+
+    if (suggestionsBox.innerHTML.trim() !== '') {
+      suggestionsBox.classList.remove('d-none');
+      keywordInput.setAttribute('aria-expanded', 'true');
+    } else {
+      hideAddressSuggestions();
+    }
+  }
+
+  function getPopularSuggestions(keyword) {
+    const kw = (keyword || '').trim().toLowerCase();
+    if (!kw) return DEFAULT_POPULAR_LOCATIONS;
+    const matched = DEFAULT_POPULAR_LOCATIONS.filter(item =>
+      String(item.display_name || '').toLowerCase().includes(kw)
+    );
+    return matched.length ? matched : DEFAULT_POPULAR_LOCATIONS;
   }
 
   async function fetchAddressSuggestions(keyword) {
@@ -266,7 +315,7 @@ document.addEventListener('DOMContentLoaded', function () {
       });
 
       if (!response.ok) {
-        hideAddressSuggestions();
+        renderSuggestionItems(getPopularSuggestions(keyword), keyword);
         return;
       }
 
@@ -278,40 +327,36 @@ document.addEventListener('DOMContentLoaded', function () {
         return;
       }
 
-      suggestionsBox.innerHTML = items.map(item => {
-        const displayName = String(item.display_name || '').trim();
-        if (!displayName) return '';
-        return `
-          <button type="button"
-                  class="list-group-item list-group-item-action d-flex align-items-start gap-2 py-2 px-3 border-0 border-bottom search-suggestion-item"
-                  role="option"
-                  data-display-name="${escapeHtml(displayName)}"
-                  data-lat="${escapeHtml(item.lat ?? '')}"
-                  data-lng="${escapeHtml(item.lng ?? '')}">
-            <span class="fs-6 lh-sm mt-1 flex-shrink-0">📍</span>
-            <span class="flex-grow-1 text-start small text-dark lh-sm">${highlightKeyword(displayName, keyword)}</span>
-          </button>
-        `;
-      }).join('');
-
-      if (suggestionsBox.innerHTML.trim() !== '') {
-        suggestionsBox.classList.remove('d-none');
-        keywordInput.setAttribute('aria-expanded', 'true');
-      } else {
-        hideAddressSuggestions();
-      }
+      renderSuggestionItems(items, keyword);
     } catch (err) {
       if (err && err.name === 'AbortError') return;
-      hideAddressSuggestions();
+      renderSuggestionItems(getPopularSuggestions(keyword), keyword);
     }
   }
+
+  function handleOpenAddressSuggestions() {
+    if (!keywordInput) return;
+    const keyword = (keywordInput.value || '').trim();
+    if (keyword.length < 2) {
+      renderSuggestionItems(getPopularSuggestions(keyword), keyword);
+    } else {
+      fetchAddressSuggestions(keyword);
+    }
+  }
+
+  keywordInput?.addEventListener('focus', handleOpenAddressSuggestions);
+  keywordInput?.addEventListener('click', handleOpenAddressSuggestions);
 
   keywordInput?.addEventListener('input', function () {
     clearTimeout(autocompleteTimer);
     const keyword = (keywordInput.value || '').trim();
     if (keyword.length < 2) {
       if (autocompleteAbortCtrl) autocompleteAbortCtrl.abort();
-      hideAddressSuggestions();
+      if (keyword.length === 0) {
+        renderSuggestionItems(DEFAULT_POPULAR_LOCATIONS, '');
+      } else {
+        renderSuggestionItems(getPopularSuggestions(keyword), keyword);
+      }
       return;
     }
     autocompleteTimer = setTimeout(function () {
@@ -325,6 +370,12 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 
+  suggestionsBox?.addEventListener('mousedown', function (e) {
+    if (e.target.closest('.search-suggestion-item')) {
+      e.preventDefault();
+    }
+  });
+
   suggestionsBox?.addEventListener('click', function (e) {
     const itemBtn = e.target.closest('.search-suggestion-item');
     if (!itemBtn || !keywordInput) return;
@@ -332,7 +383,11 @@ document.addEventListener('DOMContentLoaded', function () {
     const selectedAddress = itemBtn.getAttribute('data-display-name') || itemBtn.textContent.replace(/^📍\s*/, '').trim();
     keywordInput.value = selectedAddress;
     hideAddressSuggestions();
-    fetchResults(1, true);
+    if (propertiesGrid) {
+      fetchResults(1, true);
+    } else if (form) {
+      form.submit();
+    }
   });
 
   document.addEventListener('keydown', function (e) {
@@ -351,12 +406,14 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   form?.addEventListener('submit', function (e) {
+    if (!propertiesGrid) return;
     e.preventDefault();
     performSearch(1, true);
   });
 
   ['#filterSortBy', '#filterBedrooms', '#filterListingType', '#filterTypeId', '#filterPriceRange', '#filterAreaRange'].forEach(sel => {
     document.querySelector(sel)?.addEventListener('change', () => {
+      if (!propertiesGrid) return;
       performSearch(1, true);
     });
   });
