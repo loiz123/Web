@@ -162,4 +162,84 @@ class Property extends Model
             throw $error;
         }
     }
+
+    /**
+     * Lấy danh sách bất động sản tương tự (ưu tiên cùng quận/huyện, cùng loại BĐS và chênh lệch giá nhỏ nhất)
+     */
+    public function getSimilarProperties(int $currentId, int $districtId, int $typeId, float $price, int $limit = 4): array
+    {
+        $limit = max(1, (int)$limit);
+        $sql = "SELECT p.id, p.title, p.listing_type, p.price, p.area, p.bedrooms, p.bathrooms,
+                       p.direction, p.is_verified, p.latitude, p.longitude, p.created_at, p.address_detail,
+                       t.id AS type_id, t.name AS type_name,
+                       w.id AS ward_id, w.name AS ward_name,
+                       d.id AS district_id, d.name AS district_name,
+                       pr.id AS province_id, pr.name AS province_name,
+                       (SELECT image_url FROM property_images i
+                        WHERE i.property_id = p.id ORDER BY i.is_cover DESC, i.id ASC LIMIT 1) AS cover_url
+                FROM properties p
+                JOIN property_types t ON t.id = p.type_id
+                JOIN wards w ON w.id = p.ward_id
+                JOIN districts d ON d.id = w.district_id
+                JOIN provinces pr ON pr.id = d.province_id
+                WHERE p.status = 'approved'
+                  AND p.id != :currentId
+                  AND (d.id = :districtIdFilter OR p.type_id = :typeIdFilter)
+                ORDER BY
+                    (CASE
+                        WHEN d.id = :districtIdOrder AND p.type_id = :typeIdOrder THEN 0
+                        WHEN d.id = :districtIdSecond THEN 1
+                        WHEN p.type_id = :typeIdSecond THEN 2
+                        ELSE 3
+                    END) ASC,
+                    ABS(p.price - :price) ASC,
+                    p.created_at DESC
+                LIMIT {$limit}";
+
+        $rows = $this->query($sql, [
+            ':currentId'        => $currentId,
+            ':districtIdFilter' => $districtId,
+            ':typeIdFilter'     => $typeId,
+            ':districtIdOrder'  => $districtId,
+            ':typeIdOrder'      => $typeId,
+            ':districtIdSecond' => $districtId,
+            ':typeIdSecond'     => $typeId,
+            ':price'            => $price,
+        ])->fetchAll();
+
+        // Nếu ít kết quả hơn $limit thì lấy bổ sung các tin đã duyệt khác có mức giá gần nhất
+        if (count($rows) < $limit) {
+            $excludeIds = array_merge([$currentId], array_map(fn($r) => (int)$r['id'], $rows));
+            $placeholders = implode(',', array_fill(0, count($excludeIds), '?'));
+            $needed = $limit - count($rows);
+            $fallbackSql = "SELECT p.id, p.title, p.listing_type, p.price, p.area, p.bedrooms, p.bathrooms,
+                                   p.direction, p.is_verified, p.latitude, p.longitude, p.created_at, p.address_detail,
+                                   t.id AS type_id, t.name AS type_name,
+                                   w.id AS ward_id, w.name AS ward_name,
+                                   d.id AS district_id, d.name AS district_name,
+                                   pr.id AS province_id, pr.name AS province_name,
+                                   (SELECT image_url FROM property_images i
+                                    WHERE i.property_id = p.id ORDER BY i.is_cover DESC, i.id ASC LIMIT 1) AS cover_url
+                            FROM properties p
+                            JOIN property_types t ON t.id = p.type_id
+                            JOIN wards w ON w.id = p.ward_id
+                            JOIN districts d ON d.id = w.district_id
+                            JOIN provinces pr ON pr.id = d.province_id
+                            WHERE p.status = 'approved'
+                              AND p.id NOT IN ({$placeholders})
+                            ORDER BY ABS(p.price - ?) ASC, p.created_at DESC
+                            LIMIT {$needed}";
+            $fallbackRows = $this->query($fallbackSql, [...$excludeIds, $price])->fetchAll();
+            $rows = array_merge($rows, $fallbackRows);
+        }
+
+        foreach ($rows as &$row) {
+            $row['avatar'] = $row['cover_url'] ?? null;
+            $row['thumbnail'] = $row['cover_url'] ?? null;
+            $row['avatar_url'] = property_avatar_url($row['cover_url'] ?? null);
+        }
+        unset($row);
+
+        return $rows;
+    }
 }

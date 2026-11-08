@@ -1,5 +1,5 @@
-<!-- Leaflet 1.9 CSS -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<!-- Leaflet 1.9.4 CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
   #map { height: 480px; width: 100%; border-radius: 8px; z-index: 1; }
 </style>
@@ -69,8 +69,8 @@
   </div>
 </div>
 
-<!-- Leaflet 1.9 JS -->
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<!-- Leaflet 1.9.4 JS -->
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <!-- Module Map của Thiện -->
 <script src="<?= e(base_url('assets/js/map.js')) ?>"></script>
 

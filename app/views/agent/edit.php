@@ -48,12 +48,12 @@
     <input id="address-detail" name="address_detail" maxlength="200" class="form-control" required value="<?= e($listing['address_detail'] ?? '') ?>">
   </div>
 
-  <!-- [C - Thiện] Bản đồ Leaflet OpenStreetMap chọn vị trí khi sửa tin -->
+  <!-- Bản đồ chọn vị trí khi sửa tin -->
   <div class="col-12">
     <div class="card bg-light border shadow-sm">
       <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
-        <span class="fw-semibold small text-dark">🗺️ Cập nhật vị trí trên bản đồ OpenStreetMap (Leaflet)</span>
-        <span class="text-muted small">Kéo marker hoặc bấm trên map</span>
+        <span class="fw-semibold small text-dark">🗺️ Cập nhật vị trí bất động sản trên bản đồ</span>
+        <span class="text-muted small">Kéo điểm ghim hoặc bấm trên bản đồ</span>
       </div>
       <div class="card-body p-3">
         <div class="input-group mb-2">
@@ -61,7 +61,7 @@
           <button type="button" class="btn btn-outline-primary" id="btnSearchMapAddress">🔍 Tìm vị trí</button>
         </div>
         <div id="mapStatus" class="alert alert-info py-2 small mb-2">
-          💡 Bấm trực tiếp lên bản đồ hoặc kéo biểu tượng marker để cập nhật tọa độ chính xác.
+          💡 Bấm trực tiếp lên bản đồ hoặc kéo biểu tượng điểm ghim để cập nhật tọa độ chính xác.
         </div>
         <div id="agentMapPicker" style="height: 320px; width: 100%; border-radius: 6px;" class="border mb-2"></div>
         <div class="row g-2">
@@ -88,8 +88,8 @@
   </div>
 </form>
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="<?= e(base_url('assets/js/map.js')) ?>"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
@@ -116,7 +116,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (latitudeInput.value === '10.776889' && longitudeInput.value === '106.700806') {
         event.preventDefault();
         mapStatus.className = 'alert alert-warning py-2 small mb-2';
-        mapStatus.textContent = 'Vui lòng bấm lên bản đồ hoặc kéo marker để chọn tọa độ.';
+        mapStatus.textContent = 'Vui lòng bấm lên bản đồ hoặc kéo điểm ghim để chọn tọa độ.';
         mapStatus.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     });

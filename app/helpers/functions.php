@@ -51,5 +51,14 @@ function format_price($price): string
     return number_format($p, 0, ',', '.') . ' đ';
 }
 
-/** Độ dài chuỗi UTF-8 theo ký tự (không cần extension mbstring, vì một số hosting miễn phí tắt nó). */
-function str_len(string $s): int { return (int)preg_match_all('/./us', $s); }
+/**
+ * Trả về URL ảnh đại diện BĐS hoặc ảnh mặc định nếu không có.
+ */
+function property_avatar_url(?string $path): string
+{
+    if (!empty($path)) {
+        return base_url($path);
+    }
+    return base_url('uploads/sample-property-01.jpg');
+}
+
