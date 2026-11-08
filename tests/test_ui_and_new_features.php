@@ -271,6 +271,109 @@ assertTest(
     && strpos($styleCssContent, '.print-brochure-grid') !== false
 );
 
+// 14. Kiểm tra Tính năng Mới: Gợi ý địa chỉ tự động (Nominatim Autocomplete) trên thanh tìm kiếm chính
+$searchFormContent = file_get_contents(ROOT . '/app/views/partials/search_form.php');
+assertTest(
+    "14.1 search.php & search_form.php có container dropdown gợi ý #searchAddressSuggestions (.list-group, position-absolute, z-index: 1050, border-radius: 12px)",
+    strpos($searchViewContent, 'id="searchAddressSuggestions"') !== false
+    && strpos($searchFormContent, 'id="searchAddressSuggestions"') !== false
+    && strpos($renderedSearchHtml, 'id="searchAddressSuggestions"') !== false
+    && strpos($renderedSearchHtml, 'list-group') !== false
+    && strpos($renderedSearchHtml, 'position-absolute') !== false
+    && strpos($renderedSearchHtml, 'z-index: 1050') !== false
+    && strpos($renderedSearchHtml, 'border-radius: 12px') !== false
+);
+assertTest(
+    "14.2 search-ajax.js bắt sự kiện input với debounce 350ms và gọi GET /batdongsan/public/geocode?q= khi độ dài >= 2 ký tự",
+    strpos($searchAjaxContent, '350') !== false
+    && strpos($searchAjaxContent, 'keyword.length < 2') !== false
+    && strpos($searchAjaxContent, '/batdongsan/public/geocode?q=') !== false
+    && strpos($searchAjaxContent, 'encodeURIComponent(keyword)') !== false
+);
+assertTest(
+    "14.3 search-ajax.js hiển thị dropdown gợi ý với icon 📍, display_name và tô đậm từ khóa (highlightKeyword)",
+    strpos($searchAjaxContent, '📍') !== false
+    && strpos($searchAjaxContent, 'display_name') !== false
+    && strpos($searchAjaxContent, 'highlightKeyword') !== false
+    && strpos($searchAjaxContent, 'search-suggestion-item') !== false
+);
+assertTest(
+    "14.4 search-ajax.js xử lý click gợi ý (điền input, ẩn dropdown, gọi fetchResults) và ẩn dropdown khi nhấn Escape hoặc click ra ngoài",
+    strpos($searchAjaxContent, 'fetchResults') !== false
+    && strpos($searchAjaxContent, 'hideAddressSuggestions') !== false
+    && strpos($searchAjaxContent, "e.key === 'Escape'") !== false
+);
+assertTest(
+    "14.5 PropertyFinder hỗ trợ tìm kiếm linh hoạt với chuỗi địa danh đầy đủ từ gợi ý địa chỉ (có dấu phẩy)",
+    count($finder->search(['keyword' => 'Phường Thảo Điền, Thành phố Thủ Đức, Thành phố Hồ Chí Minh, Việt Nam'])) >= 1
+);
+
+// 15. Kiểm thử HTTP thực tế 2 API (Nominatim Forward/Reverse & VietQR) và các trang trên XAMPP
+function httpGetCheck(string $url, array $headers = []): array {
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_TIMEOUT        => 8,
+        CURLOPT_HTTPHEADER     => $headers,
+        CURLOPT_SSL_VERIFYPEER => false,
+        CURLOPT_SSL_VERIFYHOST => 0,
+    ]);
+    $body = curl_exec($ch);
+    $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $ct   = (string)curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+    curl_close($ch);
+    return ['code' => $code, 'ct' => $ct, 'body' => (string)$body];
+}
+
+$geoForwardResp = httpGetCheck('http://localhost/batdongsan/public/geocode?q=Ha+Noi');
+$geoForwardJson = json_decode($geoForwardResp['body'], true);
+assertTest(
+    "15.1 HTTP GET /batdongsan/public/geocode?q=Ha+Noi trả về JSON hợp lệ (success=true, có danh sách display_name)",
+    $geoForwardResp['code'] === 200
+    && is_array($geoForwardJson)
+    && ($geoForwardJson['success'] ?? false) === true
+    && !empty($geoForwardJson['data'][0]['display_name'])
+);
+
+$geoReverseResp = httpGetCheck('http://localhost/batdongsan/public/geocode/reverse?lat=21.0285&lng=105.8542');
+$geoReverseJson = json_decode($geoReverseResp['body'], true);
+assertTest(
+    "15.2 HTTP GET /batdongsan/public/geocode/reverse?lat=21.0285&lng=105.8542 trả về JSON hợp lệ (success=true, có display_name)",
+    $geoReverseResp['code'] === 200
+    && is_array($geoReverseJson)
+    && ($geoReverseJson['success'] ?? false) === true
+    && !empty($geoReverseJson['display_name'])
+);
+
+$detail18Resp = httpGetCheck('http://localhost/batdongsan/public/property/detail/18');
+assertTest(
+    "15.3 HTTP GET /batdongsan/public/property/detail/18 có nút VietQR, #vietQrModal, URL img.vietqr.io, nút In Brochure A4 & #printBrochureSheet",
+    $detail18Resp['code'] === 200
+    && strpos($detail18Resp['body'], 'Đặt cọc giữ chỗ qua VietQR') !== false
+    && strpos($detail18Resp['body'], 'id="vietQrModal"') !== false
+    && strpos($detail18Resp['body'], 'https://img.vietqr.io/image/MB-0988889999-compact2.png') !== false
+    && strpos($detail18Resp['body'], 'In tờ rơi / Xuất Brochure A4') !== false
+    && strpos($detail18Resp['body'], 'id="printBrochureSheet"') !== false
+);
+
+$searchPageResp = httpGetCheck('http://localhost/batdongsan/public/property/search');
+$searchAjaxResp = httpGetCheck(
+    'http://localhost/batdongsan/public/property/search?keyword=Th%E1%BA%A3o+%C4%90i%E1%BB%81n&page=1',
+    ['Accept: application/json', 'X-Requested-With: XMLHttpRequest']
+);
+$searchAjaxJson = json_decode($searchAjaxResp['body'], true);
+assertTest(
+    "15.4 HTTP GET /batdongsan/public/property/search có ô tìm kiếm từ khóa, #searchAddressSuggestions và AJAX lọc/phân trang hoạt động",
+    $searchPageResp['code'] === 200
+    && strpos($searchPageResp['body'], 'name="keyword"') !== false
+    && strpos($searchPageResp['body'], 'id="searchAddressSuggestions"') !== false
+    && $searchAjaxResp['code'] === 200
+    && is_array($searchAjaxJson)
+    && ($searchAjaxJson['success'] ?? false) === true
+    && isset($searchAjaxJson['data']['html'], $searchAjaxJson['data']['paginationHtml'])
+);
+
 echo "\n=======================================================\n";
 echo "KẾT QUẢ: {$passed}/{$total} tests passed!\n";
 echo "=======================================================\n\n";

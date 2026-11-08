@@ -1234,4 +1234,38 @@ body {
   }
 }
 
+/* ==========================================================================
+   13. SEARCH AUTOCOMPLETE DROPDOWN (#searchAddressSuggestions)
+   ========================================================================== */
+#searchAddressSuggestions {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 1050;
+  border-radius: 12px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  max-height: 340px;
+  background: #ffffff;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.14), 0 2px 6px rgba(15, 23, 42, 0.08);
+  border: 1px solid rgba(226, 232, 240, 0.95);
+}
+
+#searchAddressSuggestions .search-suggestion-item {
+  transition: background-color 0.15s ease, padding-left 0.15s ease;
+  cursor: pointer;
+}
+
+#searchAddressSuggestions .search-suggestion-item:last-child {
+  border-bottom: none !important;
+}
+
+#searchAddressSuggestions .search-suggestion-item:hover,
+#searchAddressSuggestions .search-suggestion-item:focus {
+  background-color: #f8fafc;
+  padding-left: 1rem !important;
+}
+
+
 

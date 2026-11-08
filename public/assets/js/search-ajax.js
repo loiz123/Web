@@ -205,11 +205,150 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
+  function fetchResults(page = 1, updateUrl = true) {
+    return performSearch(page, updateUrl);
+  }
+
   // Cho phép gọi tạo skeleton hoặc tìm kiếm từ bên ngoài phục vụ kiểm thử / tương tác
+  window.fetchResults = fetchResults;
   window.BdsSearchAjax = {
     performSearch: performSearch,
+    fetchResults: fetchResults,
     renderSkeletonLoading: renderSkeletonLoading,
   };
+
+  // =========================================================================
+  // GỢI Ý ĐỊA CHỈ TỰ ĐỘNG (AUTOCOMPLETE) TRÊN Ô TỪ KHÓA TÌM KIẾM
+  // =========================================================================
+  const keywordInput = document.querySelector('#filterKeyword, #keywordInput, #searchKeyword, input[name="keyword"]');
+  const suggestionsBox = document.getElementById('searchAddressSuggestions');
+  let autocompleteTimer = null;
+  let autocompleteAbortCtrl = null;
+
+  function hideAddressSuggestions() {
+    if (!suggestionsBox) return;
+    suggestionsBox.classList.add('d-none');
+    suggestionsBox.innerHTML = '';
+    keywordInput?.setAttribute('aria-expanded', 'false');
+  }
+
+  function highlightKeyword(displayName, keyword) {
+    const safeText = escapeHtml(displayName || '');
+    const cleanKw = (keyword || '').trim();
+    if (!cleanKw) return safeText;
+    const escapedKw = escapeHtml(cleanKw).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (!escapedKw) return safeText;
+    const regex = new RegExp(`(${escapedKw})`, 'gi');
+    return safeText.replace(regex, '<strong class="text-primary fw-bold">$1</strong>');
+  }
+
+  async function fetchAddressSuggestions(keyword) {
+    if (!suggestionsBox || !keywordInput) return;
+
+    if (autocompleteAbortCtrl) {
+      autocompleteAbortCtrl.abort();
+    }
+    autocompleteAbortCtrl = new AbortController();
+
+    const endpoint = '/batdongsan/public/geocode?q=' + encodeURIComponent(keyword);
+    const requestUrl = (typeof BASE_URL === 'string' && BASE_URL && !BASE_URL.endsWith('/batdongsan/public'))
+      ? `${BASE_URL}/geocode?q=${encodeURIComponent(keyword)}`
+      : endpoint;
+
+    try {
+      const response = await fetch(requestUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        signal: autocompleteAbortCtrl.signal,
+      });
+
+      if (!response.ok) {
+        hideAddressSuggestions();
+        return;
+      }
+
+      const res = await response.json();
+      const items = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
+
+      if (!items.length) {
+        hideAddressSuggestions();
+        return;
+      }
+
+      suggestionsBox.innerHTML = items.map(item => {
+        const displayName = String(item.display_name || '').trim();
+        if (!displayName) return '';
+        return `
+          <button type="button"
+                  class="list-group-item list-group-item-action d-flex align-items-start gap-2 py-2 px-3 border-0 border-bottom search-suggestion-item"
+                  role="option"
+                  data-display-name="${escapeHtml(displayName)}"
+                  data-lat="${escapeHtml(item.lat ?? '')}"
+                  data-lng="${escapeHtml(item.lng ?? '')}">
+            <span class="fs-6 lh-sm mt-1 flex-shrink-0">📍</span>
+            <span class="flex-grow-1 text-start small text-dark lh-sm">${highlightKeyword(displayName, keyword)}</span>
+          </button>
+        `;
+      }).join('');
+
+      if (suggestionsBox.innerHTML.trim() !== '') {
+        suggestionsBox.classList.remove('d-none');
+        keywordInput.setAttribute('aria-expanded', 'true');
+      } else {
+        hideAddressSuggestions();
+      }
+    } catch (err) {
+      if (err && err.name === 'AbortError') return;
+      hideAddressSuggestions();
+    }
+  }
+
+  keywordInput?.addEventListener('input', function () {
+    clearTimeout(autocompleteTimer);
+    const keyword = (keywordInput.value || '').trim();
+    if (keyword.length < 2) {
+      if (autocompleteAbortCtrl) autocompleteAbortCtrl.abort();
+      hideAddressSuggestions();
+      return;
+    }
+    autocompleteTimer = setTimeout(function () {
+      fetchAddressSuggestions(keyword);
+    }, 350);
+  });
+
+  keywordInput?.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      hideAddressSuggestions();
+    }
+  });
+
+  suggestionsBox?.addEventListener('click', function (e) {
+    const itemBtn = e.target.closest('.search-suggestion-item');
+    if (!itemBtn || !keywordInput) return;
+    e.preventDefault();
+    const selectedAddress = itemBtn.getAttribute('data-display-name') || itemBtn.textContent.replace(/^📍\s*/, '').trim();
+    keywordInput.value = selectedAddress;
+    hideAddressSuggestions();
+    fetchResults(1, true);
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      hideAddressSuggestions();
+    }
+  });
+
+  document.addEventListener('click', function (e) {
+    if (!suggestionsBox || suggestionsBox.classList.contains('d-none')) return;
+    const clickedInsideInput = keywordInput && keywordInput.contains(e.target);
+    const clickedInsideDropdown = suggestionsBox.contains(e.target);
+    if (!clickedInsideInput && !clickedInsideDropdown) {
+      hideAddressSuggestions();
+    }
+  });
 
   form?.addEventListener('submit', function (e) {
     e.preventDefault();
