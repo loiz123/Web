@@ -89,15 +89,24 @@ $avatarUrl = !empty($profile['avatar']) ? base_url($profile['avatar']) : '';
           <?= csrf_field() ?>
           <div class="mb-3">
             <label class="form-label small fw-semibold">Mật khẩu hiện tại</label>
-            <input type="password" name="current_password" class="form-control" autocomplete="current-password" required>
+            <div class="input-group">
+              <input type="password" name="current_password" class="form-control" autocomplete="current-password" required>
+              <button class="btn btn-outline-secondary btn-toggle-password" type="button" tabindex="-1"><i class="bi bi-eye"></i></button>
+            </div>
           </div>
           <div class="mb-3">
-            <label class="form-label small fw-semibold">Mật khẩu mới (6–72 ký tự)</label>
-            <input type="password" name="new_password" class="form-control" autocomplete="new-password" required>
+            <label class="form-label small fw-semibold">Mật khẩu mới</label>
+            <div class="input-group">
+              <input type="password" name="new_password" class="form-control" autocomplete="new-password" required>
+              <button class="btn btn-outline-secondary btn-toggle-password" type="button" tabindex="-1"><i class="bi bi-eye"></i></button>
+            </div>
           </div>
           <div class="mb-3">
-            <label class="form-label small fw-semibold">Nhập lại mật khẩu mới</label>
-            <input type="password" name="new_password_confirm" class="form-control" autocomplete="new-password" required>
+            <label class="form-label small fw-semibold">Xác nhận mật khẩu</label>
+            <div class="input-group">
+              <input type="password" name="new_password_confirm" class="form-control" autocomplete="new-password" required>
+              <button class="btn btn-outline-secondary btn-toggle-password" type="button" tabindex="-1"><i class="bi bi-eye"></i></button>
+            </div>
           </div>
           <button type="submit" class="btn btn-outline-primary fw-semibold w-100">
             <i class="bi bi-key me-1"></i>Cập nhật mật khẩu

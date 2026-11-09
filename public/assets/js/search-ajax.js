@@ -615,8 +615,12 @@ document.addEventListener('DOMContentLoaded', function () {
         const district = form.elements.district_id;
         const ward = form.elements.ward_id;
         if (typeof BdsLocation !== 'undefined') {
-          await BdsLocation.load(district, 'districts', form.elements.province_id?.value, filterObj.district_id);
-          await BdsLocation.load(ward, 'wards', district?.value, filterObj.ward_id);
+          if (district) {
+            await BdsLocation.load(district, 'districts', form.elements.province_id?.value, filterObj.district_id);
+            await BdsLocation.load(ward, 'wards', district?.value, filterObj.ward_id);
+          } else if (ward) {
+            await BdsLocation.load(ward, 'wards', form.elements.province_id?.value, filterObj.ward_id);
+          }
         }
         performSearch(1, true);
         if (window.BDS) {

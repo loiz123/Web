@@ -9,7 +9,10 @@
           <label class="form-label mb-0">Mật khẩu</label>
           <a href="<?= e(base_url('auth/forgot')) ?>" class="small text-decoration-none">Quên mật khẩu?</a>
         </div>
-        <input type="password" name="password" class="form-control" required>
+        <div class="input-group">
+          <input type="password" name="password" class="form-control" required>
+          <button class="btn btn-outline-secondary btn-toggle-password" type="button" tabindex="-1"><i class="bi bi-eye"></i></button>
+        </div>
       </div>
       <button class="btn btn-primary w-100 fw-semibold">Đăng nhập</button>
     </form>

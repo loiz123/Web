@@ -5,8 +5,20 @@
     <div class="mb-3"><label class="form-label">Họ tên</label><input name="full_name" class="form-control" value="<?= old('full_name') ?>" required></div>
     <div class="mb-3"><label class="form-label">Email</label><input type="email" name="email" class="form-control" value="<?= old('email') ?>" required></div>
     <div class="mb-3"><label class="form-label">Số điện thoại</label><input name="phone" class="form-control" value="<?= old('phone') ?>"></div>
-    <div class="mb-3"><label class="form-label">Mật khẩu (6–72 ký tự)</label><input type="password" name="password" class="form-control" autocomplete="new-password" required></div>
-    <div class="mb-3"><label class="form-label">Nhập lại mật khẩu</label><input type="password" name="password_confirm" class="form-control" autocomplete="new-password" required></div>
+    <div class="mb-3">
+      <label class="form-label">Mật khẩu</label>
+      <div class="input-group">
+        <input type="password" name="password" class="form-control" autocomplete="new-password" required>
+        <button class="btn btn-outline-secondary btn-toggle-password" type="button" tabindex="-1"><i class="bi bi-eye"></i></button>
+      </div>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Xác nhận mật khẩu</label>
+      <div class="input-group">
+        <input type="password" name="password_confirm" class="form-control" autocomplete="new-password" required>
+        <button class="btn btn-outline-secondary btn-toggle-password" type="button" tabindex="-1"><i class="bi bi-eye"></i></button>
+      </div>
+    </div>
     <div class="mb-3">
       <label class="form-label d-block">Bạn là</label>
       <div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="role" value="customer" id="r1" checked><label class="form-check-label" for="r1">Khách hàng</label></div>

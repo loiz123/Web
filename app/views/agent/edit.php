@@ -78,28 +78,19 @@ $existingImages = $existingImages ?? [];
   </div>
   <div class="col-6 col-md-3">
     <label for="direction" class="form-label">Hướng nhà</label>
-    <input id="direction" name="direction" maxlength="30" class="form-control" placeholder="VD: Đông Nam" value="<?= e($listing['direction'] ?? '') ?>">
+    <input id="direction" name="direction" maxlength="30" class="form-control" placeholder="Đông Nam" value="<?= e($listing['direction'] ?? '') ?>">
   </div>
 
-  <div class="col-12 col-md-4">
+  <div class="col-12 col-md-6">
     <label for="province" class="form-label">Tỉnh/Thành phố</label>
-    <select id="province" name="province_id" class="form-select" data-target="#district" data-level="districts" data-selected="<?= e($listing['province_id'] ?? '') ?>" required>
+    <select id="province" name="province_id" class="form-select" data-target="#ward" data-level="wards" data-selected="<?= e($listing['province_id'] ?? '') ?>" required>
       <option value="">Chọn tỉnh/thành phố</option>
       <?php foreach ($provinces as $province): ?>
         <option value="<?= (int)$province['id'] ?>" <?= (string)($listing['province_id'] ?? '') === (string)$province['id'] ? 'selected' : '' ?>><?= e($province['name']) ?></option>
       <?php endforeach; ?>
     </select>
   </div>
-  <div class="col-12 col-md-4">
-    <label for="district" class="form-label">Quận/Huyện</label>
-    <select id="district" name="district_id" class="form-select" data-target="#ward" data-level="wards" data-selected="<?= e($listing['district_id'] ?? '') ?>" required>
-      <option value="">Chọn quận/huyện</option>
-      <?php foreach ($districts as $district): ?>
-        <option value="<?= (int)$district['id'] ?>" <?= (string)($listing['district_id'] ?? '') === (string)$district['id'] ? 'selected' : '' ?>><?= e($district['name']) ?></option>
-      <?php endforeach; ?>
-    </select>
-  </div>
-  <div class="col-12 col-md-4">
+  <div class="col-12 col-md-6">
     <label for="ward" class="form-label">Phường/Xã</label>
     <select id="ward" name="ward_id" class="form-select" data-selected="<?= e($listing['ward_id'] ?? '') ?>" required>
       <option value="">Chọn phường/xã</option>
@@ -111,12 +102,12 @@ $existingImages = $existingImages ?? [];
 
   <div class="col-12 col-md-6">
     <label for="address-detail" class="form-label">Địa chỉ chi tiết</label>
-    <input id="address-detail" name="address_detail" maxlength="200" class="form-control" placeholder="VD: Số 123 Nguyễn Huệ, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh" required value="<?= e($listing['address_detail'] ?? '') ?>">
-    <small class="text-success d-flex align-items-center gap-1 mt-1 d-none" id="addressParseFeedback"><i class="bi bi-geo-alt-fill"></i> Đã tự động nhận diện: Phường ..., Quận ..., Tỉnh ...</small>
+    <input id="address-detail" name="address_detail" maxlength="200" class="form-control" placeholder="Số nhà, tên đường..." required value="<?= e($listing['address_detail'] ?? '') ?>">
+    <small class="text-success d-flex align-items-center gap-1 mt-1 d-none" id="addressParseFeedback"><i class="bi bi-geo-alt-fill"></i> Đã tự động nhận diện: Phường ..., Tỉnh/Thành ...</small>
   </div>
   <div class="col-12 col-md-6">
     <label for="legal-status" class="form-label">Pháp lý</label>
-    <input id="legal-status" name="legal_status" maxlength="100" class="form-control" placeholder="VD: Sổ hồng riêng, hợp đồng mua bán..." value="<?= e($listing['legal_status'] ?? '') ?>">
+    <input id="legal-status" name="legal_status" maxlength="100" class="form-control" placeholder="Sổ hồng riêng, hợp đồng mua bán..." value="<?= e($listing['legal_status'] ?? '') ?>">
   </div>
 
   <!-- Bản đồ chọn vị trí khi sửa tin -->
@@ -128,7 +119,7 @@ $existingImages = $existingImages ?? [];
       </div>
       <div class="card-body p-3">
         <div class="input-group mb-2">
-          <input type="text" id="mapSearchAddress" class="form-control" placeholder="Nhập địa chỉ tìm nhanh trên bản đồ (VD: 190 Phan Văn Trị, Bình Thạnh hoặc Thảo Điền, Thủ Đức)...">
+          <input type="text" id="mapSearchAddress" class="form-control" placeholder="Nhập địa chỉ tìm nhanh trên bản đồ...">
           <button type="button" class="btn btn-outline-primary" id="btnSearchMapAddress">🔍 Tìm vị trí</button>
         </div>
         <div id="mapStatus" class="alert alert-info py-2 small mb-2">

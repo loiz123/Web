@@ -158,7 +158,24 @@ class AgentController extends Controller
         $typeId = filter_var($input['type_id'] ?? '', FILTER_VALIDATE_INT);
         $provinceId = filter_var($input['province_id'] ?? '', FILTER_VALIDATE_INT);
         $districtId = filter_var($input['district_id'] ?? '', FILTER_VALIDATE_INT);
-        $wardId = filter_var($input['ward_id'] ?? '', FILTER_VALIDATE_INT);
+        $rawWard = (string)($input['ward_id'] ?? '');
+        $wardId = filter_var($rawWard, FILTER_VALIDATE_INT);
+        if (($wardId === false || $wardId === 0) && str_starts_with($rawWard, 'auto_osm_')) {
+            $osmWardName = trim(urldecode(substr($rawWard, 9)));
+            if ($osmWardName !== '' && $provinceId) {
+                $dbConn = Database::connection();
+                $wStmt = $dbConn->prepare("SELECT id FROM wards WHERE province_id = ? AND name = ? LIMIT 1");
+                $wStmt->execute([(int)$provinceId, $osmWardName]);
+                $wRow = $wStmt->fetch();
+                if ($wRow) {
+                    $wardId = (int)$wRow['id'];
+                } else {
+                    $insW = $dbConn->prepare("INSERT INTO wards (province_id, district_id, name) VALUES (?, 0, ?)");
+                    $insW->execute([(int)$provinceId, $osmWardName]);
+                    $wardId = (int)$dbConn->lastInsertId();
+                }
+            }
+        }
         $price = $input['price'] ?? '';
         $area = $input['area'] ?? '';
         $bedrooms = filter_var($input['bedrooms'] ?? 0, FILTER_VALIDATE_INT);
@@ -205,11 +222,7 @@ class AgentController extends Controller
             $errors[] = 'Kinh độ (longitude) không hợp lệ (-180 đến 180).';
         }
 
-        if ($provinceId && $districtId && $wardId) {
-            if (!$location->isValidWard((int)$provinceId, (int)$districtId, (int)$wardId)) {
-                $errors[] = 'Vui lòng chọn đầy đủ tỉnh/thành, quận/huyện và phường/xã hợp lệ.';
-            }
-        } elseif ($wardId) {
+        if ($provinceId && $wardId) {
             $wardRow = (new Ward())->findById((int)$wardId);
             if (!$wardRow) {
                 $errors[] = 'Phường/Xã đã chọn không hợp lệ.';
@@ -217,7 +230,7 @@ class AgentController extends Controller
         } elseif ($isEdit && !empty($existingListing['ward_id'])) {
             $wardId = (int)$existingListing['ward_id'];
         } else {
-            $errors[] = 'Vui lòng chọn đầy đủ tỉnh/thành, quận/huyện và phường/xã.';
+            $errors[] = 'Vui lòng chọn đầy đủ tỉnh/thành và phường/xã.';
         }
 
         $deposit = null;
@@ -506,15 +519,14 @@ class AgentController extends Controller
         $districtId = (int)($listing['district_id'] ?? 0);
         $wardId = (int)($listing['ward_id'] ?? 0);
 
-        if ($wardId > 0 && (!$districtId || !$provinceId)) {
+        if ($wardId > 0 && !$provinceId) {
             $wardRow = (new Ward())->findById($wardId);
             if ($wardRow) {
-                $districtId = (int)($wardRow['district_id'] ?? 0);
-                if ($districtId > 0 && !$provinceId) {
-                    $provinceId = (int)($location->provinceByDistrict($districtId) ?? 0);
+                $provinceId = (int)($wardRow['province_id'] ?? 0);
+                if (!$provinceId && !empty($wardRow['district_id'])) {
+                    $provinceId = (int)($location->provinceByDistrict((int)$wardRow['district_id']) ?? 0);
                 }
             }
-            $listing['district_id'] = $districtId;
             $listing['province_id'] = $provinceId;
         }
 
@@ -532,7 +544,7 @@ class AgentController extends Controller
             'propertyTypes' => (new PropertyType())->allSorted(),
             'provinces' => $location->provinces(),
             'districts' => $provinceId > 0 ? $location->districtsByProvince($provinceId) : [],
-            'wards' => $districtId > 0 ? $location->wardsByDistrict($districtId) : [],
+            'wards' => $provinceId > 0 ? $location->wardsByProvince($provinceId) : [],
             'amenities' => (new Amenity())->allSorted(),
             'selectedAmenities' => $selectedAmenities,
             'existingImages' => $existingImages,

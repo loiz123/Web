@@ -119,7 +119,7 @@
     }
     if (level === 'ward') {
       const stripped = normalizeRomanSuffix(
-        norm.replace(/^(phuong|p|xa|x|thi tran|tt)\s+/, '').trim()
+        norm.replace(/^(phuong|p|xa|x|thi tran|tt|quan|q|huyen|h|thi xa|tx)\s+/, '').trim()
       );
       if (/^\d+$/.test(stripped)) {
         return 'phuong ' + stripped.replace(/^0+/, '');
@@ -143,7 +143,7 @@
       return stripped;
     }
     if (level === 'ward') {
-      const stripped = norm.replace(/^(phường|p|xã|x|thị trấn|tt)\s+/u, '').trim();
+      const stripped = norm.replace(/^(phường|p|xã|x|thị trấn|tt|quận|q|huyện|h|thị xã|tx)\s+/u, '').trim();
       if (/^\d+$/.test(stripped)) {
         return 'phường ' + stripped.replace(/^0+/, '');
       }
@@ -183,7 +183,11 @@
     const pid = Number(parentId);
     if (!pid || pid <= 0) return [];
 
+    const cacheKey = level + '_' + pid;
     const cache = level === 'districts' ? districtCache : wardCache;
+    if (cache.has(cacheKey)) {
+      return cache.get(cacheKey);
+    }
     if (cache.has(pid)) {
       return cache.get(pid);
     }
@@ -208,6 +212,7 @@
         }
       }
       if (rows.length > 0) {
+        cache.set(cacheKey, rows);
         cache.set(pid, rows);
       }
       return rows;
@@ -521,12 +526,16 @@
     // 1. Đối chiếu từ đối tượng address của Nominatim nếu có
     if (addressObj && typeof addressObj === 'object') {
       const candidates = [
+        addressObj.ward,
         addressObj.suburb,
         addressObj.quarter,
         addressObj.neighbourhood,
         addressObj.village,
         addressObj.hamlet,
-        addressObj.town
+        addressObj.town,
+        addressObj.city_district,
+        addressObj.district,
+        addressObj.county
       ].filter(Boolean);
 
       for (let c = 0; c < candidates.length; c++) {
@@ -626,39 +635,16 @@
     const feedbackEl = ensureFeedbackElement(addressInput);
     if (!feedbackEl) return;
 
-    if (!matchedProvince && !matchedDistrict && !matchedWard) {
+    if (!matchedProvince) {
       feedbackEl.classList.remove('d-flex');
       feedbackEl.classList.add('d-none');
       feedbackEl.innerHTML = '';
       return;
     }
 
-    const parts = [];
-    if (matchedWard && matchedWard.name) {
-      parts.push(matchedWard.name);
-    }
-    if (matchedDistrict && matchedDistrict.name) {
-      parts.push(matchedDistrict.name);
-    }
-    if (matchedProvince && matchedProvince.name) {
-      const pName = matchedProvince.name;
-      const pNorm = normalizeUnaccented(pName);
-      if (pNorm.indexOf('thanh pho') === 0 || pNorm.indexOf('tp') === 0 || pNorm.indexOf('tinh') === 0) {
-        parts.push(pName);
-      } else {
-        parts.push('Thành phố ' + pName);
-      }
-    }
-
-    if (parts.length === 0) {
-      feedbackEl.classList.remove('d-flex');
-      feedbackEl.classList.add('d-none');
-      feedbackEl.innerHTML = '';
-      return;
-    }
-
-    feedbackEl.className = 'text-success d-flex align-items-center gap-1 mt-1';
-    feedbackEl.innerHTML = `<i class="bi bi-geo-alt-fill"></i> Đã tự động nhận diện: ${parts.join(', ')}`;
+    feedbackEl.classList.remove('d-none');
+    feedbackEl.classList.add('d-flex');
+    feedbackEl.innerHTML = `✓ Đã tự động nhận diện: ${matchedWard ? matchedWard.name + ', ' : ''}${matchedProvince.name}`;
   }
 
   /**
@@ -746,7 +732,12 @@
     const districtSelect = document.getElementById('district') || document.querySelector('select[name="district_id"]');
     const wardSelect = document.getElementById('ward') || document.querySelector('select[name="ward_id"]');
 
-    if (!provinceSelect || !districtSelect || !wardSelect) {
+    if (!provinceSelect || !wardSelect) {
+      return null;
+    }
+
+    const isTwoTier = !districtSelect || provinceSelect.dataset.level === 'wards';
+    if (!isTwoTier && !districtSelect) {
       return null;
     }
 
@@ -797,6 +788,98 @@
     if (!matchedProvince) {
       updateFeedbackUI(addressInput, null, null, null);
       return null;
+    }
+
+    // Mô hình 2 cấp (Tỉnh/Thành -> Phường/Xã): nạp trực tiếp danh sách phường theo tỉnh
+    if (isTwoTier) {
+      provinceSelect.dataset.autoPopulating = '1';
+      provinceSelect.value = String(matchedProvince.id);
+      provinceSelect.dataset.selected = String(matchedProvince.id);
+
+      const twoTierWards = await fetchAdminList('wards', matchedProvince.id);
+      if (currentSeq !== parseSequence) {
+        delete provinceSelect.dataset.autoPopulating;
+        return null;
+      }
+
+      let twoTierWard = null;
+      if (directIds && directIds.ward_id) {
+        const targetW2 = twoTierWards.find(function (w) { return String(w.id) === String(directIds.ward_id); });
+        if (targetW2) {
+          twoTierWard = { id: String(targetW2.id), name: targetW2.name, segmentIndex: -1 };
+        }
+      }
+      if (!twoTierWard) {
+        twoTierWard = matchWard(text, segments, twoTierWards, matchedProvince, null, addressObj);
+      }
+
+      // Dự phòng: đối soát qua API nội bộ khi chưa khớp được phường
+      if (!twoTierWard) {
+        const wardHint2 = addressObj
+          ? (addressObj.ward || addressObj.suburb || addressObj.quarter || addressObj.neighbourhood || addressObj.village || addressObj.hamlet || addressObj.city_district || addressObj.district || addressObj.county || addressObj.town || '')
+          : '';
+        const resolved2 = resolvedFallback || await resolveAdminViaApi(
+          matchedProvince.id,
+          matchedProvince.name,
+          '',
+          wardHint2,
+          text
+        );
+        if (currentSeq !== parseSequence) {
+          delete provinceSelect.dataset.autoPopulating;
+          return null;
+        }
+        if (resolved2 && resolved2.ward) {
+          const foundW2 = twoTierWards.find(function (w) { return String(w.id) === String(resolved2.ward.id); });
+          twoTierWard = foundW2
+            ? { id: String(foundW2.id), name: foundW2.name, segmentIndex: -1 }
+            : { id: String(resolved2.ward.id), name: resolved2.ward.name, segmentIndex: -1 };
+        }
+      }
+
+      populateSelectOptions(
+        wardSelect,
+        twoTierWards,
+        'Chọn phường/xã',
+        twoTierWard ? twoTierWard.id : ''
+      );
+      wardSelect.dataset.selected = twoTierWard ? String(twoTierWard.id) : '';
+      if (twoTierWard) {
+        wardSelect.value = String(twoTierWard.id);
+        wardSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      provinceSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      delete provinceSelect.dataset.autoPopulating;
+
+      // f) Nếu có ô #address-detail (hoặc addressInput): Bóc tách số nhà + tên đường (loại bỏ phần tên phường và tỉnh đã nhận diện) điền vào #address-detail
+      if (addressInput && opts.fillDetail !== false && !opts.isTyping) {
+        const extracted = extractStreetAddress(text, addressObj, {
+          province: matchedProvince,
+          district: null,
+          ward: twoTierWard
+        }, {
+          houseNumberHint: opts.houseNumberHint || ''
+        });
+        if (extracted && addressInput.value !== extracted) {
+          addressInput.dataset.suppressAutoParse = '1';
+          addressInput.value = extracted;
+          setTimeout(function () {
+            delete addressInput.dataset.suppressAutoParse;
+          }, 80);
+        }
+      }
+
+      updateFeedbackUI(addressInput, matchedProvince, null, twoTierWard);
+
+      if (!opts.skipGeocode && text.length >= 5) {
+        await syncToMapPicker(text, matchedProvince, null, twoTierWard);
+      }
+
+      return {
+        province: matchedProvince,
+        district: null,
+        ward: twoTierWard
+      };
     }
 
     // Gán giá trị cho #province và tải danh sách Quận/Huyện qua Ajax
@@ -939,8 +1022,14 @@
     const hint = String(opts.houseNumberHint || '').trim();
 
     if (addressObj && typeof addressObj === 'object') {
-      const road = String(addressObj.road || addressObj.pedestrian || addressObj.residential || '').trim();
-      const houseNo = String(addressObj.house_number || hint || '').trim();
+      const road = String(addressObj.road || addressObj.pedestrian || addressObj.residential || addressObj.street || '').trim();
+      let houseNo = String(addressObj.house_number || hint || '').trim();
+      if (!houseNo && displayName) {
+        const m = String(displayName).match(/^(\d+[A-Za-z]?(?:\/\d+[A-Za-z]?)*)\s*[, -]/);
+        if (m) {
+          houseNo = m[1];
+        }
+      }
       const streetParts = [];
       if (houseNo) streetParts.push(houseNo);
       if (road) streetParts.push(road);
@@ -957,22 +1046,50 @@
       const sNorm = normalizeUnaccented(seg);
       if (!sNorm) return false;
       if (/^(khu pho|kp|to dan pho|to|ap|thon|xom)\b/.test(sNorm)) return false;
-      if (matchedResult && matchedResult.province && stripAdminPrefix(seg, 'province') === stripAdminPrefix(matchedResult.province.name, 'province')) return false;
+      if (matchedResult && matchedResult.province) {
+        const provCore = stripAdminPrefix(matchedResult.province.name, 'province');
+        const segProvCore = stripAdminPrefix(seg, 'province');
+        if (segProvCore === provCore || sNorm === normalizeUnaccented(matchedResult.province.name)) return false;
+        const aliases = PROVINCE_ALIASES[provCore] || [];
+        if (aliases.indexOf(sNorm) !== -1 || aliases.indexOf(segProvCore) !== -1) return false;
+      }
       if (matchedResult && matchedResult.district && stripAdminPrefix(seg, 'district') === stripAdminPrefix(matchedResult.district.name, 'district')) return false;
-      if (matchedResult && matchedResult.ward && stripAdminPrefix(seg, 'ward') === stripAdminPrefix(matchedResult.ward.name, 'ward')) return false;
-      if (/^(phuong|xa|thi tran|quan|huyen|thi xa|thanh pho|tinh)\b/.test(sNorm)) return false;
+      if (matchedResult && matchedResult.ward) {
+        const wardCore = stripAdminPrefix(matchedResult.ward.name, 'ward');
+        const segWardCore = stripAdminPrefix(seg, 'ward');
+        if (segWardCore === wardCore || sNorm === normalizeUnaccented(matchedResult.ward.name)) return false;
+      }
+      if (/^(phuong|p|xa|x|thi tran|tt|quan|q|huyen|h|thi xa|tx|thanh pho|tp|tinh)\b/.test(sNorm)) return false;
       return true;
     });
 
     if (cleaned.length > 0) {
-      const firstLine = cleaned[0];
+      let firstLine = cleaned[0];
+      if (cleaned.length === 1 && matchedResult) {
+        if (matchedResult.province && matchedResult.province.name) {
+          firstLine = firstLine.replace(new RegExp('(?:,\\s*)?' + escapeRegex(matchedResult.province.name), 'gi'), '').trim();
+          const pCore = stripAccentedPrefix(matchedResult.province.name, 'province');
+          if (pCore) {
+            firstLine = firstLine.replace(new RegExp('(?:,\\s*)?' + escapeRegex(pCore), 'gi'), '').trim();
+          }
+        }
+        if (matchedResult.ward && matchedResult.ward.name) {
+          firstLine = firstLine.replace(new RegExp('(?:,\\s*)?' + escapeRegex(matchedResult.ward.name), 'gi'), '').trim();
+          const wCore = stripAccentedPrefix(matchedResult.ward.name, 'ward');
+          if (wCore) {
+            firstLine = firstLine.replace(new RegExp('(?:,\\s*)?' + escapeRegex(wCore), 'gi'), '').trim();
+          }
+        }
+        firstLine = firstLine.replace(/,\s*$/, '').trim();
+        cleaned[0] = firstLine;
+      }
       if (hint && !/^\d/.test(firstLine)) {
         return hint + ' ' + firstLine;
       }
       return cleaned.slice(0, 2).join(', ');
     }
 
-    return rawSegments[0] || String(displayName).trim();
+    return hint;
   }
 
   /**
@@ -985,14 +1102,16 @@
     const matched = await parseAndPopulate(displayName || '', {
       addressObj: addressObj || null,
       directIds: opts.directIds || null,
-      skipGeocode: true
+      skipGeocode: true,
+      fillDetail: opts.fillInput !== false,
+      houseNumberHint: opts.houseNumberHint || ''
     });
 
     if (addressInput && opts.fillInput !== false) {
       const formattedAddress = extractStreetAddress(displayName, addressObj, matched, {
         houseNumberHint: opts.houseNumberHint || ''
       });
-      if (formattedAddress) {
+      if (formattedAddress && addressInput.value !== formattedAddress) {
         addressInput.dataset.suppressAutoParse = '1';
         addressInput.value = formattedAddress;
         setTimeout(function () {
@@ -1034,7 +1153,7 @@
         return;
       }
       debounceTimer = setTimeout(function () {
-        parseAndPopulate(val, { skipGeocode: false });
+        parseAndPopulate(val, { skipGeocode: false, isTyping: true });
       }, DEBOUNCE_MS);
     });
 
@@ -1049,7 +1168,7 @@
         updateFeedbackUI(addressInput, null, null, null);
         return;
       }
-      parseAndPopulate(val, { skipGeocode: false });
+      parseAndPopulate(val, { skipGeocode: false, fillDetail: true });
     };
 
     addressInput.addEventListener('blur', handleImmediateParse);

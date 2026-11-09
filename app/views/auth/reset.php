@@ -15,13 +15,19 @@
         <input type="hidden" name="token" value="<?= e($token) ?>">
 
         <div class="mb-3">
-          <label class="form-label fw-semibold small">Mật khẩu mới (6–72 ký tự)</label>
-          <input type="password" name="password" class="form-control" minlength="6" maxlength="72" autocomplete="new-password" placeholder="Nhập mật khẩu mới..." required autofocus>
+          <label class="form-label fw-semibold small">Mật khẩu mới</label>
+          <div class="input-group">
+            <input type="password" name="password" class="form-control" minlength="6" maxlength="72" autocomplete="new-password" placeholder="Nhập mật khẩu mới..." required autofocus>
+            <button class="btn btn-outline-secondary btn-toggle-password" type="button" tabindex="-1"><i class="bi bi-eye"></i></button>
+          </div>
         </div>
 
         <div class="mb-3">
-          <label class="form-label fw-semibold small">Xác nhận mật khẩu mới</label>
-          <input type="password" name="password_confirm" class="form-control" minlength="6" maxlength="72" autocomplete="new-password" placeholder="Nhập lại mật khẩu mới..." required>
+          <label class="form-label fw-semibold small">Xác nhận mật khẩu</label>
+          <div class="input-group">
+            <input type="password" name="password_confirm" class="form-control" minlength="6" maxlength="72" autocomplete="new-password" placeholder="Nhập lại mật khẩu mới..." required>
+            <button class="btn btn-outline-secondary btn-toggle-password" type="button" tabindex="-1"><i class="bi bi-eye"></i></button>
+          </div>
         </div>
 
         <button type="submit" class="btn btn-primary w-100 fw-semibold">

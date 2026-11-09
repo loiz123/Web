@@ -1213,7 +1213,7 @@ window.BdsMap = (function () {
             </div>
             <div class="text-muted small mb-2" style="font-size: 0.75rem;">
               <span>📐 ${escapeHtml(p.area)} m²</span> • <span>🛏️ ${escapeHtml(p.bedrooms || 0)} PN</span>
-              ${p.district_name ? ` • <span>📍 ${escapeHtml(p.district_name)}</span>` : ''}
+              ${p.ward_name ? ` • <span><i class="bi bi-geo-alt"></i> ${escapeHtml(p.ward_name)}</span>` : ''}
             </div>
             <a href="${escapeHtml(p.detail_url)}" class="btn btn-warning btn-sm w-100 py-1 fw-semibold text-dark" style="font-size: 0.75rem;">Xem chi tiết &rarr;</a>
           </div>

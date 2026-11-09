@@ -310,7 +310,7 @@ if ($user) {
           </div>
         </div>
         <p class="text-light text-opacity-75 small mb-3 lh-base">
-          Hệ sinh thái kết nối giao dịch bất động sản minh bạch hàng đầu Việt Nam. Cung cấp bản đồ bất động sản trực quan, công cụ tính lãi suất vay mua nhà và so sánh chi tiết thông số dự án.
+          Hệ sinh thái kết nối giao dịch bất động sản minh bạch hàng đầu Việt Nam. Cung cấp bản đồ bất động sản trực quan và so sánh chi tiết thông số dự án.
         </p>
         <div class="d-flex align-items-center">
           <a href="#" class="social-icon-btn" title="Facebook" aria-label="Facebook"><i class="bi bi-facebook"></i></a>
@@ -338,7 +338,7 @@ if ($user) {
         <ul class="list-unstyled d-flex flex-column gap-2 small">
           <li><a href="<?= e(base_url('property/map')) ?>"><i class="bi bi-map me-1"></i>Bản đồ bất động sản trực quan</a></li>
           <li><a href="<?= e(base_url('property/compare')) ?>"><i class="bi bi-arrow-left-right me-1"></i>So sánh chi tiết thông số dự án</a></li>
-          <li><a href="<?= e(base_url('agent')) ?>"><i class="bi bi-people-fill me-1"></i>Danh bạ nhà môi giới uy tín</a></li>
+          <li><a href="<?= e(base_url('agent')) ?>"><i class="bi bi-briefcase-fill me-1"></i>Kênh quản lý tin đăng môi giới</a></li>
           <li><a href="<?= e(base_url('favorite')) ?>"><i class="bi bi-bookmark-heart me-1"></i>Danh sách bất động sản đã lưu</a></li>
           <li><a href="<?= e(base_url('agent/create')) ?>"><i class="bi bi-pencil-square me-1"></i>Đăng tin ký gửi nhà đất</a></li>
         </ul>

@@ -7,9 +7,12 @@ class PropertyController extends Controller
         $allowedKeys = [
             'keyword', 'listing_type', 'type_id', 'province_id', 'district_id', 'ward_id',
             'min_price', 'max_price', 'price_range', 'min_area', 'max_area', 'area_range',
-            'bedrooms', 'sort_by', 'page'
+            'bedrooms', 'sort', 'sort_by', 'page'
         ];
         $filters = array_intersect_key($_GET, array_flip($allowedKeys));
+        if (!empty($filters['sort']) && empty($filters['sort_by'])) {
+            $filters['sort_by'] = $filters['sort'];
+        }
 
         $location = new Location();
         if (!empty($filters['district_id']) && empty($filters['province_id'])) {
@@ -80,7 +83,9 @@ class PropertyController extends Controller
 
         $propertyTypes = (new PropertyType())->allSorted();
         $districts = !empty($filters['province_id']) ? $location->districtsByProvince((int)$filters['province_id']) : [];
-        $wards = !empty($filters['district_id']) ? $location->wardsByDistrict((int)$filters['district_id']) : [];
+        $wards = !empty($filters['province_id'])
+            ? $location->wardsByProvince((int)$filters['province_id'])
+            : (!empty($filters['district_id']) ? $location->wardsByDistrict((int)$filters['district_id']) : []);
         $savedSearches = Auth::check() ? (new SavedSearch())->getByUser((int)Auth::id()) : [];
 
         $this->view('property/search', [
