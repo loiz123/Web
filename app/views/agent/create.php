@@ -75,22 +75,16 @@ $selectedAmenities = is_array($values['amenities'] ?? null) ? $values['amenities
     <input id="direction" name="direction" maxlength="30" class="form-control" value="<?= e($values['direction'] ?? '') ?>">
   </div>
 
-  <div class="col-12 col-md-4">
+  <div class="col-12 col-md-6">
     <label for="province" class="form-label">Tỉnh/Thành phố</label>
-    <select id="province" name="province_id" class="form-select" data-selected="<?= e($values['province_id'] ?? '') ?>" required>
+    <select id="province" name="province_id" class="form-select" data-target="#ward" data-level="wards" data-selected="<?= e($values['province_id'] ?? '') ?>" required>
       <option value="">Chọn tỉnh/thành phố</option>
       <?php foreach ($provinces as $province): ?>
         <option value="<?= (int)$province['id'] ?>" <?= (string)($values['province_id'] ?? '') === (string)$province['id'] ? 'selected' : '' ?>><?= e($province['name']) ?></option>
       <?php endforeach; ?>
     </select>
   </div>
-  <div class="col-12 col-md-4">
-    <label for="district" class="form-label">Quận/Huyện</label>
-    <select id="district" name="district_id" class="form-select" data-selected="<?= e($values['district_id'] ?? '') ?>" required>
-      <option value="">Chọn quận/huyện</option>
-    </select>
-  </div>
-  <div class="col-12 col-md-4">
+  <div class="col-12 col-md-6">
     <label for="ward" class="form-label">Phường/Xã</label>
     <select id="ward" name="ward_id" class="form-select" data-selected="<?= e($values['ward_id'] ?? '') ?>" required>
       <option value="">Chọn phường/xã</option>
@@ -98,7 +92,8 @@ $selectedAmenities = is_array($values['amenities'] ?? null) ? $values['amenities
   </div>
   <div class="col-12 col-md-6">
     <label for="address-detail" class="form-label">Địa chỉ chi tiết</label>
-    <input id="address-detail" name="address_detail" maxlength="200" class="form-control" required value="<?= e($values['address_detail'] ?? '') ?>">
+    <input id="address-detail" name="address_detail" maxlength="200" class="form-control" placeholder="Số nhà, tên đường..." required value="<?= e($values['address_detail'] ?? '') ?>">
+    <small class="text-success d-flex align-items-center gap-1 mt-1 d-none" id="addressParseFeedback"><i class="bi bi-geo-alt-fill"></i> Đã tự động nhận diện: Phường ..., Tỉnh/Thành ...</small>
   </div>
   <div class="col-12 col-md-6">
     <label for="legal-status" class="form-label">Pháp lý</label>
@@ -114,7 +109,7 @@ $selectedAmenities = is_array($values['amenities'] ?? null) ? $values['amenities
       </div>
       <div class="card-body p-3">
         <div class="input-group mb-2">
-          <input type="text" id="mapSearchAddress" class="form-control" placeholder="Nhập địa chỉ tìm nhanh trên bản đồ (VD: Nguyễn Huệ, Bến Nghé, Quận 1, TP.HCM)...">
+          <input type="text" id="mapSearchAddress" class="form-control" placeholder="Nhập địa chỉ tìm nhanh trên bản đồ...">
           <button type="button" class="btn btn-outline-primary" id="btnSearchMapAddress">🔍 Tìm vị trí</button>
         </div>
         <div id="mapStatus" class="alert alert-info py-2 small mb-2">
@@ -167,6 +162,7 @@ $selectedAmenities = is_array($values['amenities'] ?? null) ? $values['amenities
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="<?= e(base_url('assets/js/map.js')) ?>"></script>
+<script src="<?= e(base_url('assets/js/address-parser.js')) ?>"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function _callback(){
   var form = document.getElementById('agent-create-form');

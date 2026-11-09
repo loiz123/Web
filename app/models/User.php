@@ -27,14 +27,74 @@ class User extends Model
         return (int)($rows[0]['id'] ?? 0);
     }
 
-    public function updateProfile(int $id, string $name, string $phone): void
+    public function updateProfile(int $id, string $name, string $phone, ?string $bio = null, ?string $avatar = null): void
     {
-        $this->call('sp_user_update_profile', [$id, $name, $phone !== '' ? $phone : null]);
+        if ($bio === null && $avatar === null && config('use_routines')) {
+            try {
+                $this->call('sp_user_update_profile', [$id, $name, $phone !== '' ? $phone : null]);
+                return;
+            } catch (PDOException $e) {
+                if ((int)($e->errorInfo[1] ?? 0) !== 1305) throw $e;
+            }
+        }
+
+        $data = [
+            'full_name' => $name,
+            'phone' => $phone !== '' ? $phone : null,
+        ];
+        if ($bio !== null) {
+            $data['bio'] = $bio !== '' ? $bio : null;
+        }
+        if ($avatar !== null) {
+            $data['avatar'] = $avatar !== '' ? $avatar : null;
+        }
+        $this->update($id, $data);
     }
 
-    public function setPassword(int $id, string $password): void
+    public function setPassword(int $id, string $password): string
     {
-        $this->call('sp_user_set_password', [$id, password_hash($password, PASSWORD_DEFAULT)]);
+        $hash = password_hash($password, PASSWORD_DEFAULT);
+        if (config('use_routines')) {
+            try {
+                $this->call('sp_user_set_password', [$id, $hash]);
+                return $hash;
+            } catch (PDOException $e) {
+                if ((int)($e->errorInfo[1] ?? 0) !== 1305) throw $e;
+            }
+        }
+        $this->update($id, ['password_hash' => $hash]);
+        return $hash;
+    }
+
+    // ---------- Đặt lại mật khẩu (password_resets) ----------
+
+    public function createPasswordResetToken(string $email): string
+    {
+        $token = bin2hex(random_bytes(32));
+        $now = date('Y-m-d H:i:s');
+        $expiresAt = date('Y-m-d H:i:s', time() + 1800); // 30 phút
+
+        $this->query('DELETE FROM password_resets WHERE email = ?', [$email]);
+        $this->query(
+            'INSERT INTO password_resets (email, token, expires_at, created_at) VALUES (?, ?, ?, ?)',
+            [$email, $token, $expiresAt, $now]
+        );
+        return $token;
+    }
+
+    public function findValidPasswordReset(string $token): ?array
+    {
+        if ($token === '') return null;
+        $row = $this->query(
+            'SELECT * FROM password_resets WHERE token = ? AND expires_at >= ? ORDER BY created_at DESC LIMIT 1',
+            [$token, date('Y-m-d H:i:s')]
+        )->fetch();
+        return $row ?: null;
+    }
+
+    public function deletePasswordResetsForEmail(string $email): void
+    {
+        $this->query('DELETE FROM password_resets WHERE email = ?', [$email]);
     }
 
     // ---------- Kiểm tra dữ liệu dùng chung cho đăng ký và hồ sơ ----------

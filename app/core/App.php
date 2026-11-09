@@ -18,7 +18,20 @@ class App
         $params = array_slice($segments, 2);
 
         if (!preg_match('/^[A-Za-z0-9]+$/', $class) || !class_exists($class)
-            || !is_subclass_of($class, 'Controller')) { $this->notFound(); }
+            || !is_subclass_of($class, 'Controller')) {
+            if ($prefix === 'Admin' && class_exists('AdminController') && is_subclass_of('AdminController', 'Controller')) {
+                $methodCandidate = str_replace(' ', '', lcfirst(ucwords(str_replace('-', ' ', $name))));
+                if (method_exists('AdminController', $methodCandidate) && (new ReflectionMethod('AdminController', $methodCandidate))->isPublic()) {
+                    $class = 'AdminController';
+                    $action = $methodCandidate;
+                    $params = array_slice($segments, 1);
+                } else {
+                    $this->notFound();
+                }
+            } else {
+                $this->notFound();
+            }
+        }
 
         $controller = new $class();
         $method = str_replace(' ', '', lcfirst(ucwords(str_replace('-', ' ', $action))));

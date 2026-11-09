@@ -8,7 +8,7 @@ CREATE PROCEDURE sp_get_agent_properties(
 )
 BEGIN
     SELECT p.id, p.title, p.status, p.listing_type, p.price, p.area, p.created_at,
-           p.reject_reason, t.name AS type_name,
+           p.expired_at, p.reject_reason, t.name AS type_name,
            (SELECT image_url FROM property_images i
             WHERE i.property_id = p.id
             ORDER BY i.is_cover DESC, i.id LIMIT 1) AS cover_url

@@ -23,6 +23,14 @@ $config = [
         'account_name' => 'HA NGOC THIEN',
         'template'     => 'compact2',
     ],
+    'smtp' => [
+        'enabled'   => false, // Mặc định false nếu chưa điền tài khoản, bật true khi điền
+        'host'      => 'smtp.gmail.com',
+        'port'      => 587,
+        'username'  => '',
+        'password'  => '', // App Password 16 ký tự của Gmail
+        'from_name' => 'Bất Động Sản',
+    ],
 ];
 
 $local = __DIR__ . '/config.local.php';

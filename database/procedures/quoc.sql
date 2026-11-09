@@ -20,7 +20,7 @@ BEGIN
         IF v_status <> 'pending' THEN
             SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Chỉ duyệt được tin đang chờ duyệt.';
         END IF;
-        UPDATE properties SET status = 'approved', reject_reason = NULL WHERE id = p_id;
+        UPDATE properties SET status = 'approved', reject_reason = NULL, expired_at = DATE_ADD(NOW(), INTERVAL 30 DAY) WHERE id = p_id;
 
     ELSEIF p_action = 'reject' THEN
         IF v_status <> 'pending' THEN

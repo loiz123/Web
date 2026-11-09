@@ -257,10 +257,12 @@ function setupAgentForm() {
 
   var district = document.querySelector('#district');
   var ward = document.querySelector('#ward');
+  if (!district || !ward) return;
   var selectedDistrict = district.dataset.selected;
   var selectedWard = ward.dataset.selected;
 
-  province.addEventListener('change', function _callback9(){
+  province.addEventListener('change', function _callback9() {
+    if (province.dataset.autoPopulating === '1') return;
     selectedDistrict = '';
     selectedWard = '';
     loadLocationOptions(
@@ -272,7 +274,8 @@ function setupAgentForm() {
     fillSelect(ward, [], 'Chọn phường/xã');
   });
 
-  district.addEventListener('change', function _callback0(){
+  district.addEventListener('change', function _callback0() {
+    if (district.dataset.autoPopulating === '1') return;
     selectedWard = '';
     loadLocationOptions(
       district.value ? `api/wards/${district.value}` : '',
@@ -370,29 +373,46 @@ function setupAgentForm() {
   }
 }
 
-document.querySelectorAll('select[data-target]').forEach(function _callback14(province){
-  var district = document.querySelector(province.dataset.target);
-  if (!district) return;
+document.querySelectorAll('select[data-target]').forEach(function _callback14(province) {
+  if (province.dataset.wardDirectBound === '1' || province.dataset.bdsBound === '1') return;
+  var targetSelect = document.querySelector(province.dataset.target);
+  if (!targetSelect) return;
 
-  async function updateDistricts(keepSelected) {
+  var isWardLevel = (province.dataset.level === 'wards' || targetSelect.name === 'ward_id' || targetSelect.id === 'searchWard');
+  var placeholder = targetSelect.dataset.placeholder || (isWardLevel ? 'Phường/Xã' : 'Quận/Huyện');
+
+  async function updateChildOptions(keepSelected) {
     if (!province.value) {
-      fillSelect(district, [], 'Quận/Huyện');
+      fillSelect(targetSelect, [], placeholder);
       return;
     }
-    var response = await api(`api/districts/${province.value}`);
-    fillSelect(district, response.success ? response.data : [], 'Quận/Huyện');
-    if (keepSelected && district.dataset.selected) {
-      district.value = district.dataset.selected;
+    var endpoint = isWardLevel
+      ? `api/wards?province_id=${encodeURIComponent(province.value)}`
+      : `api/districts/${province.value}`;
+    var response = await api(endpoint);
+    var items = Array.isArray(response) ? response : (response.success ? response.data : []);
+    if (isWardLevel && Array.isArray(items)) {
+      var seenNames = Object.create(null);
+      items = items.filter(function (w) {
+        var n = String(w.name || '').trim();
+        if (!n || seenNames[n]) return false;
+        seenNames[n] = true;
+        return true;
+      });
+    }
+    fillSelect(targetSelect, items, placeholder);
+    if (keepSelected && targetSelect.dataset.selected) {
+      targetSelect.value = targetSelect.dataset.selected;
     }
   }
 
-  province.addEventListener('change', function _callback15(){
-    district.dataset.selected = '';
-    updateDistricts(false);
+  province.addEventListener('change', function _callback15() {
+    targetSelect.dataset.selected = '';
+    updateChildOptions(false);
   });
 
-  if (province.value) {
-    updateDistricts(true);
+  if (province.value && targetSelect.options.length <= 1) {
+    updateChildOptions(true);
   }
 });
 
@@ -510,6 +530,15 @@ window.PropertyCompare =           (function _callback19(){
   const STORAGE_KEY = 'bds_compare_properties';
   const MAX_COMPARE = 3;
 
+  function escapeHtml(str) {
+    return String(str ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   function getList() {
     try {
       const data = localStorage.getItem(STORAGE_KEY);
@@ -620,9 +649,9 @@ window.PropertyCompare =           (function _callback19(){
         item.title = p.title || '';
         var imgUrl = p.cover_url || p.avatar || '';
         item.innerHTML = (imgUrl
-          ? '<img src="' + imgUrl + '" alt="' +( p.title || '') + '">'
+          ? '<img src="' + escapeHtml(imgUrl) + '" alt="' + escapeHtml(p.title) + '">'
           : '<div class="d-flex align-items-center justify-content-center h-100 text-white small">🏠</div>') +
-          '<span class="compare-thumb-remove" title="Xóa khỏi so sánh" onclick="window.PropertyCompare.remove(' + p.id + ')">&times;</span>';
+          '<span class="compare-thumb-remove" title="Xóa khỏi so sánh" onclick="window.PropertyCompare.remove(' + Number(p.id) + ')">&times;</span>';
         thumbsContainer.appendChild(item);
       });
     }
@@ -714,16 +743,33 @@ window.RecentlyViewed =           (function _callback29(){
     } catch (e) {}
   }
 
+  function normalizeWardName(raw) {
+    const val = String(raw ?? '').trim();
+    if (!val) return '';
+    const map = {
+      'Quận 1': 'Phường Bến Nghé',
+      'Quận 2': 'Phường Thảo Điền',
+      'TP. Thủ Đức': 'Phường Thảo Điền',
+      'Quận 3': 'Phường Võ Thị Sáu',
+      'Quận Cầu Giấy': 'Phường Dịch Vọng',
+      'Quận Hải Châu': 'Phường Hải Châu 1',
+      'Quận Ba Đình': 'Phường Điện Biên',
+      'Quận Bình Thạnh': 'Phường Bình Thạnh'
+    };
+    return map[val] || val;
+  }
+
   function record(property) {
     if (!property || !property.id) return;
+    const wardVal = normalizeWardName(property.ward_name || property.ward || '');
     const normalized = {
       id: Number(property.id),
       title: property.title || '',
       price: property.price || property.price_formatted || '',
       price_formatted: property.price_formatted || property.price || '',
       area: property.area || '',
-      district: property.district || property.district_name || '',
-      district_name: property.district_name || property.district || '',
+      ward: wardVal,
+      ward_name: wardVal,
       image: property.image || property.avatar_url || '',
       avatar_url: property.avatar_url || property.image || '',
       url: property.url ||( (BASE_URL || '') + '/property/detail/' + Number(property.id))
@@ -787,8 +833,8 @@ window.RecentlyViewed =           (function _callback29(){
       const title = escapeText(item.title || 'Bất động sản');
       const price = escapeText(item.price || item.price_formatted || 'Liên hệ');
       const areaVal = String(item.area ?? '').trim();
-      const areaText = areaVal ? escapeText(areaVal.includes('m²') ? areaVal :( areaVal + ' m²')) : '';
-      const district = escapeText(item.district || item.district_name || '');
+      const areaText = areaVal ? escapeText(areaVal.includes('m²') ? areaVal : (areaVal + ' m²')) : '';
+      const ward = escapeText(normalizeWardName(item.ward_name || item.ward || item.district_name || item.district || ''));
       const img = escapeText(item.image || item.avatar_url || fallbackImg);
       const url = escapeText(item.url ||( (BASE_URL || '') + '/property/detail/' + Number(item.id)));
 
@@ -803,9 +849,9 @@ window.RecentlyViewed =           (function _callback29(){
             '</a>' +
             '<div class="text-danger fw-bold small mb-1">' + price + '</div>' +
             '<div class="text-muted mt-auto text-truncate" style="font-size: 0.75rem;">' +
-                          (areaText?('<span>'+areaText+'</span>'):'')+(
-               areaText && district ? ' • ' : '') +
-                          (district?('<span>'+district+'</span>'):'')+
+              (areaText ? ('<span>' + areaText + '</span>') : '') +
+              (areaText && ward ? ' • ' : '') +
+              (ward ? ('<span><i class="bi bi-geo-alt text-muted"></i> ' + ward + '</span>') : '') +
             '</div>' +
           '</div>' +
         '</div>' +
@@ -821,4 +867,21 @@ window.RecentlyViewed =           (function _callback29(){
     clear: clear,
     render: render
   };
-}                                  )();
+})();
+
+// Ẩn / hiện mật khẩu cho các ô input password
+document.addEventListener('click', function _callbackPasswordToggle(e) {
+  const btn = e.target.closest('.btn-toggle-password');
+  if (!btn) return;
+  e.preventDefault();
+  const inputGroup = btn.closest('.input-group');
+  if (!inputGroup) return;
+  const input = inputGroup.querySelector('input');
+  if (!input) return;
+  input.type = input.type === 'password' ? 'text' : 'password';
+  const icon = btn.querySelector('i');
+  if (icon) {
+    icon.classList.toggle('bi-eye', input.type === 'password');
+    icon.classList.toggle('bi-eye-slash', input.type !== 'password');
+  }
+});

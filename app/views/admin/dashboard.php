@@ -61,4 +61,10 @@ $statusLabels = [
   <a class="list-group-item list-group-item-action" href="<?= e(base_url('admin/users')) ?>">Quản lý người dùng</a>
   <a class="list-group-item list-group-item-action" href="<?= e(base_url('admin/catalog')) ?>">Quản lý danh mục</a>
   <a class="list-group-item list-group-item-action" href="<?= e(base_url('admin/properties')) ?>">Duyệt tin đăng</a>
+  <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" href="<?= e(base_url('admin/reports')) ?>">
+    <span>Quản lý báo cáo vi phạm</span>
+    <?php if (!empty($stats['Báo cáo mới'])): ?>
+      <span class="badge bg-danger rounded-pill"><?= (int)$stats['Báo cáo mới'] ?></span>
+    <?php endif; ?>
+  </a>
 </div>

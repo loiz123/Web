@@ -9,6 +9,13 @@ abstract class Model
 
     public function __construct() { $this->db = Database::connection(); }
 
+    protected function query(string $sql, array $params = []): PDOStatement
+    {
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        return $stmt;
+    }
+
     /** Gọi stored procedure: call('sp_name', [a, b]) -> mảng dòng kết quả */
     protected function call(string $procedure, array $args = []): array
     {
@@ -20,4 +27,34 @@ abstract class Model
         return $rows;
     }
 
+    public function all(): array { return $this->query("SELECT * FROM {$this->table}")->fetchAll(); }
+
+    public function find(int $id): ?array
+    {
+        $row = $this->query("SELECT * FROM {$this->table} WHERE {$this->primaryKey} = ?", [$id])->fetch();
+        return $row ?: null;
+    }
+
+    public function create(array $data): int
+    {
+        $data = array_intersect_key($data, array_flip($this->fillable));
+        $cols = implode(',', array_keys($data));
+        $marks = implode(',', array_fill(0, count($data), '?'));
+        $this->query("INSERT INTO {$this->table} ($cols) VALUES ($marks)", array_values($data));
+        return (int)$this->db->lastInsertId();
+    }
+
+    public function update(int $id, array $data): bool
+    {
+        $data = array_intersect_key($data, array_flip($this->fillable));
+        if (!$data) return false;
+        $set = implode(',', array_map(fn($c) => "$c = ?", array_keys($data)));
+        $this->query("UPDATE {$this->table} SET $set WHERE {$this->primaryKey} = ?", [...array_values($data), $id]);
+        return true;
+    }
+
+    public function delete(int $id): bool
+    {
+        return $this->query("DELETE FROM {$this->table} WHERE {$this->primaryKey} = ?", [$id])->rowCount() > 0;
+    }
 }

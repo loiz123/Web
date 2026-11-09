@@ -6,7 +6,7 @@ CREATE DATABASE IF NOT EXISTS batdongsan CHARACTER SET utf8mb4 COLLATE utf8mb4_u
 USE batdongsan;
 
 SET FOREIGN_KEY_CHECKS = 0;
-DROP TABLE IF EXISTS saved_searches, reports, viewing_appointments, reviews, favorites,
+DROP TABLE IF EXISTS notifications, password_resets, saved_searches, reports, viewing_appointments, reviews, favorites,
   property_amenities, amenities, property_images, properties, property_types,
   wards, districts, provinces, users, roles;
 SET FOREIGN_KEY_CHECKS = 1;
@@ -45,9 +45,12 @@ CREATE TABLE districts (
 
 CREATE TABLE wards (
   id          INT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
-  district_id INT UNSIGNED NOT NULL,
+  province_id INT UNSIGNED NOT NULL DEFAULT 1,
+  district_id INT UNSIGNED NULL DEFAULT NULL,
   name        VARCHAR(100) NOT NULL,
-  CONSTRAINT fk_wards_district FOREIGN KEY (district_id) REFERENCES districts(id) ON DELETE CASCADE
+  CONSTRAINT fk_wards_province FOREIGN KEY (province_id) REFERENCES provinces(id) ON DELETE CASCADE,
+  CONSTRAINT fk_wards_district FOREIGN KEY (district_id) REFERENCES districts(id) ON DELETE SET NULL,
+  INDEX idx_wards_province_name (province_id, name)
 ) ENGINE=InnoDB;
 
 CREATE TABLE property_types (               -- Căn hộ, Nhà phố, Đất nền...
@@ -85,6 +88,7 @@ CREATE TABLE properties (
   reject_reason  VARCHAR(255) NULL,
   is_verified    TINYINT(1) NOT NULL DEFAULT 0,         -- tick xanh
   views          INT UNSIGNED NOT NULL DEFAULT 0,
+  expired_at     DATETIME NULL,                         -- thời hạn hiển thị tin đăng (30 ngày từ lúc duyệt)
   created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_prop_user FOREIGN KEY (user_id) REFERENCES users(id),
@@ -158,10 +162,55 @@ CREATE TABLE viewing_appointments (
 CREATE TABLE reports (                       -- báo cáo tin giả/giá ảo
   id          INT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
   property_id INT UNSIGNED NOT NULL,
-  reporter_id INT UNSIGNED NOT NULL,
+  reporter_id INT UNSIGNED NULL,
   reason      VARCHAR(255) NOT NULL,
-  status      ENUM('open','resolved','dismissed') NOT NULL DEFAULT 'open',
+  description TEXT NULL,
+  status      ENUM('open','pending','resolved','dismissed') NOT NULL DEFAULT 'open',
+  admin_notes TEXT NULL,
   created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_report_status (status),
+  INDEX idx_report_property (property_id),
   CONSTRAINT fk_rep_prop FOREIGN KEY (property_id) REFERENCES properties(id) ON DELETE CASCADE,
   CONSTRAINT fk_rep_user FOREIGN KEY (reporter_id) REFERENCES users(id)      ON DELETE CASCADE
 ) ENGINE=InnoDB;
+
+CREATE OR REPLACE VIEW property_reports AS
+SELECT id, property_id, reporter_id AS user_id, reason, description, status, admin_notes, created_at, updated_at
+FROM reports;
+
+CREATE TABLE password_resets (               -- khôi phục mật khẩu qua token hết hạn sau 30 phút
+  email      VARCHAR(191) NOT NULL,
+  token      VARCHAR(191) NOT NULL,
+  expires_at DATETIME NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_password_resets_email (email),
+  INDEX idx_password_resets_token (token)
+) ENGINE=InnoDB;
+
+CREATE TABLE notifications (                 -- thông báo trong ứng dụng (In-app Notification)
+  id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id    INT UNSIGNED NOT NULL,
+  title      VARCHAR(255) NOT NULL,
+  message    TEXT,
+  link       VARCHAR(255) NULL,
+  type       VARCHAR(30) NOT NULL DEFAULT 'info',
+  is_read    TINYINT NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_notifications_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_notifications_user_read (user_id, is_read, created_at)
+) ENGINE=InnoDB;
+
+-- Indexes bổ sung tối ưu truy vấn lọc, sắp xếp và lấy ảnh bìa
+CREATE INDEX idx_prop_status_created ON properties (status, created_at DESC);
+CREATE INDEX idx_prop_status_area ON properties (status, listing_type, area);
+CREATE INDEX idx_prop_img_cover ON property_images (property_id, is_cover DESC, id);
+
+-- Indexes tối ưu truy vấn phân cấp Địa giới hành chính (63 Tỉnh/Thành - Quận/Huyện - Phường/Xã)
+CREATE INDEX idx_provinces_name ON provinces (name);
+CREATE INDEX idx_districts_province_id ON districts (province_id);
+CREATE INDEX idx_districts_province_name ON districts (province_id, name);
+CREATE INDEX idx_wards_district_id ON wards (district_id);
+CREATE INDEX idx_wards_district_name ON wards (district_id, name);
+
+

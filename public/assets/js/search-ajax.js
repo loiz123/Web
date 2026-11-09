@@ -299,8 +299,10 @@ document.addEventListener('DOMContentLoaded', function _callback(){
     }
     autocompleteAbortCtrl = new AbortController();
 
-    const basePrefix = (typeof BASE_URL === 'string') ? BASE_URL.replace(/\/+$/, '') : '';
-    const endpoint = `${basePrefix}/geocode?q=${encodeURIComponent(keyword)}`;
+    const basePrefix = (typeof BASE_URL === 'string' && BASE_URL) ? BASE_URL.replace(/\/+$/, '') : '/batdongsan/public';
+    const endpoint = basePrefix
+      ? `${basePrefix}/geocode?q=${encodeURIComponent(keyword)}`
+      : `/batdongsan/public/geocode?q=${encodeURIComponent(keyword)}`;
 
     try {
       const response = await fetch(endpoint, {
@@ -613,8 +615,12 @@ document.addEventListener('DOMContentLoaded', function _callback(){
         const district = form.elements.district_id;
         const ward = form.elements.ward_id;
         if (typeof BdsLocation !== 'undefined') {
-          await BdsLocation.load(district, 'districts', form.elements.province_id?.value, filterObj.district_id);
-          await BdsLocation.load(ward, 'wards', district?.value, filterObj.ward_id);
+          if (district) {
+            await BdsLocation.load(district, 'districts', form.elements.province_id?.value, filterObj.district_id);
+            await BdsLocation.load(ward, 'wards', district?.value, filterObj.ward_id);
+          } else if (ward) {
+            await BdsLocation.load(ward, 'wards', form.elements.province_id?.value, filterObj.ward_id);
+          }
         }
         performSearch(1, true);
         if (window.BDS) {

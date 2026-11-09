@@ -1,4 +1,10 @@
 config/config.local.php
 public/uploads/*
 !public/uploads/.gitkeep
+!public/uploads/.htaccess
+!public/uploads/avatars/
+public/uploads/avatars/*
+!public/uploads/avatars/.gitkeep
+storage/logs/*.log
+!storage/logs/.gitkeep
 /Web/

@@ -1,0 +1,6 @@
+php_flag engine off
+Options -ExecCGI -Indexes
+AddType text/plain .php .php3 .php4 .php5 .phtml .phar .pl .py .cgi .sh .shtml
+<FilesMatch "\.(php|phtml|phar|cgi|pl|py|sh|htaccess)$">
+    Require all denied
+</FilesMatch>

@@ -39,7 +39,8 @@ const BdsLocation =  (function _callback(){
   }
 
   function bind(select) {
-    select.addEventListener('change', async function _callback2(){
+    select.addEventListener('change', async function _callback2() {
+      if (select.dataset.autoPopulating === '1') return;
       const target = document.querySelector(select.dataset.target);
       if (!target) return;
       clearChain(target);
