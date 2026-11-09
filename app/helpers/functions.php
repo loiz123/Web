@@ -22,6 +22,12 @@ function base_url(string $path = ''): string
     return $base . '/' . ltrim($path, '/');
 }
 
+if (!function_exists('url')) {
+    function url(string $path = ''): string {
+        return base_url($path);
+    }
+}
+
 function e($value): string { return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8'); }
 
 /** Encode data embedded in a <script> block without allowing </script> breakout. */
