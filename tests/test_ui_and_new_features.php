@@ -270,10 +270,10 @@ assertTest(
     && strpos($renderedSearchHtml, 'border-radius: 12px') !== false
 );
 assertTest(
-    "13.2 search-ajax.js bắt sự kiện focus/click/input với debounce 350ms và gọi GET /batdongsan/public/geocode?q= khi độ dài >= 2 ký tự",
+    "13.2 search-ajax.js dùng đường dẫn geocode theo base URL và debounce 350ms khi độ dài >= 2 ký tự",
     strpos($searchAjaxContent, '350') !== false
     && strpos($searchAjaxContent, 'keyword.length < 2') !== false
-    && strpos($searchAjaxContent, '/batdongsan/public/geocode?q=') !== false
+    && strpos($searchAjaxContent, '${basePrefix}/geocode?q=') !== false
     && strpos($searchAjaxContent, 'encodeURIComponent(keyword)') !== false
 );
 assertTest(
@@ -312,7 +312,8 @@ function httpGetCheck(string $url, array $headers = []): array {
     return ['code' => $code, 'ct' => $ct, 'body' => (string)$body];
 }
 
-$geoForwardResp = httpGetCheck('http://localhost/batdongsan/public/geocode?q=Ha+Noi');
+$httpBase = rtrim(getenv('BDS_TEST_HTTP_BASE') ?: 'http://localhost/batdongsan/public', '/');
+$geoForwardResp = httpGetCheck($httpBase . '/geocode?q=Ha+Noi');
 $geoForwardJson = json_decode($geoForwardResp['body'], true);
 assertTest(
     "14.1 HTTP GET /batdongsan/public/geocode?q=Ha+Noi trả về JSON hợp lệ (success=true, có danh sách display_name)",
@@ -322,7 +323,7 @@ assertTest(
     && !empty($geoForwardJson['data'][0]['display_name'])
 );
 
-$geoReverseResp = httpGetCheck('http://localhost/batdongsan/public/geocode/reverse?lat=21.0285&lng=105.8542');
+$geoReverseResp = httpGetCheck($httpBase . '/geocode/reverse?lat=21.0285&lng=105.8542');
 $geoReverseJson = json_decode($geoReverseResp['body'], true);
 assertTest(
     "14.2 HTTP GET /batdongsan/public/geocode/reverse?lat=21.0285&lng=105.8542 trả về JSON hợp lệ (success=true, có display_name)",
@@ -332,21 +333,21 @@ assertTest(
     && !empty($geoReverseJson['display_name'])
 );
 
-$detail18Resp = httpGetCheck('http://localhost/batdongsan/public/property/detail/18');
+$detailDemoResp = httpGetCheck($httpBase . '/property/detail/1');
 assertTest(
-    "14.3 HTTP GET /batdongsan/public/property/detail/18 có nút VietQR, #vietQrModal, URL img.vietqr.io và đã gỡ bỏ hoàn toàn tính năng In tờ rơi / Brochure A4",
-    $detail18Resp['code'] === 200
-    && strpos($detail18Resp['body'], 'Đặt cọc giữ chỗ qua VietQR') !== false
-    && strpos($detail18Resp['body'], 'id="vietQrModal"') !== false
-    && strpos($detail18Resp['body'], 'https://img.vietqr.io/image/MB-0902910780-compact2.png') !== false
-    && strpos($detail18Resp['body'], 'btnPrintBrochure') === false
-    && strpos($detail18Resp['body'], 'printBrochureSheet') === false
+    "14.3 HTTP GET trang chi tiết tin demo có VietQR và không có chức năng in brochure",
+    $detailDemoResp['code'] === 200
+    && strpos($detailDemoResp['body'], 'Đặt cọc giữ chỗ qua VietQR') !== false
+    && strpos($detailDemoResp['body'], 'id="vietQrModal"') !== false
+    && strpos($detailDemoResp['body'], 'https://img.vietqr.io/image/MB-0902910780-compact2.png') !== false
+    && strpos($detailDemoResp['body'], 'btnPrintBrochure') === false
+    && strpos($detailDemoResp['body'], 'printBrochureSheet') === false
     && strpos($styleCssContent, 'print-brochure') === false
 );
 
-$searchPageResp = httpGetCheck('http://localhost/batdongsan/public/property/search');
+$searchPageResp = httpGetCheck($httpBase . '/property/search');
 $searchAjaxResp = httpGetCheck(
-    'http://localhost/batdongsan/public/property/search?keyword=Th%E1%BA%A3o+%C4%90i%E1%BB%81n&page=1',
+    $httpBase . '/property/search?keyword=Th%E1%BA%A3o+%C4%90i%E1%BB%81n&page=1',
     ['Accept: application/json', 'X-Requested-With: XMLHttpRequest']
 );
 $searchAjaxJson = json_decode($searchAjaxResp['body'], true);
