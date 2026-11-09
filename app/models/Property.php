@@ -70,9 +70,10 @@ class Property extends Model
     public function findOwned(int $id, int $userId): ?array
     {
         $row = $this->query(
-            'SELECT p.*, w.district_id, d.province_id
+            'SELECT p.*, w.province_id, w.district_id, pr.name AS province_name, w.name AS ward_name
              FROM properties p
              LEFT JOIN wards w ON w.id = p.ward_id
+             LEFT JOIN provinces pr ON pr.id = w.province_id
              LEFT JOIN districts d ON d.id = w.district_id
              WHERE p.id = ? AND p.user_id = ?',
             [$id, $userId]
@@ -298,7 +299,7 @@ class Property extends Model
     }
 
     /**
-     * Lấy danh sách bất động sản tương tự (ưu tiên cùng quận/huyện, cùng loại BĐS và chênh lệch giá nhỏ nhất)
+     * Lấy danh sách bất động sản tương tự (ưu tiên cùng phường/tỉnh, cùng loại BĐS và chênh lệch giá nhỏ nhất)
      */
     public function getSimilarProperties(int $currentId, int $districtId, int $typeId, float $price, int $limit = 4): array
     {
@@ -314,15 +315,15 @@ class Property extends Model
                 FROM properties p
                 JOIN property_types t ON t.id = p.type_id
                 JOIN wards w ON w.id = p.ward_id
-                JOIN districts d ON d.id = w.district_id
-                JOIN provinces pr ON pr.id = d.province_id
+                LEFT JOIN provinces pr ON pr.id = w.province_id
+                LEFT JOIN districts d ON d.id = w.district_id
                 WHERE p.status = 'approved'
                   AND p.id != :currentId
-                  AND (d.id = :districtIdFilter OR p.type_id = :typeIdFilter)
+                  AND (w.id = :wardIdFilter OR d.id = :districtIdFilter OR p.type_id = :typeIdFilter)
                 ORDER BY
                     (CASE
-                        WHEN d.id = :districtIdOrder AND p.type_id = :typeIdOrder THEN 0
-                        WHEN d.id = :districtIdSecond THEN 1
+                        WHEN (w.id = :wardIdOrder OR d.id = :districtIdOrder) AND p.type_id = :typeIdOrder THEN 0
+                        WHEN (w.id = :wardIdSecond OR d.id = :districtIdSecond) THEN 1
                         WHEN p.type_id = :typeIdSecond THEN 2
                         ELSE 3
                     END) ASC,
@@ -332,10 +333,13 @@ class Property extends Model
 
         $rows = $this->query($sql, [
             ':currentId'        => $currentId,
+            ':wardIdFilter'     => $districtId,
             ':districtIdFilter' => $districtId,
             ':typeIdFilter'     => $typeId,
+            ':wardIdOrder'      => $districtId,
             ':districtIdOrder'  => $districtId,
             ':typeIdOrder'      => $typeId,
+            ':wardIdSecond'     => $districtId,
             ':districtIdSecond' => $districtId,
             ':typeIdSecond'     => $typeId,
             ':price'            => $price,
@@ -357,8 +361,8 @@ class Property extends Model
                             FROM properties p
                             JOIN property_types t ON t.id = p.type_id
                             JOIN wards w ON w.id = p.ward_id
-                            JOIN districts d ON d.id = w.district_id
-                            JOIN provinces pr ON pr.id = d.province_id
+                            LEFT JOIN provinces pr ON pr.id = w.province_id
+                            LEFT JOIN districts d ON d.id = w.district_id
                             WHERE p.status = 'approved'
                               AND p.id NOT IN ({$placeholders})
                             ORDER BY ABS(p.price - ?) ASC, p.created_at DESC

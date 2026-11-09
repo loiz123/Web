@@ -45,9 +45,12 @@ CREATE TABLE districts (
 
 CREATE TABLE wards (
   id          INT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
-  district_id INT UNSIGNED NOT NULL,
+  province_id INT UNSIGNED NOT NULL DEFAULT 1,
+  district_id INT UNSIGNED NULL DEFAULT NULL,
   name        VARCHAR(100) NOT NULL,
-  CONSTRAINT fk_wards_district FOREIGN KEY (district_id) REFERENCES districts(id) ON DELETE CASCADE
+  CONSTRAINT fk_wards_province FOREIGN KEY (province_id) REFERENCES provinces(id) ON DELETE CASCADE,
+  CONSTRAINT fk_wards_district FOREIGN KEY (district_id) REFERENCES districts(id) ON DELETE SET NULL,
+  INDEX idx_wards_province_name (province_id, name)
 ) ENGINE=InnoDB;
 
 CREATE TABLE property_types (               -- Căn hộ, Nhà phố, Đất nền...

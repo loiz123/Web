@@ -32,7 +32,6 @@ $initialMapProperties = array_map(function ($p) {
         'type_name'       => $p['type_name'] ?? '',
         'latitude'        => !empty($p['latitude']) ? (float)$p['latitude'] : null,
         'longitude'       => !empty($p['longitude']) ? (float)$p['longitude'] : null,
-        'district_name'   => $p['district_name'] ?? '',
         'ward_name'       => $p['ward_name'] ?? '',
         'cover_url'       => !empty($p['cover_url']) ? base_url($p['cover_url']) : '',
         'detail_url'      => base_url('property/detail/' . $p['id']),
@@ -52,19 +51,6 @@ $initialMapProperties = array_map(function ($p) {
       <p class="text-muted small mb-0">
         Tìm thấy <strong id="totalCountBadge" class="text-primary fs-6"><?= (int)$total ?></strong> bất động sản phù hợp tiêu chí
       </p>
-    </div>
-
-    <!-- Nút chuyển đổi chế độ xem: Dạng Lưới vs Bản đồ -->
-    <div class="btn-group btn-group-sm" role="group" aria-label="Chế độ xem">
-      <button type="button" class="btn btn-outline-primary active bds-btn-touch px-3" id="btnViewGrid">
-        <span class="me-1">📋</span> Danh sách
-      </button>
-      <button type="button" class="btn btn-outline-primary bds-btn-touch px-3" id="btnViewMap">
-        <span class="me-1">🗺️</span> Bản đồ trực quan
-      </button>
-      <button type="button" class="btn btn-outline-primary d-none d-lg-inline-flex bds-btn-touch px-3" id="btnViewSplit">
-        <span class="me-1">🗂️</span> Song song
-      </button>
     </div>
   </div>
 
@@ -160,5 +146,5 @@ $initialMapProperties = array_map(function ($p) {
 
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-<script src="<?= e(base_url('assets/js/map.js')) ?>"></script>
-<script src="<?= e(base_url('assets/js/search-ajax.js')) ?>"></script>
+<script src="<?= e(base_url('assets/js/map.js?v=20261109')) ?>"></script>
+<script src="<?= e(base_url('assets/js/search-ajax.js?v=20261109')) ?>"></script>

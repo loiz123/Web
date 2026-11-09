@@ -6,11 +6,11 @@ $hasValidCoords = ($propLat >= 8.0 && $propLat <= 24.0 && $propLng >= 102.0 && $
 
 if (!$hasValidCoords) {
     $pName = mb_strtolower($property['province_name'] ?? '');
-    $dName = mb_strtolower($property['district_name'] ?? '');
-    if (str_contains($pName, 'đà nẵng') || str_contains($pName, 'da nang') || str_contains($dName, 'đà nẵng') || str_contains($dName, 'hải châu') || str_contains($dName, 'sơn trà')) {
+    $wName = mb_strtolower($property['ward_name'] ?? '');
+    if (str_contains($pName, 'đà nẵng') || str_contains($pName, 'da nang') || str_contains($wName, 'hải châu') || str_contains($wName, 'sơn trà')) {
         $propLat = 16.054400;
         $propLng = 108.202200;
-    } elseif (str_contains($pName, 'hà nội') || str_contains($pName, 'ha noi') || str_contains($dName, 'hà nội') || str_contains($dName, 'ba đình') || str_contains($dName, 'cầu giấy')) {
+    } elseif (str_contains($pName, 'hà nội') || str_contains($pName, 'ha noi') || str_contains($wName, 'điện biên') || str_contains($wName, 'dịch vọng')) {
         $propLat = 21.028511;
         $propLng = 105.804817;
     } else {
@@ -42,7 +42,7 @@ if (!$hasValidCoords) {
     <ol class="breadcrumb">
       <li class="breadcrumb-item"><a href="<?= e(base_url('/')) ?>">Trang chủ</a></li>
       <li class="breadcrumb-item"><a href="<?= e(base_url('property/search')) ?>">Tìm kiếm</a></li>
-      <li class="breadcrumb-item"><a href="<?= e(base_url('property/search?district_id=' . $property['district_id'])) ?>"><?= e($property['district_name']) ?></a></li>
+      <li class="breadcrumb-item"><a href="<?= e(base_url('property/search?ward_id=' . $property['ward_id'])) ?>"><?= e($property['ward_name']) ?></a></li>
       <li class="breadcrumb-item active text-truncate" style="max-width: 320px;" aria-current="page"><?= e($property['title']) ?></li>
     </ol>
   </nav>
@@ -53,12 +53,12 @@ if (!$hasValidCoords) {
       <!-- Tiêu đề & Tag -->
       <div class="mb-3">
         <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
-          <span class="badge text-bg-<?= $property['listing_type'] === 'sale' ? 'success' : 'info' ?> fs-6">
+          <span class="badge <?= $property['listing_type'] === 'sale' ? 'badge-sale text-bg-warning text-white' : 'badge-rent text-bg-info text-white' ?> fs-6">
             <?= $property['listing_type'] === 'sale' ? 'Bán' : 'Cho thuê' ?>
           </span>
           <span class="badge text-bg-primary fs-6"><?= e($property['type_name']) ?></span>
           <?php if (!empty($property['is_verified'])): ?>
-            <span class="badge text-bg-warning text-dark fs-6">✓ Đã xác thực</span>
+            <span class="badge badge-verified text-bg-success text-white fs-6">✓ Đã xác thực</span>
           <?php endif; ?>
           <span class="badge text-bg-light border text-muted">👁 <?= e($property['views']) ?> lượt xem</span>
           <span class="badge text-bg-light border text-muted">Mã tin: #<?= (int)$property['id'] ?></span>
@@ -66,7 +66,7 @@ if (!$hasValidCoords) {
         </div>
         <h1 class="h3 fw-bold mb-2"><?= e($property['title']) ?></h1>
         <p class="text-muted mb-0">
-          📍 <?= e($property['address_detail'] ? $property['address_detail'] . ', ' : '') ?><?= e($property['ward_name']) ?>, <?= e($property['district_name']) ?>, <?= e($property['province_name']) ?>
+          📍 <?= e($property['address_detail'] ? $property['address_detail'] . ', ' : '') ?><?= e($property['ward_name']) ?>, <?= e($property['province_name']) ?>
         </p>
         <div class="mt-2">
           <?php if (Auth::check()): ?>
@@ -222,8 +222,6 @@ if (!$hasValidCoords) {
               <span class="text-muted small">Bản đồ vị trí bất động sản trực quan • Khám phá tiện ích bán kính 1 - 2km</span>
             </div>
             <div class="d-flex align-items-center gap-2 flex-wrap">
-              <span class="badge bg-success-subtle text-success border border-success-subtle"><i class="bi bi-compass me-1"></i>Vị trí & Tiện ích khu vực</span>
-              <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle"><i class="bi bi-geo-alt me-1"></i>Tọa độ: <?= number_format($propLat, 4) ?>, <?= number_format($propLng, 4) ?></span>
               <!-- Nút tắt / đặt lại tiện ích -->
               <button type="button" id="btnResetPoi" class="btn btn-outline-secondary btn-sm d-none" onclick="resetNearbyPoi()">
                 <i class="bi bi-arrow-counterclockwise me-1"></i> Xóa tiện ích
@@ -272,7 +270,7 @@ if (!$hasValidCoords) {
 
           <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mt-3">
             <p class="small text-muted mb-0">
-              📍 <?= e($property['address_detail'] ? $property['address_detail'] . ', ' : '') ?><?= e($property['ward_name']) ?>, <?= e($property['district_name']) ?>, <?= e($property['province_name']) ?>
+              📍 <?= e($property['address_detail'] ? $property['address_detail'] . ', ' : '') ?><?= e($property['ward_name']) ?>, <?= e($property['province_name']) ?>
             </p>
             <div class="d-flex align-items-center gap-2 flex-wrap">
               <a href="https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=%2C%3B<?= $propLat ?>%2C<?= $propLng ?>" target="_blank" rel="noopener noreferrer" class="btn btn-outline-success btn-sm rounded-pill px-3 py-1 fw-semibold" style="font-size: 0.8rem;" title="Xem lộ trình di chuyển chi tiết">
@@ -292,194 +290,6 @@ if (!$hasValidCoords) {
             </h6>
             <div class="row g-2" id="poiItemsList">
               <!-- Rendered via JS -->
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- CÔNG CỤ TÍNH LÃI SUẤT VAY MUA NHÀ -->
-      <div class="card shadow-sm border-0 mb-4 mortgage-calc-card rounded-4 overflow-hidden" id="mortgageSection">
-        <div class="card-header bg-white border-bottom p-3">
-          <div class="d-flex align-items-center justify-content-between">
-            <div class="d-flex align-items-center gap-2">
-              <div class="bg-primary-subtle text-primary p-2 rounded-3">
-                <i class="bi bi-calculator-fill fs-5"></i>
-              </div>
-              <div>
-                <h5 class="fw-bold text-dark mb-0">Công cụ tính lãi suất vay mua nhà</h5>
-                <span class="text-muted small">Ước tính lịch trả nợ & số tiền thanh toán hàng tháng tức thì</span>
-              </div>
-            </div>
-            <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
-              <i class="bi bi-check-circle me-1"></i> Dự toán tài chính
-            </span>
-          </div>
-        </div>
-
-        <div class="card-body p-3 p-md-4">
-          <div class="row g-4">
-            <!-- Cột trái: Thông số khoản vay -->
-            <div class="col-lg-7">
-              <!-- 1. Giá trị bất động sản -->
-              <div class="mb-3">
-                <label class="form-label small fw-semibold text-dark d-flex justify-content-between">
-                  <span>Giá trị bất động sản (VNĐ):</span>
-                  <span class="text-primary fw-bold" id="displayHomePriceFormatted"><?= e(format_price($property['price'])) ?></span>
-                </label>
-                <div class="input-group">
-                  <span class="input-group-text bg-light"><i class="bi bi-house-door"></i></span>
-                  <input type="number" id="calcHomePrice" class="form-control" value="<?= (float)($property['price'] ?? 2000000000) ?>" min="100000000" step="10000000">
-                  <span class="input-group-text bg-light text-muted">VNĐ</span>
-                </div>
-              </div>
-
-              <!-- 2. Tỷ lệ vay & Số tiền vay -->
-              <div class="mb-3">
-                <div class="d-flex justify-content-between align-items-center mb-1">
-                  <label class="form-label small fw-semibold text-dark mb-0">Tỷ lệ vay ngân hàng:</label>
-                  <span class="fw-bold text-primary"><span id="calcLoanRatioText">70</span>% (Vay <span id="displayLoanAmount">0 đ</span>)</span>
-                </div>
-                <input type="range" class="form-range" id="calcLoanRatio" min="20" max="85" step="5" value="70">
-                <div class="d-flex gap-2 mt-1">
-                  <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 quick-ratio-btn" data-ratio="50">50%</button>
-                  <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 quick-ratio-btn active" data-ratio="70">70% (Phổ biến)</button>
-                  <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 quick-ratio-btn" data-ratio="80">80%</button>
-                </div>
-              </div>
-
-              <!-- 3. Thời hạn vay -->
-              <div class="mb-3">
-                <div class="d-flex justify-content-between align-items-center mb-1">
-                  <label class="form-label small fw-semibold text-dark mb-0">Thời hạn vay vốn:</label>
-                  <span class="fw-bold text-primary"><span id="calcLoanTermText">20</span> năm (<span id="calcLoanMonthsText">240</span> tháng)</span>
-                </div>
-                <input type="range" class="form-range" id="calcLoanTerm" min="5" max="35" step="1" value="20">
-                <div class="d-flex gap-2 mt-1">
-                  <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 quick-term-btn" data-term="10">10 năm</button>
-                  <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 quick-term-btn" data-term="15">15 năm</button>
-                  <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 quick-term-btn active" data-term="20">20 năm</button>
-                  <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 quick-term-btn" data-term="25">25 năm</button>
-                </div>
-              </div>
-
-              <!-- 4. Lãi suất cố định năm -->
-              <div class="mb-3">
-                <label class="form-label small fw-semibold text-dark d-flex justify-content-between">
-                  <span>Lãi suất vay ưu đãi (%/năm):</span>
-                  <span class="text-muted small">Gợi ý từ các ngân hàng lớn</span>
-                </label>
-                <div class="input-group mb-2">
-                  <span class="input-group-text bg-light"><i class="bi bi-percent"></i></span>
-                  <input type="number" id="calcInterestRate" class="form-control" value="8.5" min="3.0" max="20.0" step="0.1">
-                  <span class="input-group-text bg-light text-muted">%/năm</span>
-                </div>
-                <!-- Presets ngân hàng -->
-                <div class="d-flex flex-wrap gap-1">
-                  <button type="button" class="btn btn-light border btn-sm py-0 px-2 quick-bank-btn" data-rate="7.5">Vietcombank: 7.5%</button>
-                  <button type="button" class="btn btn-light border btn-sm py-0 px-2 quick-bank-btn" data-rate="7.8">BIDV: 7.8%</button>
-                  <button type="button" class="btn btn-light border btn-sm py-0 px-2 quick-bank-btn" data-rate="8.2">Techcombank: 8.2%</button>
-                  <button type="button" class="btn btn-light border btn-sm py-0 px-2 quick-bank-btn active" data-rate="8.5">MB Bank: 8.5%</button>
-                </div>
-              </div>
-
-              <!-- 5. Phương thức tính lãi -->
-              <div>
-                <label class="form-label small fw-semibold text-dark mb-2">Phương thức trả lãi:</label>
-                <div class="d-flex flex-column flex-sm-row gap-3">
-                  <div class="form-check">
-                    <input class="form-check-input" type="radio" name="calcMethod" id="methodReducing" value="reducing" checked>
-                    <label class="form-check-label small" for="methodReducing">
-                      <strong>Dư nợ giảm dần</strong> <span class="text-muted">(Gốc đều, lãi giảm dần)</span>
-                    </label>
-                  </div>
-                  <div class="form-check">
-                    <input class="form-check-input" type="radio" name="calcMethod" id="methodFixed" value="fixed">
-                    <label class="form-check-label small" for="methodFixed">
-                      <strong>Trả góp đều</strong> <span class="text-muted">(Niên kim cố định hàng tháng)</span>
-                    </label>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Cột phải: Kết quả thanh toán & Biểu đồ phân bổ -->
-            <div class="col-lg-5">
-              <div class="p-3 bg-light rounded-4 border h-100 d-flex flex-column justify-content-between">
-                <div>
-                  <div class="text-muted small fw-semibold mb-1" id="labelMonthlyPayment">Số tiền trả tháng đầu tiên:</div>
-                  <div class="fs-2 fw-bold text-danger mb-3" id="resMonthlyPayment">0 đ</div>
-
-                  <div class="d-flex flex-column gap-2 mb-3 pb-3 border-bottom small">
-                    <div class="d-flex justify-content-between">
-                      <span class="text-muted">Tiền gốc hàng tháng:</span>
-                      <strong class="text-dark" id="resPrincipalMonthly">0 đ</strong>
-                    </div>
-                    <div class="d-flex justify-content-between">
-                      <span class="text-muted" id="labelInterestFirst">Tiền lãi tháng đầu:</span>
-                      <strong class="text-dark" id="resInterestFirst">0 đ</strong>
-                    </div>
-                    <div class="d-flex justify-content-between">
-                      <span class="text-muted">Tổng tiền lãi phải trả:</span>
-                      <strong class="text-danger" id="resTotalInterest">0 đ</strong>
-                    </div>
-                    <div class="d-flex justify-content-between">
-                      <span class="text-muted">Tổng gốc + lãi phải trả:</span>
-                      <strong class="text-dark" id="resTotalPayment">0 đ</strong>
-                    </div>
-                  </div>
-
-                  <!-- Biểu đồ phân bổ trực quan -->
-                  <div class="mb-3">
-                    <div class="d-flex justify-content-between small text-muted mb-1">
-                      <span>Cơ cấu tài chính</span>
-                      <span class="fw-semibold text-dark">Vốn tự có / Gốc / Lãi</span>
-                    </div>
-                    <div class="progress" style="height: 12px;">
-                      <div id="barEquity" class="progress-bar bg-success" role="progressbar" style="width: 30%;" title="Vốn tự có"></div>
-                      <div id="barPrincipal" class="progress-bar bg-primary" role="progressbar" style="width: 50%;" title="Gốc vay"></div>
-                      <div id="barInterest" class="progress-bar bg-warning text-dark" role="progressbar" style="width: 20%;" title="Tiền lãi"></div>
-                    </div>
-                    <div class="d-flex justify-content-between gap-1 mt-2 small text-muted" style="font-size: 0.75rem;">
-                      <span><span class="d-inline-block rounded-circle bg-success me-1" style="width: 8px; height: 8px;"></span>Vốn tự có</span>
-                      <span><span class="d-inline-block rounded-circle bg-primary me-1" style="width: 8px; height: 8px;"></span>Gốc vay</span>
-                      <span><span class="d-inline-block rounded-circle bg-warning me-1" style="width: 8px; height: 8px;"></span>Tổng lãi</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <button type="button" class="btn btn-outline-primary btn-sm w-100 mb-2" data-bs-toggle="collapse" data-bs-target="#scheduleCollapse">
-                    <i class="bi bi-calendar-table me-1"></i> Xem lịch trả nợ 12 tháng đầu
-                  </button>
-                  <p class="text-muted small mb-0 text-center" style="font-size: 0.725rem;">
-                    * Lưu ý: Kết quả mang tính tham khảo. Lãi suất thực tế áp dụng theo biểu phí của từng ngân hàng.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Bảng lịch trả nợ 12 tháng đầu thu gọn -->
-          <div class="collapse mt-4" id="scheduleCollapse">
-            <div class="card card-body bg-light border-0 p-3">
-              <h6 class="fw-bold small mb-2"><i class="bi bi-clock-history me-1"></i> Bảng dự tính trả nợ 12 tháng đầu tiên:</h6>
-              <div class="table-responsive">
-                <table class="table table-sm table-bordered bg-white small mb-0">
-                  <thead class="table-light">
-                    <tr>
-                      <th class="text-center">Kỳ</th>
-                      <th>Dư nợ đầu kỳ</th>
-                      <th>Tiền gốc</th>
-                      <th>Tiền lãi</th>
-                      <th class="text-danger">Tổng phải trả</th>
-                      <th>Dư nợ còn lại</th>
-                    </tr>
-                  </thead>
-                  <tbody id="scheduleTableBody">
-                    <!-- Rendered via JS -->
-                  </tbody>
-                </table>
-              </div>
             </div>
           </div>
         </div>
@@ -666,15 +476,12 @@ if (!$hasValidCoords) {
             <button type="button" class="btn btn-outline-primary rounded-pill px-3 py-2 fw-medium shadow-sm" data-bs-toggle="modal" data-bs-target="#shareModal"><i class="bi bi-share me-1"></i> Chia sẻ</button>
           </div>
 
-          <!-- Nút So sánh BĐS này & Tính lãi suất vay -->
-          <div class="d-flex gap-2">
-            <button type="button" id="btnDetailCompare" data-compare-id="<?= (int)$property['id'] ?>" class="btn btn-outline-primary btn-sm rounded-pill flex-grow-1 d-flex align-items-center justify-content-center gap-1 py-2 fw-semibold bds-btn-touch" onclick="handleToggleDetailCompare()">
+          <!-- Nút So sánh BĐS này -->
+          <div>
+            <button type="button" id="btnDetailCompare" data-compare-id="<?= (int)$property['id'] ?>" class="btn btn-outline-primary btn-sm rounded-pill w-100 d-flex align-items-center justify-content-center gap-1 py-2 fw-semibold bds-btn-touch" onclick="handleToggleDetailCompare()">
               <i class="bi bi-arrow-left-right"></i>
               <span id="detailCompareText">So sánh tin này</span>
             </button>
-            <a href="#mortgageSection" class="btn btn-outline-success btn-sm rounded-pill d-flex align-items-center justify-content-center gap-1 py-2 px-3 fw-semibold bds-btn-touch" title="Tính khoản vay mua nhà">
-              <i class="bi bi-calculator"></i> Tính vay
-            </a>
           </div>
 
           <?php if (Auth::check()): ?>
@@ -728,7 +535,7 @@ if (!$hasValidCoords) {
                             'area'          => $item['area'] . ' m²',
                             'raw_area'      => (float)$item['area'],
                             'bedrooms'      => (int)($item['bedrooms'] ?? 0),
-                            'district_name' => $item['district_name'] ?? '',
+                            'ward_name'     => $item['ward_name'] ?? '',
                             'listing_type'  => $simListingType,
                             'cover_url'     => $simAvatar,
                             'detail_url'    => $simDetailUrl,
@@ -760,14 +567,14 @@ if (!$hasValidCoords) {
                     <?= e(format_price($item['price'])) ?><?= $simListingType === 'rent' ? '<small class="fs-6 fw-normal text-muted">/tháng</small>' : '' ?>
                   </span>
                 </div>
-                <div class="property-specs pt-2 border-top mb-3">
-                  <span><i class="bi bi-aspect-ratio text-muted"></i> <?= e($item['area']) ?> m²</span>
-                  <span>•</span>
-                  <span><i class="bi bi-door-closed text-muted"></i> <?= (int)($item['bedrooms'] ?? 0) ?> PN</span>
-                  <span>•</span>
-                  <span class="text-truncate" style="max-width: 105px;" title="<?= e($item['district_name'] ?? '') ?>">
-                    <i class="bi bi-geo-alt text-muted"></i> <?= e($item['district_name'] ?? '') ?>
-                  </span>
+                <div class="property-specs pt-2 border-top mb-3 d-block">
+                  <div class="d-flex align-items-center text-muted small mb-1">
+                    <span><i class="bi bi-aspect-ratio text-primary me-1"></i><?= e($item['area']) ?> m²</span>
+                  </div>
+                  <div class="property-location text-truncate text-secondary small d-flex align-items-center" title="<?= htmlspecialchars($item['ward_name'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                    <i class="bi bi-geo-alt-fill text-danger me-1 flex-shrink-0"></i>
+                    <span class="text-truncate"><?= htmlspecialchars($item['ward_name'] ?? '', ENT_QUOTES, 'UTF-8') ?></span>
+                  </div>
                 </div>
                 <a href="<?= e($simDetailUrl) ?>" class="btn btn-outline-primary btn-sm rounded-pill w-100 fw-semibold">
                   Xem chi tiết <i class="bi bi-arrow-right ms-1"></i>
@@ -1244,8 +1051,8 @@ if (!$hasValidCoords) {
       price: <?= json_for_script(format_price($property['price']) . (($property['listing_type'] ?? 'sale') === 'rent' ? '/tháng' : '')) ?>,
       price_formatted: <?= json_for_script(format_price($property['price']) . (($property['listing_type'] ?? 'sale') === 'rent' ? '/tháng' : '')) ?>,
       area: <?= json_for_script($property['area'] . ' m²') ?>,
-      district: <?= json_for_script($property['district_name'] ?? '') ?>,
-      district_name: <?= json_for_script($property['district_name'] ?? '') ?>,
+      ward: <?= json_for_script($property['ward_name'] ?? '') ?>,
+      ward_name: <?= json_for_script($property['ward_name'] ?? '') ?>,
       image: <?= json_for_script(!empty($images[0]['image_url']) ? base_url($images[0]['image_url']) : property_avatar_url($property['avatar'] ?? null)) ?>,
       avatar_url: <?= json_for_script(!empty($images[0]['image_url']) ? base_url($images[0]['image_url']) : property_avatar_url($property['avatar'] ?? null)) ?>,
       url: <?= json_for_script(base_url('property/detail/' . (int)$property['id'])) ?>
@@ -1351,7 +1158,7 @@ if (!$hasValidCoords) {
     area: <?= (float)($property['area'] ?? 0) ?>,
     avatar: <?= json_for_script(!empty($images[0]['image_url']) ? base_url($images[0]['image_url']) : property_avatar_url($property['avatar'] ?? null)) ?>,
     listing_type: <?= json_for_script($property['listing_type'] ?? 'sale') ?>,
-    address: <?= json_for_script($property['ward_name'] . ', ' . $property['district_name']) ?>,
+    address: <?= json_for_script($property['ward_name'] . ', ' . $property['province_name']) ?>,
     url: window.location.href
   };
 
@@ -1385,8 +1192,8 @@ if (!$hasValidCoords) {
   const propTitle = <?= json_for_script($property['title']) ?>;
   const propPriceFormatted = <?= json_for_script(format_price($property['price'])) ?>;
   const propAreaFormatted = <?= json_for_script($property['area'] . ' m²') ?>;
-  const propAddressFormatted = <?= json_for_script(($property['address_detail'] ? $property['address_detail'] . ', ' : '') . $property['ward_name'] . ', ' . $property['district_name']) ?>;
-  const propDistrict = <?= json_for_script($property['district_name'] ?? '') ?>;
+  const propAddressFormatted = <?= json_for_script(($property['address_detail'] ? $property['address_detail'] . ', ' : '') . $property['ward_name'] . ', ' . $property['province_name']) ?>;
+  const propWard = <?= json_for_script($property['ward_name'] ?? '') ?>;
 
   let detailMapInstance = null;
   let activePoiCat = null;
@@ -1425,8 +1232,8 @@ if (!$hasValidCoords) {
     if (notice) notice.classList.remove('d-none');
     if (resetBtn) resetBtn.classList.remove('d-none');
 
-    const districtName = <?= json_for_script($property['district_name'] ?? '') ?>;
-    const items = await detailMapInstance.loadPoi(catKey, districtName);
+    const wardName = <?= json_for_script($property['ward_name'] ?? '') ?>;
+    const items = await detailMapInstance.loadPoi(catKey, wardName);
 
     if (notice) notice.classList.add('d-none');
 
@@ -1481,171 +1288,6 @@ if (!$hasValidCoords) {
     }
   }
 
-  // CÔNG CỤ TÍNH LÃI SUẤT VAY MUA NHÀ
-  function initMortgageCalculator() {
-    const priceInput = document.getElementById('calcHomePrice');
-    const ratioSlider = document.getElementById('calcLoanRatio');
-    const ratioText = document.getElementById('calcLoanRatioText');
-    const displayLoanAmount = document.getElementById('displayLoanAmount');
-    const termSlider = document.getElementById('calcLoanTerm');
-    const termText = document.getElementById('calcLoanTermText');
-    const monthsText = document.getElementById('calcLoanMonthsText');
-    const interestInput = document.getElementById('calcInterestRate');
-    const displayPriceFormatted = document.getElementById('displayHomePriceFormatted');
-
-    // Kết quả
-    const resMonthly = document.getElementById('resMonthlyPayment');
-    const resPrincipal = document.getElementById('resPrincipalMonthly');
-    const resInterest = document.getElementById('resInterestFirst');
-    const resTotalInterest = document.getElementById('resTotalInterest');
-    const resTotalPayment = document.getElementById('resTotalPayment');
-    const labelMonthly = document.getElementById('labelMonthlyPayment');
-    const labelInterest = document.getElementById('labelInterestFirst');
-
-    const barEquity = document.getElementById('barEquity');
-    const barPrincipal = document.getElementById('barPrincipal');
-    const barInterest = document.getElementById('barInterest');
-    const scheduleBody = document.getElementById('scheduleTableBody');
-
-    if (!priceInput || !ratioSlider || !termSlider || !interestInput) return;
-
-    function formatVND(num) {
-      return new Intl.NumberFormat('vi-VN').format(Math.round(num)) + ' đ';
-    }
-
-    function calculate() {
-      const homePrice = parseFloat(priceInput.value) || 0;
-      const ratio = parseFloat(ratioSlider.value) || 70;
-      const loanAmount = homePrice * (ratio / 100);
-      const years = parseInt(termSlider.value) || 20;
-      const months = years * 12;
-      const annualRate = parseFloat(interestInput.value) || 8.5;
-      const monthlyRate = (annualRate / 100) / 12;
-      const method = document.querySelector('input[name="calcMethod"]:checked') ? document.querySelector('input[name="calcMethod"]:checked').value : 'reducing';
-
-      if (ratioText) ratioText.textContent = ratio;
-      if (displayLoanAmount) displayLoanAmount.textContent = formatVND(loanAmount);
-      if (termText) termText.textContent = years;
-      if (monthsText) monthsText.textContent = months;
-      if (displayPriceFormatted) displayPriceFormatted.textContent = formatVND(homePrice);
-
-      if (loanAmount <= 0 || months <= 0) return;
-
-      const monthlyPrincipal = loanAmount / months;
-      const firstInterest = loanAmount * monthlyRate;
-      let monthlyPayment = 0;
-      let totalInterest = 0;
-      let totalPayment = 0;
-
-      if (method === 'reducing') {
-        if (labelMonthly) labelMonthly.textContent = 'Số tiền trả tháng đầu tiên:';
-        if (labelInterest) labelInterest.textContent = 'Tiền lãi tháng đầu:';
-        monthlyPayment = monthlyPrincipal + firstInterest;
-        totalInterest = (loanAmount + monthlyPrincipal) / 2 * months * monthlyRate;
-        totalPayment = loanAmount + totalInterest;
-      } else {
-        if (labelMonthly) labelMonthly.textContent = 'Số tiền trả đều mỗi tháng:';
-        if (labelInterest) labelInterest.textContent = 'Lãi ước tính tháng 1:';
-        if (monthlyRate > 0) {
-          monthlyPayment = (loanAmount * monthlyRate * Math.pow(1 + monthlyRate, months)) / (Math.pow(1 + monthlyRate, months) - 1);
-          totalPayment = monthlyPayment * months;
-          totalInterest = totalPayment - loanAmount;
-        } else {
-          monthlyPayment = monthlyPrincipal;
-          totalPayment = loanAmount;
-          totalInterest = 0;
-        }
-      }
-
-      if (resMonthly) resMonthly.textContent = formatVND(monthlyPayment);
-      if (resPrincipal) resPrincipal.textContent = formatVND(monthlyPrincipal);
-      if (resInterest) resInterest.textContent = formatVND(firstInterest);
-      if (resTotalInterest) resTotalInterest.textContent = formatVND(totalInterest);
-      if (resTotalPayment) resTotalPayment.textContent = formatVND(totalPayment);
-
-      // Phân bổ thanh toán trực quan
-      const equity = Math.max(0, homePrice - loanAmount);
-      const grandSum = equity + totalPayment;
-      if (grandSum > 0) {
-        const pEq = Math.round((equity / grandSum) * 100);
-        const pPr = Math.round((loanAmount / grandSum) * 100);
-        const pIn = Math.max(0, 100 - pEq - pPr);
-        if (barEquity) { barEquity.style.width = pEq + '%'; barEquity.title = 'Vốn tự có: ' + formatVND(equity); }
-        if (barPrincipal) { barPrincipal.style.width = pPr + '%'; barPrincipal.title = 'Gốc vay: ' + formatVND(loanAmount); }
-        if (barInterest) { barInterest.style.width = pIn + '%'; barInterest.title = 'Tiền lãi: ' + formatVND(totalInterest); }
-      }
-
-      // Render 12 tháng đầu bảng trả nợ
-      if (scheduleBody) {
-        let remaining = loanAmount;
-        let rowsHtml = '';
-        for (let m = 1; m <= Math.min(12, months); m++) {
-          const mInterest = remaining * monthlyRate;
-          let mPrincipal = 0;
-          let mTotal = 0;
-
-          if (method === 'reducing') {
-            mPrincipal = monthlyPrincipal;
-            mTotal = mPrincipal + mInterest;
-          } else {
-            mTotal = monthlyPayment;
-            mPrincipal = mTotal - mInterest;
-          }
-
-          const endRemaining = Math.max(0, remaining - mPrincipal);
-          rowsHtml += '<tr>' +
-            '<td class="text-center fw-bold">Tháng ' + m + '</td>' +
-            '<td>' + formatVND(remaining) + '</td>' +
-            '<td>' + formatVND(mPrincipal) + '</td>' +
-            '<td>' + formatVND(mInterest) + '</td>' +
-            '<td class="text-danger fw-bold">' + formatVND(mTotal) + '</td>' +
-            '<td>' + formatVND(endRemaining) + '</td>' +
-          '</tr>';
-          remaining = endRemaining;
-        }
-        scheduleBody.innerHTML = rowsHtml;
-      }
-    }
-
-    priceInput.addEventListener('input', calculate);
-    ratioSlider.addEventListener('input', calculate);
-    termSlider.addEventListener('input', calculate);
-    interestInput.addEventListener('input', calculate);
-    document.querySelectorAll('input[name="calcMethod"]').forEach(r => r.addEventListener('change', calculate));
-
-    // Nút chọn nhanh tỷ lệ vay
-    document.querySelectorAll('.quick-ratio-btn').forEach(btn => {
-      btn.addEventListener('click', function () {
-        document.querySelectorAll('.quick-ratio-btn').forEach(b => b.classList.remove('active', 'btn-secondary', 'text-white'));
-        this.classList.add('active');
-        ratioSlider.value = this.dataset.ratio;
-        calculate();
-      });
-    });
-
-    // Nút chọn nhanh thời hạn vay
-    document.querySelectorAll('.quick-term-btn').forEach(btn => {
-      btn.addEventListener('click', function () {
-        document.querySelectorAll('.quick-term-btn').forEach(b => b.classList.remove('active', 'btn-secondary', 'text-white'));
-        this.classList.add('active');
-        termSlider.value = this.dataset.term;
-        calculate();
-      });
-    });
-
-    // Nút chọn nhanh ngân hàng
-    document.querySelectorAll('.quick-bank-btn').forEach(btn => {
-      btn.addEventListener('click', function () {
-        document.querySelectorAll('.quick-bank-btn').forEach(b => b.classList.remove('active', 'btn-secondary', 'text-white'));
-        this.classList.add('active');
-        interestInput.value = this.dataset.rate;
-        calculate();
-      });
-    });
-
-    calculate();
-  }
-
   document.addEventListener('DOMContentLoaded', function () {
     // 1. Image gallery
     document.querySelectorAll('[data-gallery-url]').forEach(function (thumbnail) {
@@ -1677,7 +1319,7 @@ if (!$hasValidCoords) {
           '<span style="color:#64748b; font-weight:600; font-size:13px;"> • ' + <?= json_for_script($property['area'] . ' m²') ?> + '</span>' +
         '</div>' +
         '<div style="font-size:12px; color:#64748b; border-top:1px solid #f1f5f9; padding-top:4px; margin-bottom:8px;">' +
-          '📍 ' + <?= json_for_script(($property['address_detail'] ? $property['address_detail'] . ', ' : '') . $property['ward_name'] . ', ' . $property['district_name']) ?> +
+          '📍 ' + <?= json_for_script(($property['address_detail'] ? $property['address_detail'] . ', ' : '') . $property['ward_name'] . ', ' . $property['province_name']) ?> +
         '</div>' +
         '<div class="d-flex gap-1 pt-1 border-top">' +
           '<a href="https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=%2C%3B' + lat + '%2C' + lng + '" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-success py-0 px-2 text-decoration-none" style="font-size:0.75rem;">' +
@@ -1727,9 +1369,6 @@ if (!$hasValidCoords) {
         });
       });
     }
-
-    // 3. Khởi tạo Mortgage Calculator
-    initMortgageCalculator();
 
     // 4. Đồng bộ nút So sánh tin này
     updateDetailCompareBtn();

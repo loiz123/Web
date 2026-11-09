@@ -225,23 +225,19 @@
           </select>
         </div>
 
-        <!-- Tìm kiếm từ khóa -->
-        <div class="col-12 col-sm-8 col-md-4 col-xl-3">
+        <!-- Tìm kiếm từ khóa & Đặt lại -->
+        <div class="col-12 col-md-6 col-xl-4">
           <label class="form-label small text-muted mb-1 fw-semibold">Từ khóa / Khu vực</label>
           <div class="input-group input-group-sm">
             <input type="text" class="form-control rounded-start-3" id="filterKeyword" name="keyword"
-                   placeholder="Nhập tên dự án, đường, quận..." value="<?= e($filters['keyword'] ?? '') ?>">
+                   placeholder="Nhập tên đường, phường..." value="<?= e($filters['keyword'] ?? '') ?>">
             <button class="btn btn-primary" type="button" id="btnApplyFilter" title="Tìm kiếm">
               <i class="bi bi-search"></i>
             </button>
+            <button type="button" class="btn btn-outline-secondary rounded-end-3" id="btnResetFilters" title="Đặt lại bộ lọc">
+              <i class="bi bi-arrow-counterclockwise me-1"></i>Đặt lại
+            </button>
           </div>
-        </div>
-
-        <!-- Nút đặt lại -->
-        <div class="col-12 col-sm-4 col-md-2 col-xl-1 d-flex align-items-end">
-          <button type="button" class="btn btn-outline-secondary btn-sm w-100 rounded-3" id="btnResetFilters" title="Đặt lại bộ lọc">
-            <i class="bi bi-arrow-counterclockwise me-1"></i>Đặt lại
-          </button>
         </div>
       </form>
     </div>
@@ -251,12 +247,10 @@
       <!-- Cột danh sách BĐS hiển thị bên cạnh (Thu gọn/Mở rộng mượt mà) -->
       <div class="col-lg-4 col-xl-3 order-2 order-lg-1">
         <div class="card border-0 shadow-sm rounded-3 h-100">
-          <div class="card-header bg-white border-bottom py-2 px-3 d-flex justify-content-between align-items-center">
-            <span class="fw-bold small text-dark">
-              <i class="bi bi-list-stars text-primary me-1"></i>
-              Danh sách hiển thị (<span id="sideListCount"><?= (int)$total ?></span>)
+          <div class="card-header bg-white border-bottom py-2 px-3">
+            <span class="fw-bold text-dark d-flex align-items-center">
+              <i class="bi bi-list-stars text-primary me-2"></i>Danh sách bất động sản
             </span>
-            <span class="text-muted small" style="font-size: 0.75rem;">Bấm để xem trên bản đồ</span>
           </div>
           <div class="card-body p-2 map-sidebar-list" id="mapSidebarList">
             <!-- Render danh sách tin qua JS để đồng bộ thời gian thực -->

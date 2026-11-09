@@ -6,19 +6,78 @@ class Location extends Model
 
     public function provinces(): array { return $this->query('SELECT id, name FROM provinces ORDER BY CASE WHEN id IN (1, 2, 3) THEN id ELSE 999 END, name')->fetchAll(); }
     public function districtsByProvince(int $id): array { return $this->query('SELECT id, name FROM districts WHERE province_id = ? ORDER BY name', [$id])->fetchAll(); }
-    public function wardsByDistrict(int $id): array { return $this->query('SELECT id, name FROM wards WHERE district_id = ? ORDER BY name', [$id])->fetchAll(); }
+    public function wardsByDistrict(int $id): array
+    {
+        $wards = $this->query(
+            'SELECT id, name FROM wards 
+             WHERE district_id = ? 
+               AND name NOT REGEXP "^(Phường|Xã|Thị trấn)[[:space:]]+[0-9]+"
+             ORDER BY name ASC, id ASC',
+            [$id]
+        )->fetchAll();
+        $uniqueWards = [];
+        $seenNames = [];
+        foreach ($wards as $ward) {
+            $name = trim((string)($ward['name'] ?? ''));
+            if ($name === '' || preg_match('/^(Phường|Xã|Thị trấn)\s+[0-9]+/ui', $name)) {
+                continue;
+            }
+            if (!isset($seenNames[$name])) {
+                $seenNames[$name] = true;
+                $ward['id'] = (int)$ward['id'];
+                $ward['name'] = $name;
+                $uniqueWards[] = $ward;
+            }
+        }
+        return $uniqueWards;
+    }
+
+    public function wardsByProvince(int $provinceId): array
+    {
+        $wards = $this->query(
+            'SELECT id, name, province_id
+             FROM wards
+             WHERE province_id = ?
+             ORDER BY name ASC',
+            [$provinceId]
+        )->fetchAll();
+
+        $uniqueWards = [];
+        $seenNames = [];
+        foreach ($wards as $ward) {
+            $name = trim((string)($ward['name'] ?? ''));
+            if ($name === '') {
+                continue;
+            }
+            if (!isset($seenNames[$name])) {
+                $seenNames[$name] = true;
+                $uniqueWards[] = [
+                    'id'          => (int)$ward['id'],
+                    'name'        => $name,
+                    'province_id' => (int)$ward['province_id'],
+                ];
+            }
+        }
+        return $uniqueWards;
+    }
     public function provinceByDistrict(int $districtId): ?int
     {
         $row = $this->query('SELECT province_id FROM districts WHERE id = ?', [$districtId])->fetch();
         return $row ? (int)$row['province_id'] : null;
     }
-    public function isValidWard(int $provinceId, int $districtId, int $wardId): bool
+    public function isValidWard(int $provinceId, int $districtOrWardId, ?int $wardId = null): bool
     {
+        if ($wardId !== null) {
+            return (bool)$this->query(
+                'SELECT w.id FROM wards w
+                 WHERE w.id = ? AND w.province_id = ? AND (w.district_id = ? OR ? = 0)',
+                [$wardId, $provinceId, $districtOrWardId, $districtOrWardId]
+            )->fetch();
+        }
+
         return (bool)$this->query(
-            'SELECT w.id FROM wards w
-             JOIN districts d ON d.id = w.district_id
-             WHERE w.id = ? AND d.id = ? AND d.province_id = ?',
-            [$wardId, $districtId, $provinceId]
+            'SELECT id FROM wards WHERE id = ? AND province_id = ?',
+            [$districtOrWardId, $provinceId]
         )->fetch();
     }
 
@@ -106,134 +165,89 @@ class Location extends Model
     }
 
     /**
-     * Ánh xạ các tên phường mới sau sắp xếp đơn vị hành chính (dữ liệu bản đồ hiện hành)
-     * về đúng Quận/Huyện và Phường/Xã đại diện trong CSDL địa giới 3 cấp.
+     * Ánh xạ các tên phường cũ (trước sáp nhập 2025) sang đúng tên Phường mới
+     * trong danh sách 709 phường chuẩn Wikipedia (mô hình 2 cấp).
      */
     private function mergedWardAliases(): array
     {
         return [
             1 => [ // TP. Hồ Chí Minh
-                'phuong sai gon'        => ['Quận 1', 'Phường Bến Nghé'],
+                'phuong ben nghe'       => ['Quận 1', 'Phường Sài Gòn'],
+                'thao dien'             => ['TP. Thủ Đức', 'Phường An Khánh'],
+                'phuong thao dien'      => ['TP. Thủ Đức', 'Phường An Khánh'],
+                'phuong da kao'         => ['Quận 1', 'Phường Tân Định'],
+                'da kao'                => ['Quận 1', 'Phường Tân Định'],
+                'phuong vo thi sau'     => ['Quận 3', 'Phường Xuân Hòa'],
+                'vo thi sau'            => ['Quận 3', 'Phường Xuân Hòa'],
+                'phuong sai gon'        => ['Quận 1', 'Phường Sài Gòn'],
                 'phuong tan dinh'       => ['Quận 1', 'Phường Tân Định'],
                 'phuong ben thanh'      => ['Quận 1', 'Phường Bến Thành'],
                 'phuong cau ong lanh'   => ['Quận 1', 'Phường Cầu Ông Lãnh'],
-                'phuong ban co'         => ['Quận 3', 'Phường 3'],
-                'phuong xuan hoa'       => ['Quận 3', 'Phường Võ Thị Sáu'],
-                'phuong nhieu loc'      => ['Quận 3', 'Phường 12'],
-                'phuong khanh hoi'      => ['Quận 4', 'Phường 8'],
-                'phuong vinh hoi'       => ['Quận 4', 'Phường 4'],
-                'phuong xom chieu'      => ['Quận 4', 'Phường 13'],
-                'phuong cho quan'       => ['Quận 5', 'Phường 2'],
-                'phuong an dong'        => ['Quận 5', 'Phường 5'],
-                'phuong cho lon'        => ['Quận 5', 'Phường 11'],
-                'phuong binh tien'      => ['Quận 6', 'Phường 2'],
-                'phuong binh tay'       => ['Quận 6', 'Phường 9'],
-                'phuong binh phu'       => ['Quận 6', 'Phường 11'],
-                'phuong phu lam'        => ['Quận 6', 'Phường 13'],
-                'phuong tan thuan'      => ['Quận 7', 'Phường Tân Thuận Đông'],
-                'phuong phu thuan'      => ['Quận 7', 'Phường Phú Thuận'],
-                'phuong tan my'         => ['Quận 7', 'Phường Tân Phú'],
-                'phuong tan hung'       => ['Quận 7', 'Phường Tân Hưng'],
-                'phuong chanh hung'     => ['Quận 8', 'Phường Rạch Ông'],
-                'phuong binh dong'      => ['Quận 8', 'Phường 5'],
-                'phuong phu dinh'       => ['Quận 8', 'Phường 14'],
-                'phuong dien hong'      => ['Quận 10', 'Phường 6'],
-                'phuong vuon lai'       => ['Quận 10', 'Phường 2'],
-                'phuong hoa hung'       => ['Quận 10', 'Phường 12'],
-                'phuong hoa binh'       => ['Quận 11', 'Phường 5'],
-                'phuong phu tho'        => ['Quận 11', 'Phường 11'],
-                'phuong binh thoi'      => ['Quận 11', 'Phường 3'],
-                'phuong minh phung'     => ['Quận 11', 'Phường 10'],
-                'phuong dong hung thuan'=> ['Quận 12', 'Phường Đông Hưng Thuận'],
-                'phuong trung my tay'   => ['Quận 12', 'Phường Trung Mỹ Tây'],
-                'phuong tan thoi hiep'  => ['Quận 12', 'Phường Tân Thới Hiệp'],
-                'phuong thoi an'        => ['Quận 12', 'Phường Thới An'],
-                'phuong an phu dong'    => ['Quận 12', 'Phường An Phú Đông'],
-                'phuong gia dinh'       => ['Quận Bình Thạnh', 'Phường 1'],
-                'phuong binh thanh'     => ['Quận Bình Thạnh', 'Phường 12'],
-                'phuong binh loi trung' => ['Quận Bình Thạnh', 'Phường 13'],
-                'phuong thanh my tay'   => ['Quận Bình Thạnh', 'Phường 22'],
-                'phuong binh quoi'      => ['Quận Bình Thạnh', 'Phường 27'],
-                'phuong hanh thong'     => ['Quận Gò Vấp', 'Phường 1'],
-                'phuong an nhon'        => ['Quận Gò Vấp', 'Phường 5'],
-                'phuong go vap'         => ['Quận Gò Vấp', 'Phường 10'],
-                'phuong thong tay hoi'  => ['Quận Gò Vấp', 'Phường 11'],
-                'phuong an hoi tay'     => ['Quận Gò Vấp', 'Phường 12'],
-                'phuong an hoi dong'    => ['Quận Gò Vấp', 'Phường 15'],
-                'phuong duc nhuan'      => ['Quận Phú Nhuận', 'Phường 5'],
-                'phuong cau kieu'       => ['Quận Phú Nhuận', 'Phường 2'],
-                'phuong phu nhuan'      => ['Quận Phú Nhuận', 'Phường 10'],
-                'phuong tan son hoa'    => ['Quận Tân Bình', 'Phường 2'],
-                'phuong tan son nhat'   => ['Quận Tân Bình', 'Phường 4'],
-                'phuong tan hoa'        => ['Quận Tân Bình', 'Phường 8'],
-                'phuong bay hien'       => ['Quận Tân Bình', 'Phường 11'],
-                'phuong tan binh'       => ['Quận Tân Bình', 'Phường 14'],
-                'phuong tan son'        => ['Quận Tân Bình', 'Phường 15'],
-                'phuong tay thanh'      => ['Quận Tân Phú', 'Phường Tây Thạnh'],
-                'phuong tan son nhi'    => ['Quận Tân Phú', 'Phường Tân Sơn Nhì'],
-                'phuong phu tho hoa'    => ['Quận Tân Phú', 'Phường Phú Thọ Hòa'],
-                'phuong tan phu'        => ['Quận Tân Phú', 'Phường Tân Thành'],
-                'phuong phu thanh'      => ['Quận Tân Phú', 'Phường Phú Thạnh'],
-                'phuong binh hung hoa'  => ['Quận Bình Tân', 'Phường Bình Hưng Hòa'],
-                'phuong binh tri dong'  => ['Quận Bình Tân', 'Phường Bình Trị Đông'],
-                'phuong tan tao'        => ['Quận Bình Tân', 'Phường Tân Tạo'],
-                'phuong an lac'         => ['Quận Bình Tân', 'Phường An Lạc'],
-                'phuong thu duc'        => ['TP. Thủ Đức', 'Phường Trường Thọ'],
-                'phuong hiep binh'      => ['TP. Thủ Đức', 'Phường Hiệp Bình Chánh'],
-                'phuong tam binh'       => ['TP. Thủ Đức', 'Phường Tam Bình'],
-                'phuong linh xuan'      => ['TP. Thủ Đức', 'Phường Linh Xuân'],
-                'phuong tang nhon phu'  => ['TP. Thủ Đức', 'Phường Tăng Nhơn Phú A'],
-                'phuong long binh'      => ['TP. Thủ Đức', 'Phường Long Bình'],
-                'phuong long phuoc'     => ['TP. Thủ Đức', 'Phường Long Phước'],
-                'phuong long truong'    => ['TP. Thủ Đức', 'Phường Long Trường'],
-                'phuong cat lai'        => ['TP. Thủ Đức', 'Phường Cát Lái'],
-                'phuong binh trung'     => ['TP. Thủ Đức', 'Phường Bình Trưng Tây'],
-                'phuong phuoc long'     => ['TP. Thủ Đức', 'Phường Phước Long B'],
+                'phuong xuan hoa'       => ['Quận 3', 'Phường Xuân Hòa'],
+                'phuong an dong'        => ['Quận 5', 'Phường An Đông'],
+                'phuong cho lon'        => ['Quận 5', 'Phường Chợ Lớn'],
+                'phuong cho quan'       => ['Quận 5', 'Phường Chợ Quán'],
                 'phuong an khanh'       => ['TP. Thủ Đức', 'Phường An Khánh'],
+                'phuong binh thanh'     => ['Quận Bình Thạnh', 'Phường Bình Thạnh'],
+                'phuong gia dinh'       => ['Quận Bình Thạnh', 'Phường Gia Định'],
+                'phuong thanh my tay'   => ['Quận Bình Thạnh', 'Phường Thạnh Mỹ Tây'],
             ],
             2 => [ // Hà Nội
-                'phuong hoan kiem'      => ['Quận Hoàn Kiếm', 'Phường Hàng Đào'],
-                'phuong cua nam'        => ['Quận Hoàn Kiếm', 'Phường Hàng Bài'],
-                'phuong ba dinh'        => ['Quận Ba Đình', 'Phường Điện Biên'],
+                'phuong dich vong'      => ['Quận Cầu Giấy', 'Phường Cầu Giấy'],
+                'dich vong'             => ['Quận Cầu Giấy', 'Phường Cầu Giấy'],
+                'phuong dich vong hau'  => ['Quận Cầu Giấy', 'Phường Cầu Giấy'],
+                'phuong dien bien'      => ['Quận Ba Đình', 'Phường Ba Đình'],
+                'dien bien'             => ['Quận Ba Đình', 'Phường Ba Đình'],
+                'phuong hang bac'       => ['Quận Hoàn Kiếm', 'Phường Hoàn Kiếm'],
+                'phuong trang tien'     => ['Quận Hoàn Kiếm', 'Phường Hoàn Kiếm'],
+                'phuong hang dao'       => ['Quận Hoàn Kiếm', 'Phường Hoàn Kiếm'],
+                'phuong hang bai'       => ['Quận Hoàn Kiếm', 'Phường Cửa Nam'],
+                'phuong hoan kiem'      => ['Quận Hoàn Kiếm', 'Phường Hoàn Kiếm'],
+                'phuong cua nam'        => ['Quận Hoàn Kiếm', 'Phường Cửa Nam'],
+                'phuong ba dinh'        => ['Quận Ba Đình', 'Phường Ba Đình'],
                 'phuong ngoc ha'        => ['Quận Ba Đình', 'Phường Ngọc Hà'],
                 'phuong giang vo'       => ['Quận Ba Đình', 'Phường Giảng Võ'],
-                'phuong hai ba trung'   => ['Quận Hai Bà Trưng', 'Phường Nguyễn Du'],
+                'phuong hai ba trung'   => ['Quận Hai Bà Trưng', 'Phường Hai Bà Trưng'],
                 'phuong bach mai'       => ['Quận Hai Bà Trưng', 'Phường Bạch Mai'],
                 'phuong vinh tuy'       => ['Quận Hai Bà Trưng', 'Phường Vĩnh Tuy'],
-                'phuong dong da'        => ['Quận Đống Đa', 'Phường Quang Trung'],
+                'phuong dong da'        => ['Quận Đống Đa', 'Phường Đống Đa'],
                 'phuong kim lien'       => ['Quận Đống Đa', 'Phường Kim Liên'],
                 'phuong van mieu quoc tu giam' => ['Quận Đống Đa', 'Phường Văn Miếu - Quốc Tử Giám'],
-                'phuong lang'           => ['Quận Đống Đa', 'Phường Láng Thượng'],
+                'phuong lang'           => ['Quận Đống Đa', 'Phường Láng'],
                 'phuong o cho dua'      => ['Quận Đống Đa', 'Phường Ô Chợ Dừa'],
-                'phuong tay ho'         => ['Quận Tây Hồ', 'Phường Quảng An'],
+                'phuong tay ho'         => ['Quận Tây Hồ', 'Phường Tây Hồ'],
                 'phuong phu thuong'     => ['Quận Tây Hồ', 'Phường Phú Thượng'],
-                'phuong cau giay'       => ['Quận Cầu Giấy', 'Phường Dịch Vọng'],
+                'phuong cau giay'       => ['Quận Cầu Giấy', 'Phường Cầu Giấy'],
                 'phuong nghia do'       => ['Quận Cầu Giấy', 'Phường Nghĩa Đô'],
                 'phuong yen hoa'        => ['Quận Cầu Giấy', 'Phường Yên Hòa'],
-                'phuong thanh xuan'     => ['Quận Thanh Xuân', 'Phường Thanh Xuân Trung'],
+                'phuong thanh xuan'     => ['Quận Thanh Xuân', 'Phường Thanh Xuân'],
                 'phuong khuong dinh'    => ['Quận Thanh Xuân', 'Phường Khương Đình'],
                 'phuong phuong liet'    => ['Quận Thanh Xuân', 'Phường Phương Liệt'],
-                'phuong hoang mai'      => ['Quận Hoàng Mai', 'Phường Hoàng Văn Thụ'],
+                'phuong hoang mai'      => ['Quận Hoàng Mai', 'Phường Hoàng Mai'],
                 'phuong dinh cong'      => ['Quận Hoàng Mai', 'Phường Định Công'],
-                'phuong long bien'      => ['Quận Long Biên', 'Phường Việt Hưng'],
+                'phuong long bien'      => ['Quận Long Biên', 'Phường Long Biên'],
                 'phuong bo de'          => ['Quận Long Biên', 'Phường Bồ Đề'],
-                'phuong ha dong'        => ['Quận Hà Đông', 'Phường Quang Trung'],
-                'phuong tu liem'        => ['Quận Nam Từ Liêm', 'Phường Mỹ Đình 1'],
+                'phuong ha dong'        => ['Quận Hà Đông', 'Phường Hà Đông'],
+                'phuong tu liem'        => ['Quận Nam Từ Liêm', 'Phường Từ Liêm'],
                 'phuong tay mo'         => ['Quận Nam Từ Liêm', 'Phường Tây Mỗ'],
                 'phuong dai mo'         => ['Quận Nam Từ Liêm', 'Phường Đại Mỗ'],
                 'phuong xuan phuong'    => ['Quận Nam Từ Liêm', 'Phường Xuân Phương'],
             ],
             3 => [ // Đà Nẵng
+                'phuong hai chau 1'     => ['Quận Hải Châu', 'Phường Hải Châu'],
+                'hai chau 1'            => ['Quận Hải Châu', 'Phường Hải Châu'],
+                'phuong hai chau 2'     => ['Quận Hải Châu', 'Phường Hải Châu'],
+                'phuong phuoc my'       => ['Quận Sơn Trà', 'Phường Sơn Trà'],
                 'phuong hai chau'       => ['Quận Hải Châu', 'Phường Hải Châu'],
-                'phuong hoa cuong'      => ['Quận Hải Châu', 'Phường Hòa Cường Bắc'],
-                'phuong thanh khe'      => ['Quận Thanh Khê', 'Phường Chính Gián'],
+                'phuong hoa cuong'      => ['Quận Hải Châu', 'Phường Hòa Cường'],
+                'phuong thanh khe'      => ['Quận Thanh Khê', 'Phường Thanh Khê'],
                 'phuong an khe'         => ['Quận Thanh Khê', 'Phường An Khê'],
-                'phuong son tra'        => ['Quận Sơn Trà', 'Phường Mân Thái'],
-                'phuong an hai'         => ['Quận Sơn Trà', 'Phường An Hải Bắc'],
-                'phuong ngu hanh son'   => ['Quận Ngũ Hành Sơn', 'Phường Mỹ An'],
-                'phuong lien chieu'     => ['Quận Liên Chiểu', 'Phường Hòa Minh'],
-                'phuong hoa khanh'      => ['Quận Liên Chiểu', 'Phường Hòa Khánh Bắc'],
-                'phuong cam le'         => ['Quận Cẩm Lệ', 'Phường Khuê Trung'],
+                'phuong son tra'        => ['Quận Sơn Trà', 'Phường Sơn Trà'],
+                'phuong an hai'         => ['Quận Sơn Trà', 'Phường An Hải'],
+                'phuong ngu hanh son'   => ['Quận Ngũ Hành Sơn', 'Phường Ngũ Hành Sơn'],
+                'phuong lien chieu'     => ['Quận Liên Chiểu', 'Phường Liên Chiểu'],
+                'phuong hoa khanh'      => ['Quận Liên Chiểu', 'Phường Hòa Khánh'],
+                'phuong cam le'         => ['Quận Cẩm Lệ', 'Phường Cẩm Lệ'],
                 'phuong hoa xuan'       => ['Quận Cẩm Lệ', 'Phường Hòa Xuân'],
             ],
         ];
@@ -386,21 +400,22 @@ class Location extends Model
             }
 
             $sqlWard = "SELECT w.id AS ward_id, w.name AS ward_name,
-                               d.id AS district_id, d.name AS district_name,
-                               p.id AS province_id, p.name AS province_name
+                               w.province_id, p.name AS province_name,
+                               d.id AS district_id, d.name AS district_name
                         FROM wards w
-                        JOIN districts d ON d.id = w.district_id
-                        JOIN provinces p ON p.id = d.province_id
+                        JOIN provinces p ON p.id = w.province_id
+                        LEFT JOIN districts d ON d.id = w.district_id
                         WHERE REPLACE(REPLACE(LOWER(w.name), 'Đ', 'd'), 'đ', 'd') LIKE ?
+                          AND w.name NOT REGEXP '^(Phường|Xã|Thị trấn)[[:space:]]+[0-9]+'
                         LIMIT 150";
             $wardRows = $this->query($sqlWard, [$likeParam])->fetchAll();
 
             foreach ($wardRows as $w) {
-                $wNorm = $this->normalizeVietnamese($w['ward_name']);
+                $wNorm = $this->normalizeVietnamese((string)($w['ward_name'] ?? ''));
                 $wCore = $this->stripPrefix($wNorm, 'ward');
-                $dNorm = $this->normalizeVietnamese($w['district_name']);
+                $dNorm = $this->normalizeVietnamese((string)($w['district_name'] ?? ''));
                 $dCore = $this->stripPrefix($dNorm, 'district');
-                $pNorm = $this->normalizeVietnamese($w['province_name']);
+                $pNorm = $this->normalizeVietnamese((string)($w['province_name'] ?? ''));
                 $pCore = $this->stripPrefix($pNorm, 'province');
 
                 $score = 0;
@@ -435,7 +450,7 @@ class Location extends Model
                     $key = 'w:' . $w['ward_id'];
                     if (!isset($seenKeys[$key])) {
                         $seenKeys[$key] = true;
-                        $display = $w['ward_name'] . ', ' . $w['district_name'] . ', ' . $w['province_name'];
+                        $display = $w['ward_name'] . ', ' . $w['province_name'];
                         $results[] = [
                             'level'         => 'ward',
                             'province_id'   => (int)$w['province_id'],
@@ -477,6 +492,10 @@ class Location extends Model
     /**
      * Đối soát chuỗi/tên Tỉnh - Quận - Phường (bao gồm phường sau sáp nhập 2025 trên bản đồ)
      * về đúng ID Tỉnh -> Quận -> Phường trong CSDL 3 cấp.
+     */
+    /**
+     * Đối soát chuỗi/tên Tỉnh - Phường (Mô hình 2 cấp: Tỉnh/Thành -> Phường/Xã)
+     * Trả về đúng ID Tỉnh -> Phường trong CSDL 2 cấp.
      */
     public function resolveFromAddress(
         string $wardName = '',
@@ -524,35 +543,25 @@ class Location extends Model
         }
 
         $pid = $matchedProvince['id'];
-        $districts = $this->districtsByProvince($pid);
-        $matchedDistrict = null;
 
-        // 1. Thử khớp Quận/Huyện trực tiếp từ districtName hoặc các segment trong displayName
-        $distCandidates = array_filter(array_merge([$districtName], array_reverse($segments)));
-        foreach ($distCandidates as $cand) {
-            $cNorm = $this->normalizeVietnamese((string)$cand);
-            if ($cNorm === '' || preg_match('/^(khu pho|kp|to dan pho|to|hem|ngo|so)\b/', $cNorm)) {
-                continue;
-            }
-            $cCore = $this->stripPrefix($cNorm, 'district');
-            foreach ($districts as $d) {
-                $dNorm = $this->normalizeVietnamese($d['name']);
-                $dCore = $this->stripPrefix($dNorm, 'district');
-                if ($cNorm === $dNorm || $cCore === $dCore) {
-                    $matchedDistrict = ['id' => (int)$d['id'], 'name' => $d['name']];
-                    break 2;
-                }
-            }
-        }
+        // Lấy tất cả Phường/Xã trực tiếp theo Tỉnh/Thành (kèm thông tin quận nếu có để tương thích ngược)
+        $allWards = $this->query(
+            'SELECT w.id AS ward_id, w.name AS ward_name, w.province_id, w.district_id, d.name AS district_name
+             FROM wards w
+             LEFT JOIN districts d ON d.id = w.district_id
+             WHERE w.province_id = ?
+               AND w.name NOT REGEXP "^(Phường|Xã|Thị trấn)[[:space:]]+[0-9]+"',
+            [$pid]
+        )->fetchAll();
 
-        // 2. Tạo danh sách ứng viên Phường/Xã
+        // 1. Tạo danh sách ứng viên Phường/Xã từ wardName và các phân đoạn trong displayName
         $wardCandidates = [];
         if ($wardName !== '') {
             $wardCandidates[] = $wardName;
         }
         foreach (array_reverse($segments) as $seg) {
             $sNorm = $this->normalizeVietnamese($seg);
-            if ($sNorm === '' || $sNorm === 'viet nam' || $sNorm === 'vietnam' || preg_match('/^\d{5,6}$/', $sNorm)) {
+            if ($sNorm === '' || $sNorm === 'viet nam' || $sNorm === 'vietnam' || preg_match('/^\d{5,6}$/', $sNorm) || preg_match('/^(khu pho|kp|to dan pho|to|hem|ngo|so)\b/', $sNorm)) {
                 continue;
             }
             if (preg_match('/^(phuong|xa|thi tran|p|x|tt)\b/', $sNorm)) {
@@ -565,109 +574,65 @@ class Location extends Model
             }
         }
 
-        // 3. Kiểm tra bảng ánh xạ phường mới sau sắp xếp đơn vị hành chính -> (Quận, Phường đại diện)
-        $aliasTable = $this->mergedWardAliases()[$pid] ?? [];
         $matchedWard = null;
+        $matchedDistrict = null;
 
-        if (!empty($aliasTable)) {
-            foreach ($wardCandidates as $cand) {
-                $cNorm = $this->normalizeVietnamese((string)$cand);
-                if (isset($aliasTable[$cNorm])) {
-                    [$targetDistName, $targetWardName] = $aliasTable[$cNorm];
-                    if ($matchedDistrict === null) {
-                        $tDistNorm = $this->normalizeVietnamese($targetDistName);
-                        foreach ($districts as $d) {
-                            if ($this->normalizeVietnamese($d['name']) === $tDistNorm) {
-                                $matchedDistrict = ['id' => (int)$d['id'], 'name' => $d['name']];
-                                break;
-                            }
-                        }
+        // 2. Tra cứu trực tiếp trong danh sách phường của tỉnh (Exact match & Core match)
+        foreach ($wardCandidates as $cand) {
+            $cNorm = $this->normalizeRomanSuffix($this->normalizeVietnamese((string)$cand));
+            $cCore = $this->stripPrefix($cNorm, 'ward');
+            if ($cCore === '') {
+                continue;
+            }
+            foreach ($allWards as $w) {
+                $wNorm = $this->normalizeRomanSuffix($this->normalizeVietnamese($w['ward_name']));
+                $wCore = $this->stripPrefix($wNorm, 'ward');
+                if ($cNorm === $wNorm || $cCore === $wCore) {
+                    $matchedWard = ['id' => (int)$w['ward_id'], 'name' => $w['ward_name']];
+                    if (!empty($w['district_id'])) {
+                        $matchedDistrict = ['id' => (int)$w['district_id'], 'name' => $w['district_name']];
                     }
-                    if ($matchedDistrict !== null) {
-                        $wards = $this->wardsByDistrict($matchedDistrict['id']);
-                        $tWardNorm = $this->normalizeVietnamese($targetWardName);
-                        foreach ($wards as $w) {
-                            if ($this->normalizeVietnamese($w['name']) === $tWardNorm) {
-                                $matchedWard = ['id' => (int)$w['id'], 'name' => $w['name']];
-                                break;
-                            }
-                        }
-                    }
-                    if ($matchedDistrict !== null && $matchedWard !== null) {
-                        return [
-                            'province'     => $matchedProvince,
-                            'district'     => $matchedDistrict,
-                            'ward'         => $matchedWard,
-                            'display_name' => $matchedWard['name'] . ', ' . $matchedDistrict['name'] . ', ' . $matchedProvince['name'],
-                        ];
-                    }
+                    break 2;
                 }
             }
         }
 
-        // 4. Nếu đã có Quận, tìm Phường trong Quận đó (khớp chính xác hoặc khớp tiền tố như Phước Long -> Phước Long A/B)
-        if ($matchedDistrict !== null) {
-            $wards = $this->wardsByDistrict($matchedDistrict['id']);
+        // 3. Nếu chưa khớp chính xác, tìm theo tiền tố (VD: "Thảo Điền" -> "Phường Thảo Điền", hoặc "Phước Long" -> "Phường Phước Long A")
+        if ($matchedWard === null) {
             foreach ($wardCandidates as $cand) {
                 $cNorm = $this->normalizeRomanSuffix($this->normalizeVietnamese((string)$cand));
                 $cCore = $this->stripPrefix($cNorm, 'ward');
-                if ($cCore === '') {
-                    continue;
-                }
-                foreach ($wards as $w) {
-                    $wNorm = $this->normalizeRomanSuffix($this->normalizeVietnamese($w['name']));
-                    $wCore = $this->stripPrefix($wNorm, 'ward');
-                    if ($cNorm === $wNorm || $cCore === $wCore) {
-                        $matchedWard = ['id' => (int)$w['id'], 'name' => $w['name']];
-                        break 2;
-                    }
-                }
-                if (strlen($cCore) >= 4) {
-                    foreach ($wards as $w) {
-                        $wNorm = $this->normalizeRomanSuffix($this->normalizeVietnamese($w['name']));
-                        $wCore = $this->stripPrefix($wNorm, 'ward');
-                        if (str_starts_with($wCore, $cCore . ' ') || str_starts_with($cCore, $wCore . ' ')) {
-                            $matchedWard = ['id' => (int)$w['id'], 'name' => $w['name']];
-                            break 2;
-                        }
-                    }
-                }
-            }
-        } else {
-            // 5. Nếu chưa có Quận (OSM bỏ city_district), tra cứu trực tiếp toàn bộ Phường trong Tỉnh đó
-            $allWards = $this->query(
-                'SELECT w.id AS ward_id, w.name AS ward_name, d.id AS district_id, d.name AS district_name
-                 FROM wards w
-                 JOIN districts d ON d.id = w.district_id
-                 WHERE d.province_id = ?',
-                [$pid]
-            )->fetchAll();
-
-            foreach ($wardCandidates as $cand) {
-                $cNorm = $this->normalizeRomanSuffix($this->normalizeVietnamese((string)$cand));
-                if (!preg_match('/^(phuong|xa|thi tran|p|x|tt)\s+/', $cNorm) && $cand !== $wardName) {
-                    continue;
-                }
-                $cCore = $this->stripPrefix($cNorm, 'ward');
-                if ($cCore === '') {
+                if (strlen($cCore) < 3) {
                     continue;
                 }
                 foreach ($allWards as $w) {
                     $wNorm = $this->normalizeRomanSuffix($this->normalizeVietnamese($w['ward_name']));
                     $wCore = $this->stripPrefix($wNorm, 'ward');
-                    if ($cNorm === $wNorm || $cCore === $wCore) {
-                        $matchedDistrict = ['id' => (int)$w['district_id'], 'name' => $w['district_name']];
+                    if (str_starts_with($wCore, $cCore . ' ') || str_starts_with($cCore, $wCore . ' ')) {
                         $matchedWard = ['id' => (int)$w['ward_id'], 'name' => $w['ward_name']];
+                        if (!empty($w['district_id'])) {
+                            $matchedDistrict = ['id' => (int)$w['district_id'], 'name' => $w['district_name']];
+                        }
                         break 2;
                     }
                 }
-                if (strlen($cCore) >= 5) {
+            }
+        }
+
+        // 4. Nếu vẫn chưa khớp, kiểm tra alias lịch sử sáp nhập
+        if ($matchedWard === null) {
+            $aliasTable = $this->mergedWardAliases()[$pid] ?? [];
+            foreach ($wardCandidates as $cand) {
+                $cNorm = $this->normalizeVietnamese((string)$cand);
+                if (isset($aliasTable[$cNorm])) {
+                    [$targetDistName, $targetWardName] = $aliasTable[$cNorm];
+                    $tWardNorm = $this->normalizeVietnamese($targetWardName);
                     foreach ($allWards as $w) {
-                        $wNorm = $this->normalizeRomanSuffix($this->normalizeVietnamese($w['ward_name']));
-                        $wCore = $this->stripPrefix($wNorm, 'ward');
-                        if (str_starts_with($wCore, $cCore . ' ')) {
-                            $matchedDistrict = ['id' => (int)$w['district_id'], 'name' => $w['district_name']];
+                        if ($this->normalizeVietnamese($w['ward_name']) === $tWardNorm) {
                             $matchedWard = ['id' => (int)$w['ward_id'], 'name' => $w['ward_name']];
+                            if (!empty($w['district_id'])) {
+                                $matchedDistrict = ['id' => (int)$w['district_id'], 'name' => $w['district_name']];
+                            }
                             break 2;
                         }
                     }
@@ -675,17 +640,17 @@ class Location extends Model
             }
         }
 
-        // 6. Nếu có Quận nhưng Ward vẫn khớp cùng tên Quận (VD: Phường Bình Tân -> Quận Bình Tân) -> chọn phường khớp tiền tố hoặc đại diện
-        if ($matchedDistrict !== null && $matchedWard === null && $wardName !== '') {
-            $wards = $this->wardsByDistrict($matchedDistrict['id']);
-            if (!empty($wards)) {
-                $wardCore = $this->stripPrefix($this->normalizeVietnamese($wardName), 'ward');
-                foreach ($wards as $w) {
-                    $wCore = $this->stripPrefix($this->normalizeVietnamese($w['name']), 'ward');
-                    if ($wardCore !== '' && (str_contains($wCore, $wardCore) || str_contains($wardCore, $wCore))) {
-                        $matchedWard = ['id' => (int)$w['id'], 'name' => $w['name']];
-                        break;
-                    }
+        // 5. Nếu chưa có district mà caller truyền districtName, đối soát để giữ tương thích ngược
+        if ($matchedDistrict === null && $districtName !== '') {
+            $districts = $this->districtsByProvince($pid);
+            $dInputNorm = $this->normalizeVietnamese($districtName);
+            $dInputCore = $this->stripPrefix($dInputNorm, 'district');
+            foreach ($districts as $d) {
+                $dNorm = $this->normalizeVietnamese($d['name']);
+                $dCore = $this->stripPrefix($dNorm, 'district');
+                if ($dInputNorm === $dNorm || $dInputCore === $dCore) {
+                    $matchedDistrict = ['id' => (int)$d['id'], 'name' => $d['name']];
+                    break;
                 }
             }
         }
@@ -694,15 +659,14 @@ class Location extends Model
         if ($matchedWard !== null) {
             $parts[] = $matchedWard['name'];
         }
-        if ($matchedDistrict !== null) {
-            $parts[] = $matchedDistrict['name'];
-        }
         $parts[] = $matchedProvince['name'];
 
         return [
             'province'     => $matchedProvince,
             'district'     => $matchedDistrict,
             'ward'         => $matchedWard,
+            'province_id'  => (int)$matchedProvince['id'],
+            'ward_id'      => $matchedWard ? (int)$matchedWard['id'] : null,
             'display_name' => implode(', ', $parts),
         ];
     }

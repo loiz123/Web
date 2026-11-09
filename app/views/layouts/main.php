@@ -338,7 +338,7 @@ if ($user) {
         <ul class="list-unstyled d-flex flex-column gap-2 small">
           <li><a href="<?= e(base_url('property/map')) ?>"><i class="bi bi-map me-1"></i>Bản đồ bất động sản trực quan</a></li>
           <li><a href="<?= e(base_url('property/compare')) ?>"><i class="bi bi-arrow-left-right me-1"></i>So sánh chi tiết thông số dự án</a></li>
-          <li><a href="<?= e(base_url('property/search')) ?>#calc"><i class="bi bi-calculator me-1"></i>Công cụ tính lãi suất vay mua nhà</a></li>
+          <li><a href="<?= e(base_url('agent')) ?>"><i class="bi bi-people-fill me-1"></i>Danh bạ nhà môi giới uy tín</a></li>
           <li><a href="<?= e(base_url('favorite')) ?>"><i class="bi bi-bookmark-heart me-1"></i>Danh sách bất động sản đã lưu</a></li>
           <li><a href="<?= e(base_url('agent/create')) ?>"><i class="bi bi-pencil-square me-1"></i>Đăng tin ký gửi nhà đất</a></li>
         </ul>
@@ -351,7 +351,7 @@ if ($user) {
           <i class="bi bi-buildings-fill text-warning me-1"></i> BĐS Việt - Cổng Thông Tin Bất Động Sản Trực Tuyến
         </div>
         <div class="small text-light text-opacity-75 mb-2">
-          <i class="bi bi-geo-alt-fill text-danger me-1"></i> Tòa nhà Tài chính, Quận 1, TP. Hồ Chí Minh
+          <i class="bi bi-geo-alt-fill text-danger me-1"></i> Tòa nhà Tài chính, Phường Bến Nghé, TP. Hồ Chí Minh
         </div>
         <div class="small text-light text-opacity-75 mb-2">
           <i class="bi bi-telephone-fill text-info me-1"></i> Hotline CSKH: 1900 6868 (8:00 - 21:00)
@@ -376,8 +376,8 @@ if ($user) {
 
 <!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="<?= e(base_url('assets/js/app.js')) ?>"></script>
-<script src="<?= e(base_url('assets/js/location.js')) ?>"></script>
-<script src="<?= e(base_url('assets/js/address-parser.js')) ?>"></script>
+<script src="<?= e(base_url('assets/js/app.js?v=20261109')) ?>"></script>
+<script src="<?= e(base_url('assets/js/location.js?v=20261109')) ?>"></script>
+<script src="<?= e(base_url('assets/js/address-parser.js?v=20261109')) ?>"></script>
 </body>
 </html>

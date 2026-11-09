@@ -26,7 +26,7 @@
                   'area'            => $p['area'] . ' m²',
                   'raw_area'        => (float)$p['area'],
                   'bedrooms'        => (int)$p['bedrooms'],
-                  'district_name'   => $p['district_name'] ?? '',
+                  'ward_name'       => $p['ward_name'] ?? '',
                   'listing_type'    => $p['listing_type'],
                   'cover_url'       => !empty($p['cover_url']) ? base_url($p['cover_url']) : '',
                   'detail_url'      => base_url('property/detail/' . $p['id'])
@@ -79,15 +79,15 @@
         <?php endif; ?>
       </div>
 
-      <!-- Thông số Diện tích, Phòng ngủ, Khu vực -->
-      <div class="property-specs pt-2 border-top">
-        <span><i class="bi bi-aspect-ratio text-muted"></i> <?= e($p['area']) ?> m²</span>
-        <span>•</span>
-        <span><i class="bi bi-door-closed text-muted"></i> <?= (int)$p['bedrooms'] ?> PN</span>
-        <span>•</span>
-        <span class="text-truncate" style="max-width: 105px;" title="<?= e($p['district_name'] ?? '') ?>">
-          <i class="bi bi-geo-alt text-muted"></i> <?= e($p['district_name'] ?? '') ?>
-        </span>
+      <!-- Thông số Diện tích & Khu vực -->
+      <div class="property-specs pt-2 border-top d-block">
+        <div class="d-flex align-items-center text-muted small mb-1">
+          <span><i class="bi bi-aspect-ratio text-primary me-1"></i><?= e($p['area']) ?> m²</span>
+        </div>
+        <div class="property-location text-truncate text-secondary small d-flex align-items-center" title="<?= htmlspecialchars($p['ward_name'] ?? '') ?>">
+          <i class="bi bi-geo-alt-fill text-danger me-1 flex-shrink-0"></i>
+          <span class="text-truncate"><?= htmlspecialchars($p['ward_name'] ?? '') ?></span>
+        </div>
       </div>
     </div>
   </div>

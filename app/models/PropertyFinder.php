@@ -4,7 +4,7 @@ class PropertyFinder extends Model
 {
     protected string $table = 'properties';
 
-    private const BASE_SELECT = "SELECT p.id, p.title, p.status, p.listing_type, p.price, p.area, p.bedrooms, p.bathrooms,
+    private const BASE_SELECT = "SELECT p.id, p.title, p.slug, p.address_detail, p.status, p.listing_type, p.price, p.area, p.bedrooms, p.bathrooms,
             p.direction, p.is_verified, p.latitude, p.longitude, p.created_at,
             t.id AS type_id, t.name AS type_name,
             w.id AS ward_id, w.name AS ward_name,
@@ -14,18 +14,11 @@ class PropertyFinder extends Model
         FROM properties p
         JOIN property_types t ON t.id = p.type_id
         JOIN wards w ON w.id = p.ward_id
-        JOIN districts d ON d.id = w.district_id
-        JOIN provinces pr ON pr.id = d.province_id";
+        LEFT JOIN districts d ON d.id = w.district_id
+        JOIN provinces pr ON pr.id = w.province_id";
 
     public function latest(int $limit = 8): array
     {
-        if (config('use_routines')) {
-            try {
-                return $this->call('sp_latest_properties', [$limit]);
-            } catch (PDOException $e) {
-                // Fallback nếu routine lỗi
-            }
-        }
         $sql = self::BASE_SELECT . " WHERE p.status = 'approved' ORDER BY p.created_at DESC, p.id DESC LIMIT " . (int)$limit;
         return $this->query($sql)->fetchAll();
     }
@@ -49,23 +42,25 @@ class PropertyFinder extends Model
             'area_range'   => trim($f['area_range'] ?? '') ?: null,
             'price_range'  => trim($f['price_range'] ?? '') ?: null,
             'bedrooms'     => trim((string)($f['bedrooms'] ?? '')) ?: null,
-            'sort_by'      => trim($f['sort_by'] ?? 'newest') ?: 'newest',
+            'sort_by'      => trim($f['sort_by'] ?? $f['sort'] ?? 'newest') ?: 'newest',
         ];
 
         // Xử lý khoảng diện tích nhanh (area_range) nếu chưa có min_area / max_area cụ thể
         if ($parsed['area_range'] && $parsed['min_area'] === null && $parsed['max_area'] === null) {
             match ($parsed['area_range']) {
-                '0-30', '<30'    => [$parsed['min_area'] = null,  $parsed['max_area'] = 30.0],
-                '30-50'          => [$parsed['min_area'] = 30.0,  $parsed['max_area'] = 50.0],
-                '50-80'          => [$parsed['min_area'] = 50.0,  $parsed['max_area'] = 80.0],
-                '80-100'         => [$parsed['min_area'] = 80.0,  $parsed['max_area'] = 100.0],
-                '100-150'        => [$parsed['min_area'] = 100.0, $parsed['max_area'] = 150.0],
-                '150-200'        => [$parsed['min_area'] = 150.0, $parsed['max_area'] = 200.0],
-                '200-250'        => [$parsed['min_area'] = 200.0, $parsed['max_area'] = 250.0],
-                '250-300'        => [$parsed['min_area'] = 250.0, $parsed['max_area'] = 300.0],
-                '300-500'        => [$parsed['min_area'] = 300.0, $parsed['max_area'] = 500.0],
-                '500+', '>500'   => [$parsed['min_area'] = 500.0, $parsed['max_area'] = null],
-                default          => null
+                '0-30', '<30', 'under_30' => [$parsed['min_area'] = null,  $parsed['max_area'] = 30.0],
+                '30-50', '30_50'          => [$parsed['min_area'] = 30.0,  $parsed['max_area'] = 50.0],
+                '50-80', '50_80'          => [$parsed['min_area'] = 50.0,  $parsed['max_area'] = 80.0],
+                '80-100', '80_100'        => [$parsed['min_area'] = 80.0,  $parsed['max_area'] = 100.0],
+                '100-150', '100_150'      => [$parsed['min_area'] = 100.0, $parsed['max_area'] = 150.0],
+                '150-200', '150_200'      => [$parsed['min_area'] = 150.0, $parsed['max_area'] = 200.0],
+                '150-250', '150_250'      => [$parsed['min_area'] = 150.0, $parsed['max_area'] = 250.0],
+                '200-250', '200_250'      => [$parsed['min_area'] = 200.0, $parsed['max_area'] = 250.0],
+                '250-300', '250_300'      => [$parsed['min_area'] = 250.0, $parsed['max_area'] = 300.0],
+                '250-500', '250_500'      => [$parsed['min_area'] = 250.0, $parsed['max_area'] = 500.0],
+                '300-500', '300_500'      => [$parsed['min_area'] = 300.0, $parsed['max_area'] = 500.0],
+                '500+', '>500', 'over_500'=> [$parsed['min_area'] = 500.0, $parsed['max_area'] = null],
+                default                   => null
             };
         }
 
@@ -73,25 +68,27 @@ class PropertyFinder extends Model
         if ($parsed['price_range'] && $parsed['min_price'] === null && $parsed['max_price'] === null) {
             match ($parsed['price_range']) {
                 // Bán
-                '0-500m', '<500m'        => [$parsed['min_price'] = null,          $parsed['max_price'] = 500000000.0],
-                '500m-800m'              => [$parsed['min_price'] = 500000000.0,   $parsed['max_price'] = 800000000.0],
-                '800m-1b', '800m-1ty'    => [$parsed['min_price'] = 800000000.0,   $parsed['max_price'] = 1000000000.0],
-                '<1ty'                   => [$parsed['min_price'] = null,          $parsed['max_price'] = 1000000000.0],
-                '1b-2b', '1-2ty'         => [$parsed['min_price'] = 1000000000.0,  $parsed['max_price'] = 2000000000.0],
-                '2b-3b', '2-3ty'         => [$parsed['min_price'] = 2000000000.0,  $parsed['max_price'] = 3000000000.0],
-                '3b-5b', '3-5ty'         => [$parsed['min_price'] = 3000000000.0,  $parsed['max_price'] = 5000000000.0],
-                '5b-7b', '5-7ty'         => [$parsed['min_price'] = 5000000000.0,  $parsed['max_price'] = 7000000000.0],
-                '7b-10b', '7-10ty'       => [$parsed['min_price'] = 7000000000.0,  $parsed['max_price'] = 10000000000.0],
-                '10b-20b', '10-20ty'     => [$parsed['min_price'] = 10000000000.0, $parsed['max_price'] = 20000000000.0],
-                '20b+', '>20ty'          => [$parsed['min_price'] = 20000000000.0, $parsed['max_price'] = null],
+                '0-500m', '<500m'                  => [$parsed['min_price'] = null,          $parsed['max_price'] = 500000000.0],
+                '500m-800m'                        => [$parsed['min_price'] = 500000000.0,   $parsed['max_price'] = 800000000.0],
+                '800m-1b', '800m-1ty'              => [$parsed['min_price'] = 800000000.0,   $parsed['max_price'] = 1000000000.0],
+                '<1ty', 'under_1b'                 => [$parsed['min_price'] = null,          $parsed['max_price'] = 1000000000.0],
+                '1b-2b', '1-2ty', '1b_2b'          => [$parsed['min_price'] = 1000000000.0,  $parsed['max_price'] = 2000000000.0],
+                '2b-3b', '2-3ty', '2b_3b'          => [$parsed['min_price'] = 2000000000.0,  $parsed['max_price'] = 3000000000.0],
+                '3b-5b', '3-5ty', '3b_5b'          => [$parsed['min_price'] = 3000000000.0,  $parsed['max_price'] = 5000000000.0],
+                '5b-7b', '5-7ty', '5b_7b'          => [$parsed['min_price'] = 5000000000.0,  $parsed['max_price'] = 7000000000.0],
+                '7b-10b', '7-10ty', '7b_10b'       => [$parsed['min_price'] = 7000000000.0,  $parsed['max_price'] = 10000000000.0],
+                '10b-20b', '10-20ty', '10b_20b'    => [$parsed['min_price'] = 10000000000.0, $parsed['max_price'] = 20000000000.0],
+                '20b+', '>20ty', 'over_20b'        => [$parsed['min_price'] = 20000000000.0, $parsed['max_price'] = null],
                 // Thuê
-                '<3tr'                   => [$parsed['min_price'] = null,         $parsed['max_price'] = 3000000.0],
-                '3-5tr'                  => [$parsed['min_price'] = 3000000.0,    $parsed['max_price'] = 5000000.0],
-                '5-10tr'                 => [$parsed['min_price'] = 5000000.0,    $parsed['max_price'] = 10000000.0],
-                '10-20tr'                => [$parsed['min_price'] = 10000000.0,   $parsed['max_price'] = 20000000.0],
-                '20-40tr'                => [$parsed['min_price'] = 20000000.0,   $parsed['max_price'] = 40000000.0],
-                '>40tr'                  => [$parsed['min_price'] = 40000000.0,   $parsed['max_price'] = null],
-                default                  => null
+                '<3tr'                             => [$parsed['min_price'] = null,         $parsed['max_price'] = 3000000.0],
+                '3-5tr'                            => [$parsed['min_price'] = 3000000.0,    $parsed['max_price'] = 5000000.0],
+                '0-5m', 'rent_0_5m'                => [$parsed['min_price'] = null,         $parsed['max_price'] = 5000000.0],
+                '5-10tr', '5m-10m', 'rent_5m_10m'  => [$parsed['min_price'] = 5000000.0,    $parsed['max_price'] = 10000000.0],
+                '10-20tr', '10m-20m', 'rent_10m_20m'=> [$parsed['min_price'] = 10000000.0,   $parsed['max_price'] = 20000000.0],
+                '20-40tr'                          => [$parsed['min_price'] = 20000000.0,   $parsed['max_price'] = 40000000.0],
+                '20m+', 'rent_20m_plus'            => [$parsed['min_price'] = 20000000.0,   $parsed['max_price'] = null],
+                '>40tr'                            => [$parsed['min_price'] = 40000000.0,   $parsed['max_price'] = null],
+                default                            => null
             };
         }
 
@@ -137,10 +134,11 @@ class PropertyFinder extends Model
             $where .= " AND p.ward_id = ?";
             $params[] = (int)$f['ward_id'];
         } elseif (!empty($f['district_id'])) {
-            $where .= " AND d.id = ?";
+            $where .= " AND (w.district_id = ? OR d.id = ?)";
+            $params[] = (int)$f['district_id'];
             $params[] = (int)$f['district_id'];
         } elseif (!empty($f['province_id'])) {
-            $where .= " AND pr.id = ?";
+            $where .= " AND w.province_id = ?";
             $params[] = (int)$f['province_id'];
         }
 
@@ -191,31 +189,6 @@ class PropertyFinder extends Model
         $limit = max(1, min(100, $limit));
         $offset = max(0, $offset);
 
-        // Thử gọi stored procedure nếu bật use_routines và từ khóa không phải chuỗi địa chỉ đa thành phần
-        if (config('use_routines') && !str_contains((string)($f['keyword'] ?? ''), ',')) {
-            $pf = $this->parseFilters($f);
-            try {
-                return $this->call('sp_search_properties_v2', [
-                    $pf['keyword'],
-                    $pf['listing_type'],
-                    $pf['type_id'],
-                    $pf['province_id'],
-                    $pf['district_id'],
-                    $pf['ward_id'],
-                    $pf['min_price'],
-                    $pf['max_price'],
-                    $pf['min_area'],
-                    $pf['max_area'],
-                    $pf['bedrooms'] === '5+' ? 5 : ($pf['bedrooms'] !== null ? (int)$pf['bedrooms'] : null),
-                    $pf['sort_by'],
-                    $limit,
-                    $offset
-                ]);
-            } catch (PDOException $e) {
-                // Fallback nếu procedure chưa tạo hoặc thiếu tham số
-            }
-        }
-
         [$where, $params, $order] = $this->buildQueryParts($f);
         $sql = self::BASE_SELECT . $where . $order . ' LIMIT ' . (int)$limit . ' OFFSET ' . (int)$offset;
         return $this->query($sql, $params)->fetchAll();
@@ -251,37 +224,17 @@ class PropertyFinder extends Model
      */
     public function countSearch(array $f): int
     {
-        if (config('use_routines') && !str_contains((string)($f['keyword'] ?? ''), ',')) {
-            $pf = $this->parseFilters($f);
-            try {
-                $rows = $this->call('sp_count_search_properties_v2', [
-                    $pf['keyword'],
-                    $pf['listing_type'],
-                    $pf['type_id'],
-                    $pf['province_id'],
-                    $pf['district_id'],
-                    $pf['ward_id'],
-                    $pf['min_price'],
-                    $pf['max_price'],
-                    $pf['min_area'],
-                    $pf['max_area'],
-                    $pf['bedrooms'] === '5+' ? 5 : ($pf['bedrooms'] !== null ? (int)$pf['bedrooms'] : null)
-                ]);
-                if (isset($rows[0]['total'])) {
-                    return (int)$rows[0]['total'];
-                }
-            } catch (PDOException $e) {
-                // Fallback nếu procedure chưa tạo
-            }
-        }
-
         [$where, $params] = $this->buildQueryParts($f);
-        $sql = "SELECT COUNT(*) FROM properties p
+        $sql = "SELECT COUNT(*) AS total FROM properties p
                 JOIN property_types t ON t.id = p.type_id
                 JOIN wards w ON w.id = p.ward_id
-                JOIN districts d ON d.id = w.district_id
-                JOIN provinces pr ON pr.id = d.province_id" . $where;
-        return (int)$this->query($sql, $params)->fetchColumn();
+                LEFT JOIN districts d ON d.id = w.district_id
+                JOIN provinces pr ON pr.id = w.province_id" . $where;
+        $rows = $this->query($sql, $params)->fetchAll();
+        if (isset($rows[0]['total'])) {
+            return (int)$rows[0]['total'];
+        }
+        return 0;
     }
 
     /**
@@ -292,7 +245,7 @@ class PropertyFinder extends Model
         $sql = "SELECT p.*,
                        t.name AS type_name,
                        w.name AS ward_name,
-                       d.id AS district_id, d.name AS district_name,
+                       d.id AS district_id, COALESCE(d.name, w.name) AS district_name,
                        pr.id AS province_id, pr.name AS province_name,
                        u.full_name AS agent_name,
                        u.phone AS agent_phone,
@@ -303,8 +256,8 @@ class PropertyFinder extends Model
                 FROM properties p
                 JOIN property_types t ON t.id = p.type_id
                 JOIN wards w ON w.id = p.ward_id
-                JOIN districts d ON d.id = w.district_id
-                JOIN provinces pr ON pr.id = d.province_id
+                LEFT JOIN districts d ON d.id = w.district_id
+                JOIN provinces pr ON pr.id = w.province_id
                 JOIN users u ON u.id = p.user_id
                 WHERE p.id = ? LIMIT 1";
         $prop = $this->query($sql, [$id])->fetch();
