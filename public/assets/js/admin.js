@@ -18,6 +18,12 @@
 
   function removeRow(row) {
     row.remove();
+    const totalEl = document.getElementById('mod-total');
+    if (totalEl) {
+      const total = Math.max(0, Number(totalEl.dataset.total) - 1);
+      totalEl.dataset.total = total;
+      totalEl.textContent = 'Tổng: ' + total + ' mục.';
+    }
     if (!table.querySelector('tbody tr')) {
       notify('Đã xử lý hết các mục trên trang này. Tải lại để xem trang tiếp theo.', true);
     }

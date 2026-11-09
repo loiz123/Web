@@ -623,7 +623,7 @@ if (!$hasValidCoords) {
             <?php if (Auth::check()): ?>
               <?php if ((int)Auth::id() === (int)$property['user_id']): ?>
                 <div class="alert alert-secondary small mb-0 py-2">
-                  Đây là tin đăng của bạn. Bạn có thể xem danh sách lịch hẹn khách đặt trong trang quản lý.
+                  Đây là tin đăng của bạn. <?php if (Auth::hasRole('agent')): ?><a href="<?= e(base_url('appointment/agent')) ?>">Xem lịch hẹn khách đặt</a>.<?php endif; ?>
                 </div>
               <?php else: ?>
                 <form method="post" action="<?= e(base_url('appointment/book')) ?>">

@@ -71,7 +71,7 @@ $url = fn(string $t, int $p) => base_url('admin/properties') . '?tab=' . $t . '&
   <?php endfor; ?>
 </ul></nav>
 <?php endif; ?>
-<p class="text-muted small">Tổng: <?= $total ?> mục.</p>
+<p class="text-muted small" id="mod-total" data-total="<?= $total ?>">Tổng: <?= $total ?> mục.</p>
 <?php endif; ?>
 
 <div class="modal fade" id="rejectModal" tabindex="-1" aria-hidden="true">

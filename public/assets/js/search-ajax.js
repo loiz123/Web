@@ -593,7 +593,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const localList = getLocalSavedFilters();
   localList.forEach(item => renderSavedFilterItem(item));
 
-  savedFiltersList?.addEventListener('click', function (e) {
+  savedFiltersList?.addEventListener('click', async function (e) {
     const applyLink = e.target.closest('.btn-apply-saved-filter');
     const deleteBtn = e.target.closest('.btn-delete-saved-filter');
 
@@ -606,8 +606,15 @@ document.addEventListener('DOMContentLoaded', function () {
         const filterObj = JSON.parse(li.dataset.filters);
         form.reset();
         for (const [k, v] of Object.entries(filterObj)) {
+          if (k === 'district_id' || k === 'ward_id') continue;
           const el = form.elements[k];
           if (el) el.value = v;
+        }
+        const district = form.elements.district_id;
+        const ward = form.elements.ward_id;
+        if (typeof BdsLocation !== 'undefined') {
+          await BdsLocation.load(district, 'districts', form.elements.province_id?.value, filterObj.district_id);
+          await BdsLocation.load(ward, 'wards', district?.value, filterObj.ward_id);
         }
         performSearch(1, true);
         if (window.BDS) {

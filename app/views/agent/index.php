@@ -9,7 +9,10 @@ $statusLabels = [
 ?>
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
   <h1 class="h3 mb-0">Tin của tôi</h1>
-  <a class="btn btn-primary" href="<?= e(base_url('agent/create')) ?>">Đăng tin mới</a>
+  <div class="d-flex gap-2">
+    <?php if (Auth::hasRole('agent')): ?><a class="btn btn-outline-primary" href="<?= e(base_url('appointment/agent')) ?>">Lịch hẹn khách đặt</a><?php endif; ?>
+    <a class="btn btn-primary" href="<?= e(base_url('agent/create')) ?>">Đăng tin mới</a>
+  </div>
 </div>
 
 <form method="get" action="<?= e(base_url('agent')) ?>" class="row g-2 align-items-end mb-4">

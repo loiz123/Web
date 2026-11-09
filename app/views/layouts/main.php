@@ -102,6 +102,7 @@
               </li>
               <li><a class="dropdown-item py-2 small" href="<?= e(base_url('profile')) ?>"><i class="bi bi-person me-2 text-muted"></i>Thông tin cá nhân</a></li>
               <li><a class="dropdown-item py-2 small" href="<?= e(base_url('appointment/my')) ?>"><i class="bi bi-calendar-check me-2 text-muted"></i>Lịch hẹn của tôi</a></li>
+              <?php if (Auth::hasRole('agent')): ?><li><a class="dropdown-item py-2 small" href="<?= e(base_url('appointment/agent')) ?>"><i class="bi bi-calendar-event me-2 text-muted"></i>Lịch hẹn khách đặt</a></li><?php endif; ?>
               <li><a class="dropdown-item py-2 small" href="<?= e(base_url('favorite')) ?>"><i class="bi bi-heart me-2 text-muted"></i>Danh sách tin đã lưu</a></li>
               <li><hr class="dropdown-divider"></li>
               <li>

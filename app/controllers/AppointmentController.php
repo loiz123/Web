@@ -72,6 +72,13 @@ class AppointmentController extends Controller
         $this->view('appointment/my', ['title' => 'Lịch hẹn của tôi', 'items' => $items]);
     }
 
+    public function agent(): void
+    {
+        $this->requireRole('agent');
+        $items = (new Appointment())->forAgent((int)Auth::id());
+        $this->view('appointment/agent', ['title' => 'Lịch hẹn khách đặt', 'items' => $items]);
+    }
+
     public function cancel(int|string $id = 0): void
     {
         $this->requireLogin();
@@ -100,7 +107,7 @@ class AppointmentController extends Controller
             $ok ? 200 : 400,
             0,
             [],
-            'agent'
+            'appointment/agent'
         );
     }
 
