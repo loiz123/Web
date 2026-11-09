@@ -112,7 +112,7 @@
 
                   <!-- Ảnh đại diện BĐS -->
                   <div class="position-relative mb-2 rounded-3 overflow-hidden shadow-sm" style="height: 160px;">
-                    <img src="<?= e(property_avatar_url($prop['avatar'] ?? null)) ?>" 
+                    <img src="<?= e(property_avatar_url($prop['cover_url'] ?? property_avatar_url(null))) ?>" 
                          alt="<?= e($prop['title']) ?>" 
                          class="w-100 h-100 object-fit-cover">
                     <span class="badge position-absolute top-0 start-0 m-2 <?= ($prop['listing_type'] ?? '') === 'rent' ? 'bg-primary' : 'bg-danger' ?>">
@@ -230,9 +230,20 @@
             </tr>
             <tr>
               <td class="fw-semibold text-muted bg-light">Tình trạng nội thất</td>
+              <?php
+                $furnitureLabels = [
+                    'none'  => 'Không nội thất',
+                    'basic' => 'Nội thất cơ bản',
+                    'full'  => 'Đầy đủ nội thất',
+                ];
+              ?>
               <?php foreach ($properties as $prop): ?>
                 <td class="text-center">
-                  <?= !empty($prop['furniture']) ? e($prop['furniture']) : '<span class="text-muted">Cơ bản</span>' ?>
+                  <?php
+                    $furnVal = $prop['furniture'] ?? '';
+                    $furnLabel = $furnitureLabels[$furnVal] ?? $furnVal;
+                  ?>
+                  <?= $furnLabel !== '' ? e($furnLabel) : '<span class="text-muted">Nội thất cơ bản</span>' ?>
                 </td>
               <?php endforeach; ?>
             </tr>
@@ -320,11 +331,12 @@
             <tr>
               <td class="fw-semibold text-muted bg-light">Người đăng / Môi giới</td>
               <?php foreach ($properties as $prop): ?>
+                <?php $contactPhone = $prop['agent_phone'] ?? $prop['author_phone'] ?? ''; ?>
                 <td class="text-center">
-                  <div class="fw-bold"><?= e($prop['author_name'] ?? 'Môi giới uy tín') ?></div>
-                  <?php if (!empty($prop['author_phone'])): ?>
-                    <a href="tel:<?= e($prop['author_phone']) ?>" class="btn btn-outline-success btn-sm mt-1">
-                      <i class="bi bi-telephone me-1"></i> <?= e($prop['author_phone']) ?>
+                  <div class="fw-bold"><?= e($prop['agent_name'] ?? $prop['author_name'] ?? 'Môi giới BĐS') ?></div>
+                  <?php if ($contactPhone !== ''): ?>
+                    <a href="tel:<?= e($contactPhone) ?>" class="btn btn-outline-success btn-sm mt-1">
+                      <i class="bi bi-telephone me-1"></i> <?= e($contactPhone) ?>
                     </a>
                   <?php endif; ?>
                 </td>

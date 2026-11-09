@@ -299,8 +299,10 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     autocompleteAbortCtrl = new AbortController();
 
-    const basePrefix = (typeof BASE_URL === 'string') ? BASE_URL.replace(/\/+$/, '') : '';
-    const endpoint = `${basePrefix}/geocode?q=${encodeURIComponent(keyword)}`;
+    const basePrefix = (typeof BASE_URL === 'string' && BASE_URL) ? BASE_URL.replace(/\/+$/, '') : '/batdongsan/public';
+    const endpoint = basePrefix
+      ? `${basePrefix}/geocode?q=${encodeURIComponent(keyword)}`
+      : `/batdongsan/public/geocode?q=${encodeURIComponent(keyword)}`;
 
     try {
       const response = await fetch(endpoint, {

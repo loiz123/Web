@@ -336,6 +336,86 @@ $t->assert((int)$userRev['rating'] === 4, "5.5 Điểm rating sau cập nhật l
 $stmt = $db->prepare("DELETE FROM reviews WHERE property_id = ? AND user_id = ?");
 $stmt->execute([$revPropId, $testUserId]);
 
+// =========================================================================
+// SUITE 6: KIỂM THỬ BẢO MẬT (IDOR/XSS/UPLOADS), EDIT TIN, COMPARE & PHÂN TRANG
+// =========================================================================
+echo "\nSUITE 6: BẢO MẬT (IDOR/XSS/UPLOADS), EDIT LISTING, COMPARE & INDEXES\n";
+
+$propCtrlSrc = file_get_contents(APP . '/controllers/PropertyController.php');
+$agentCtrlSrc = file_get_contents(APP . '/controllers/AgentController.php');
+$searchViewSrc = file_get_contents(APP . '/views/property/search.php');
+$detailViewSrc = file_get_contents(APP . '/views/property/detail.php');
+$compareViewSrc = file_get_contents(APP . '/views/property/compare.php');
+$agentEditViewSrc = file_get_contents(APP . '/views/agent/edit.php');
+$homeViewSrc = file_get_contents(APP . '/views/home/index.php');
+$finderSrc = file_get_contents(APP . '/models/PropertyFinder.php');
+$mapJsSrc = file_get_contents(ROOT . '/public/assets/js/map.js');
+$appJsSrc = file_get_contents(ROOT . '/public/assets/js/app.js');
+$htaccessPath = ROOT . '/public/uploads/.htaccess';
+$schemaSrc = file_get_contents(ROOT . '/database/schema.sql');
+
+$t->assert(
+    substr_count($propCtrlSrc, "(\$prop['status'] ?? '') === 'approved'") >= 2,
+    "6.1 PropertyController::compare() và compareData() chỉ cho phép BĐS status === 'approved' (chặn BOLA/IDOR)"
+);
+$t->assert(
+    strpos($agentCtrlSrc, "if (!\$this->isPost())") !== false
+    && strpos($agentCtrlSrc, "\$this->json(['success' => false, 'message' => 'Phương thức không được hỗ trợ'], 405);") !== false,
+    "6.2 AgentController::status() kiểm tra bắt buộc phương thức POST (trả 405 nếu GET)"
+);
+$t->assert(
+    strpos($searchViewSrc, 'json_for_script($initialMapProperties)') !== false,
+    "6.3 search.php sử dụng json_for_script(\$initialMapProperties) chống XSS breakout thẻ <script>"
+);
+$t->assert(
+    strpos($mapJsSrc, 'escapeHtml(p.title)') !== false
+    && strpos($mapJsSrc, 'escapeHtml(p.district_name)') !== false
+    && strpos($mapJsSrc, 'escapeHtml(item.name)') !== false
+    && strpos($detailViewSrc, 'escapeHtml(it.name)') !== false
+    && strpos($appJsSrc, 'escapeHtml(p.title)') !== false,
+    "6.4 map.js, detail.php và app.js bọc escapeHtml() đầy đủ chống DOM XSS"
+);
+$t->assert(
+    is_file($htaccessPath)
+    && strpos(file_get_contents($htaccessPath), 'php_flag engine off') !== false
+    && strpos(file_get_contents($htaccessPath), 'Require all denied') !== false,
+    "6.5 File public/uploads/.htaccess tồn tại và chặn thực thi script trong thư mục uploads"
+);
+$t->assert(
+    strpos($compareViewSrc, "\$prop['cover_url'] ?? property_avatar_url(null)") !== false
+    && strpos($compareViewSrc, "\$prop['agent_name'] ?? \$prop['author_name'] ?? 'Môi giới BĐS'") !== false
+    && strpos($compareViewSrc, "\$prop['agent_phone'] ?? \$prop['author_phone'] ?? ''") !== false
+    && strpos($compareViewSrc, 'Không nội thất') !== false
+    && strpos($compareViewSrc, 'Nội thất cơ bản') !== false
+    && strpos($compareViewSrc, 'Đầy đủ nội thất') !== false,
+    "6.6 compare.php hiển thị đúng cover_url, agent_name, agent_phone và nhãn nội thất tiếng Việt"
+);
+$t->assert(
+    strpos($finderSrc, "if (isset(\$rows[0]['total']))") !== false
+    && $finder->countSearch(['keyword' => '__KHONG_TON_TAI_XYZ_99999__']) === 0,
+    "6.7 PropertyFinder::countSearch() dùng isset(\$rows[0]['total']) và trả về 0 chính xác khi không có kết quả"
+);
+$t->assert(
+    strpos($agentEditViewSrc, 'name="ward_id"') !== false
+    && strpos($agentEditViewSrc, 'name="direction"') !== false
+    && strpos($agentEditViewSrc, 'name="legal_status"') !== false
+    && strpos($agentEditViewSrc, 'name="deposit"') !== false
+    && strpos($agentEditViewSrc, 'name="furniture"') !== false
+    && strpos($agentEditViewSrc, 'name="pets_allowed"') !== false
+    && strpos($agentEditViewSrc, 'name="amenities[]"') !== false,
+    "6.8 Form sửa tin agent/edit.php có đầy đủ các trường ward_id, direction, legal_status, deposit, furniture, pets_allowed, amenities[]"
+);
+$t->assert(
+    strpos($homeViewSrc, 'http_build_query(array_merge($filters ?? [], [\'page\' => $i]))') !== false,
+    "6.9 Phân trang trang chủ home/index.php giữ lại bộ lọc \$filters trong query string"
+);
+$t->assert(
+    strpos($schemaSrc, 'idx_prop_status_created') !== false
+    && strpos($schemaSrc, 'idx_prop_status_area') !== false
+    && strpos($schemaSrc, 'idx_prop_img_cover') !== false,
+    "6.10 database/schema.sql đã bổ sung đủ 3 composite indexes tối ưu truy vấn"
+);
+
 // TỔNG KẾT BÁO CÁO
 $t->report();
 

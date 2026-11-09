@@ -266,7 +266,7 @@ class PropertyController extends Controller
             $finder = new PropertyFinder();
             foreach ($idList as $id) {
                 $prop = $finder->findDetail($id);
-                if ($prop) {
+                if ($prop && ($prop['status'] ?? '') === 'approved') {
                     $amenities = $finder->getAmenities($id);
                     $prop['amenities'] = $amenities;
                     $properties[] = $prop;
@@ -313,7 +313,7 @@ class PropertyController extends Controller
             $finder = new PropertyFinder();
             foreach ($idList as $id) {
                 $prop = $finder->findDetail($id);
-                if ($prop) {
+                if ($prop && ($prop['status'] ?? '') === 'approved') {
                     $prop['amenities'] = $finder->getAmenities($id);
                     $result[] = $prop;
                 }

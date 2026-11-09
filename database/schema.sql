@@ -165,3 +165,9 @@ CREATE TABLE reports (                       -- báo cáo tin giả/giá ảo
   CONSTRAINT fk_rep_prop FOREIGN KEY (property_id) REFERENCES properties(id) ON DELETE CASCADE,
   CONSTRAINT fk_rep_user FOREIGN KEY (reporter_id) REFERENCES users(id)      ON DELETE CASCADE
 ) ENGINE=InnoDB;
+
+-- Indexes bổ sung tối ưu truy vấn lọc, sắp xếp và lấy ảnh bìa
+CREATE INDEX idx_prop_status_created ON properties (status, created_at DESC);
+CREATE INDEX idx_prop_status_area ON properties (status, listing_type, area);
+CREATE INDEX idx_prop_img_cover ON property_images (property_id, is_cover DESC, id);
+

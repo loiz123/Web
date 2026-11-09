@@ -242,7 +242,7 @@ class PropertyFinder extends Model
                     $pf['max_area'],
                     $pf['bedrooms'] === '5+' ? 5 : ($pf['bedrooms'] !== null ? (int)$pf['bedrooms'] : null)
                 ]);
-                if (!empty($rows[0]['total'])) {
+                if (isset($rows[0]['total'])) {
                     return (int)$rows[0]['total'];
                 }
             } catch (PDOException $e) {
@@ -272,7 +272,8 @@ class PropertyFinder extends Model
                        u.full_name AS agent_name,
                        u.phone AS agent_phone,
                        u.email AS agent_email,
-                       u.avatar AS agent_avatar
+                       u.avatar AS agent_avatar,
+                       (SELECT image_url FROM property_images i WHERE i.property_id = p.id ORDER BY i.is_cover DESC, i.id LIMIT 1) AS cover_url
                 FROM properties p
                 JOIN property_types t ON t.id = p.type_id
                 JOIN wards w ON w.id = p.ward_id

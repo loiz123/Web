@@ -37,33 +37,168 @@ class AgentController extends Controller
         $this->verifyCsrf();
         $input = $_POST;
         foreach ($input as $key => $value) {
-            if (!is_string($value)) $input[$key] = '';
+            if (!in_array($key, ['amenities', 'delete_images'], true) && !is_string($value)) {
+                $input[$key] = '';
+            }
         }
-        $title = trim($input['title'] ?? '');
-        $description = trim($input['description'] ?? '');
-        $listingType = $input['listing_type'] ?? '';
-        $typeId = filter_var($input['type_id'] ?? '', FILTER_VALIDATE_INT);
-        $price = $input['price'] ?? '';
-        $area = $input['area'] ?? '';
-        $bedrooms = filter_var($input['bedrooms'] ?? '', FILTER_VALIDATE_INT);
-        $bathrooms = filter_var($input['bathrooms'] ?? '', FILTER_VALIDATE_INT);
-        $address = trim($input['address_detail'] ?? '');
-        $latitude = ($input['latitude'] ?? '') !== '' ? filter_var($input['latitude'], FILTER_VALIDATE_FLOAT) : null;
-        $longitude = ($input['longitude'] ?? '') !== '' ? filter_var($input['longitude'], FILTER_VALIDATE_FLOAT) : null;
+
+        $validated = $this->validateListingInput($input, true, $listing);
+        $errors = $validated['errors'];
+        $cleanData = $validated['data'];
+        $amenityIds = $validated['amenity_ids'];
+
+        $existingImages = (new PropertyImage())->findByPropertyId($id);
+        $existingById = [];
+        foreach ($existingImages as $img) {
+            $existingById[(int)$img['id']] = $img;
+        }
+
+        $deleteImageIds = [];
+        $submittedDeletes = $input['delete_images'] ?? [];
+        if (is_array($submittedDeletes)) {
+            foreach ($submittedDeletes as $delId) {
+                $delIdInt = filter_var($delId, FILTER_VALIDATE_INT);
+                if ($delIdInt && isset($existingById[(int)$delIdInt])) {
+                    $deleteImageIds[] = (int)$delIdInt;
+                }
+            }
+            $deleteImageIds = array_values(array_unique($deleteImageIds));
+        }
+
+        $hasUploadedFiles = isset($_FILES['images']['name'])
+            && is_array($_FILES['images']['name'])
+            && count(array_filter($_FILES['images']['name'], fn($n) => $n !== '')) > 0;
+
+        $newImages = $hasUploadedFiles ? $this->uploadedImages($errors, false) : [];
+        $remainingCount = count($existingImages) - count($deleteImageIds) + count($newImages);
+        if (count($existingImages) > 0 && $remainingCount < 1) {
+            $errors[] = 'Tin đăng phải giữ lại hoặc tải lên ít nhất 1 ảnh.';
+        }
+        if ($remainingCount > 10) {
+            $errors[] = 'Tổng số ảnh của tin đăng không được vượt quá 10 ảnh.';
+        }
+
+        if ($errors) {
+            foreach ($errors as $error) flash('danger', $error);
+            $merged = array_merge($listing, $input);
+            $merged['amenities'] = $amenityIds;
+            $this->showEditForm($merged);
+            return;
+        }
+
+        $newImagePaths = [];
+        $savedFiles = [];
+        if (!empty($newImages)) {
+            $uploadDir = config('upload_dir');
+            if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true) && !is_dir($uploadDir)) {
+                flash('danger', 'Không thể tạo thư mục lưu ảnh. Vui lòng thử lại.');
+                $this->showEditForm(array_merge($listing, $input));
+                return;
+            }
+            foreach ($newImages as $image) {
+                $fileName = bin2hex(random_bytes(16)) . '.' . $image['extension'];
+                $target = rtrim($uploadDir, '/\\') . DIRECTORY_SEPARATOR . $fileName;
+                if (!move_uploaded_file($image['tmp_name'], $target)) {
+                    foreach ($savedFiles as $savedFile) @unlink($savedFile);
+                    flash('danger', 'Không thể lưu ảnh đã tải lên. Vui lòng thử lại.');
+                    $this->showEditForm(array_merge($listing, $input));
+                    return;
+                }
+                $savedFiles[] = $target;
+                $newImagePaths[] = 'uploads/properties/' . $fileName;
+            }
+        }
+
+        $coverImageId = isset($input['cover_image_id']) && $input['cover_image_id'] !== ''
+            ? (int)$input['cover_image_id']
+            : null;
+
+        try {
+            $updated = $property->updateOwnedListing(
+                $id,
+                (int)Auth::id(),
+                $cleanData,
+                $amenityIds,
+                $newImagePaths,
+                $deleteImageIds,
+                $coverImageId
+            );
+        } catch (Throwable $error) {
+            foreach ($savedFiles as $savedFile) @unlink($savedFile);
+            error_log($error->getMessage());
+            $updated = false;
+        }
+
+        if (!$updated) {
+            flash('danger', 'Không thể cập nhật tin đăng. Vui lòng thử lại.');
+            $this->showEditForm(array_merge($listing, $input));
+            return;
+        }
+
+        // Xóa file vật lý của các ảnh đã xóa
+        foreach ($deleteImageIds as $delId) {
+            $imagePath = $existingById[$delId]['image_url'] ?? '';
+            $fileName = basename($imagePath);
+            if (!preg_match('/^[a-f0-9]{32}\.(jpg|png|webp)$/', $fileName)) continue;
+            $filePath = rtrim(config('upload_dir'), '/\\') . DIRECTORY_SEPARATOR . $fileName;
+            if (is_file($filePath) && !@unlink($filePath)) {
+                error_log('Unable to remove deleted property image: ' . $filePath);
+            }
+        }
+
+        flash('success', 'Tin đăng đã được cập nhật và chuyển về trạng thái chờ duyệt.');
+        $this->redirect('agent');
+    }
+
+    public function validateListingInput(array $input, bool $isEdit = false, ?array $existingListing = null): array
+    {
+        $property = new Property();
+        $location = new Location();
         $errors = [];
 
+        $title = trim((string)($input['title'] ?? ''));
+        $description = trim((string)($input['description'] ?? ''));
+        $listingType = (string)($input['listing_type'] ?? '');
+        $typeId = filter_var($input['type_id'] ?? '', FILTER_VALIDATE_INT);
+        $provinceId = filter_var($input['province_id'] ?? '', FILTER_VALIDATE_INT);
+        $districtId = filter_var($input['district_id'] ?? '', FILTER_VALIDATE_INT);
+        $wardId = filter_var($input['ward_id'] ?? '', FILTER_VALIDATE_INT);
+        $price = $input['price'] ?? '';
+        $area = $input['area'] ?? '';
+        $bedrooms = filter_var($input['bedrooms'] ?? 0, FILTER_VALIDATE_INT);
+        $bathrooms = filter_var($input['bathrooms'] ?? 0, FILTER_VALIDATE_INT);
+        $direction = trim((string)($input['direction'] ?? ''));
+        $legalStatus = trim((string)($input['legal_status'] ?? ''));
+        $address = trim((string)($input['address_detail'] ?? ''));
+        $latitude = ($input['latitude'] ?? '') !== '' ? filter_var($input['latitude'], FILTER_VALIDATE_FLOAT) : null;
+        $longitude = ($input['longitude'] ?? '') !== '' ? filter_var($input['longitude'], FILTER_VALIDATE_FLOAT) : null;
+
         $titleLength = function_exists('mb_strlen') ? mb_strlen($title, 'UTF-8') : strlen($title);
-        if ($title === '' || $titleLength > 200) $errors[] = 'Tiêu đề không được để trống và tối đa 200 ký tự.';
-        if (!in_array($listingType, ['sale', 'rent'], true)) $errors[] = 'Vui lòng chọn loại tin bán hoặc cho thuê.';
-        if (!$typeId || !$property->typeExists((int)$typeId)) $errors[] = 'Vui lòng chọn loại bất động sản hợp lệ.';
-        if (!is_numeric($price) || (float)$price <= 0) $errors[] = 'Giá phải là số lớn hơn 0.';
-        if (!is_numeric($area) || (float)$area <= 0) $errors[] = 'Diện tích phải là số lớn hơn 0.';
+        if ($title === '' || $titleLength > 200) {
+            $errors[] = 'Tiêu đề không được để trống và tối đa 200 ký tự.';
+        }
+        if (!in_array($listingType, ['sale', 'rent'], true)) {
+            $errors[] = 'Vui lòng chọn loại tin bán hoặc cho thuê.';
+        }
+        if (!$typeId || !$property->typeExists((int)$typeId)) {
+            $errors[] = 'Vui lòng chọn loại bất động sản hợp lệ.';
+        }
+        if (!is_numeric($price) || (float)$price <= 0) {
+            $errors[] = 'Giá phải là số lớn hơn 0.';
+        }
+        if (!is_numeric($area) || (float)$area <= 0) {
+            $errors[] = 'Diện tích phải là số lớn hơn 0.';
+        }
         if ($bedrooms === false || $bedrooms < 0 || $bedrooms > 255
             || $bathrooms === false || $bathrooms < 0 || $bathrooms > 255) {
             $errors[] = 'Số phòng ngủ và phòng tắm không hợp lệ.';
         }
-        if ($address === '') $errors[] = 'Vui lòng nhập địa chỉ chi tiết.';
-        if (strlen($address) > 200) $errors[] = 'Địa chỉ chi tiết tối đa 200 ký tự.';
+        if (strlen($direction) > 120 || strlen($legalStatus) > 400 || strlen($address) > 200) {
+            $errors[] = 'Thông tin hướng, pháp lý hoặc địa chỉ vượt quá độ dài cho phép.';
+        }
+        if ($address === '') {
+            $errors[] = 'Vui lòng nhập địa chỉ chi tiết.';
+        }
         if ($latitude === null || $latitude === false || $longitude === null || $longitude === false) {
             $errors[] = 'Vui lòng chọn đầy đủ vị trí trên bản đồ.';
         }
@@ -74,33 +209,95 @@ class AgentController extends Controller
             $errors[] = 'Kinh độ (longitude) không hợp lệ (-180 đến 180).';
         }
 
-        if ($errors) {
-            foreach ($errors as $error) flash('danger', $error);
-            $this->showEditForm(array_merge($listing, $input));
-            return;
+        if ($provinceId && $districtId && $wardId) {
+            if (!$location->isValidWard((int)$provinceId, (int)$districtId, (int)$wardId)) {
+                $errors[] = 'Vui lòng chọn đầy đủ tỉnh/thành, quận/huyện và phường/xã hợp lệ.';
+            }
+        } elseif ($wardId) {
+            $wardRow = (new Ward())->findById((int)$wardId);
+            if (!$wardRow) {
+                $errors[] = 'Phường/Xã đã chọn không hợp lệ.';
+            }
+        } elseif ($isEdit && !empty($existingListing['ward_id'])) {
+            $wardId = (int)$existingListing['ward_id'];
+        } else {
+            $errors[] = 'Vui lòng chọn đầy đủ tỉnh/thành, quận/huyện và phường/xã.';
         }
 
-        $updated = $property->updateOwnedListing($id, (int)Auth::id(), [
-            'type_id' => (int)$typeId,
-            'title' => $title,
-            'description' => $description,
-            'listing_type' => $listingType,
-            'price' => (float)$price,
-            'area' => (float)$area,
-            'bedrooms' => (int)$bedrooms,
-            'bathrooms' => (int)$bathrooms,
-            'address_detail' => $address ?: null,
-            'latitude' => ($latitude !== null && $latitude !== false) ? (float)$latitude : null,
-            'longitude' => ($longitude !== null && $longitude !== false) ? (float)$longitude : null,
-        ]);
-        if (!$updated) {
-            flash('danger', 'Không thể cập nhật tin đăng. Vui lòng thử lại.');
-            $this->showEditForm(array_merge($listing, $input));
-            return;
+        $deposit = null;
+        if (($input['deposit'] ?? '') !== '') {
+            if (!is_numeric($input['deposit']) || (float)$input['deposit'] < 0) {
+                $errors[] = 'Tiền đặt cọc không hợp lệ.';
+            } else {
+                $deposit = (float)$input['deposit'];
+            }
         }
 
-        flash('success', 'Tin đăng đã được cập nhật và chuyển về trạng thái chờ duyệt.');
-        $this->redirect('agent');
+        $furniture = ($input['furniture'] ?? '') !== '' ? (string)$input['furniture'] : null;
+        if ($furniture !== null && !in_array($furniture, ['none', 'basic', 'full'], true)) {
+            $errors[] = 'Tình trạng nội thất không hợp lệ.';
+        }
+
+        $rawPets = (string)($input['pets_allowed'] ?? '0');
+        if (!in_array($rawPets, ['0', '1'], true)) {
+            $errors[] = 'Lựa chọn thú cưng không hợp lệ.';
+        }
+        $petsAllowed = $rawPets === '1' ? 1 : 0;
+
+        if ($listingType === 'sale' && !$isEdit) {
+            $deposit = null;
+            $furniture = null;
+            $petsAllowed = 0;
+        }
+
+        $amenityIds = [];
+        $submittedAmenities = $input['amenities'] ?? ($isEdit && !array_key_exists('amenities', $input) ? null : []);
+        if ($submittedAmenities !== null) {
+            if (!is_array($submittedAmenities)) {
+                $errors[] = 'Danh sách tiện ích không hợp lệ.';
+            } else {
+                foreach ($submittedAmenities as $amenityId) {
+                    $aid = filter_var($amenityId, FILTER_VALIDATE_INT);
+                    if (!$aid || $aid < 1) {
+                        $errors[] = 'Tiện ích đã chọn không hợp lệ.';
+                        break;
+                    }
+                    $amenityIds[] = (int)$aid;
+                }
+                $amenityIds = array_values(array_unique($amenityIds));
+                if (!$errors && !(new Amenity())->hasIds($amenityIds)) {
+                    $errors[] = 'Một hoặc nhiều tiện ích không hợp lệ.';
+                }
+            }
+        } else {
+            $amenityIds = $existingListing && !empty($existingListing['id'])
+                ? $property->amenityIdsForListing((int)$existingListing['id'])
+                : [];
+        }
+
+        return [
+            'errors' => $errors,
+            'amenity_ids' => $amenityIds,
+            'data' => [
+                'type_id' => (int)$typeId,
+                'ward_id' => (int)$wardId,
+                'title' => $title,
+                'description' => $description,
+                'listing_type' => $listingType,
+                'price' => (float)$price,
+                'deposit' => $deposit,
+                'area' => (float)$area,
+                'bedrooms' => (int)$bedrooms,
+                'bathrooms' => (int)$bathrooms,
+                'direction' => $direction !== '' ? $direction : null,
+                'legal_status' => $legalStatus !== '' ? $legalStatus : null,
+                'furniture' => $furniture,
+                'pets_allowed' => $petsAllowed,
+                'address_detail' => $address ?: null,
+                'latitude' => ($latitude !== null && $latitude !== false) ? (float)$latitude : null,
+                'longitude' => ($longitude !== null && $longitude !== false) ? (float)$longitude : null,
+            ],
+        ];
     }
 
     public function hide(int $id): void
@@ -127,6 +324,10 @@ class AgentController extends Controller
 
     public function status(int $id): void
     {
+        if (!$this->isPost()) {
+            $this->json(['success' => false, 'message' => 'Phương thức không được hỗ trợ'], 405);
+            return;
+        }
         $this->verifyCsrf();
         $status = $_POST['status'] ?? '';
         if (!is_string($status) || !in_array($status, ['pending', 'hidden', 'closed'], true)) {
@@ -188,87 +389,12 @@ class AgentController extends Controller
         foreach ($input as $key => $value) {
             if ($key !== 'amenities' && !is_string($value)) $input[$key] = '';
         }
-        $errors = [];
 
-        $title = trim($input['title'] ?? '');
-        $description = trim($input['description'] ?? '');
-        $listingType = $input['listing_type'] ?? '';
-        $typeId = filter_var($input['type_id'] ?? '', FILTER_VALIDATE_INT);
-        $provinceId = filter_var($input['province_id'] ?? '', FILTER_VALIDATE_INT);
-        $districtId = filter_var($input['district_id'] ?? '', FILTER_VALIDATE_INT);
-        $wardId = filter_var($input['ward_id'] ?? '', FILTER_VALIDATE_INT);
-        $price = $input['price'] ?? '';
-        $area = $input['area'] ?? '';
-        $bedrooms = filter_var($input['bedrooms'] ?? 0, FILTER_VALIDATE_INT);
-        $bathrooms = filter_var($input['bathrooms'] ?? 0, FILTER_VALIDATE_INT);
-
-        $titleLength = function_exists('mb_strlen') ? mb_strlen($title, 'UTF-8') : strlen($title);
-        if ($title === '' || $titleLength > 200) $errors[] = 'Tiêu đề không được để trống và tối đa 200 ký tự.';
-        if (!in_array($listingType, ['sale', 'rent'], true)) $errors[] = 'Vui lòng chọn loại tin bán hoặc cho thuê.';
-        if (!$typeId || !(new Property())->typeExists((int)$typeId)) $errors[] = 'Vui lòng chọn loại bất động sản hợp lệ.';
-        if (!is_numeric($price) || (float)$price <= 0) $errors[] = 'Giá phải là số lớn hơn 0.';
-        if (!is_numeric($area) || (float)$area <= 0) $errors[] = 'Diện tích phải là số lớn hơn 0.';
-        if ($bedrooms === false || $bedrooms < 0 || $bedrooms > 255
-            || $bathrooms === false || $bathrooms < 0 || $bathrooms > 255) {
-            $errors[] = 'Số phòng ngủ và phòng tắm không hợp lệ.';
-        }
-        if (strlen($input['direction'] ?? '') > 120 || strlen($input['legal_status'] ?? '') > 400
-            || strlen($input['address_detail'] ?? '') > 200) {
-            $errors[] = 'Thông tin hướng, pháp lý hoặc địa chỉ vượt quá độ dài cho phép.';
-        }
-        $address = trim($input['address_detail'] ?? '');
-        if ($address === '') $errors[] = 'Vui lòng nhập địa chỉ chi tiết.';
-        $latitude = ($input['latitude'] ?? '') !== '' ? filter_var($input['latitude'], FILTER_VALIDATE_FLOAT) : null;
-        $longitude = ($input['longitude'] ?? '') !== '' ? filter_var($input['longitude'], FILTER_VALIDATE_FLOAT) : null;
-        if ($latitude === null || $latitude === false || $longitude === null || $longitude === false) {
-            $errors[] = 'Vui lòng chọn đầy đủ vị trí trên bản đồ.';
-        }
-        if ($latitude !== null && $latitude !== false && ($latitude < -90 || $latitude > 90)) {
-            $errors[] = 'Vĩ độ (latitude) không hợp lệ (-90 đến 90).';
-        }
-        if ($longitude !== null && $longitude !== false && ($longitude < -180 || $longitude > 180)) {
-            $errors[] = 'Kinh độ (longitude) không hợp lệ (-180 đến 180).';
-        }
-        if (!$provinceId || !$districtId || !$wardId
-            || !(new Location())->isValidWard((int)$provinceId, (int)$districtId, (int)$wardId)) {
-            $errors[] = 'Vui lòng chọn đầy đủ tỉnh/thành, quận/huyện và phường/xã.';
-        }
-
-        $deposit = null;
-        $furniture = null;
-        $petsAllowed = 0;
-        if ($listingType === 'rent') {
-            if (($input['deposit'] ?? '') !== '') {
-                if (!is_numeric($input['deposit']) || (float)$input['deposit'] < 0) {
-                    $errors[] = 'Tiền đặt cọc không hợp lệ.';
-                } else {
-                    $deposit = (float)$input['deposit'];
-                }
-            }
-            $furniture = ($input['furniture'] ?? '') !== '' ? $input['furniture'] : null;
-            if ($furniture !== null && !in_array($furniture, ['none', 'basic', 'full'], true)) {
-                $errors[] = 'Tình trạng nội thất không hợp lệ.';
-            }
-            $petsAllowed = ($input['pets_allowed'] ?? '0') === '1' ? 1 : 0;
-            if (!in_array($input['pets_allowed'] ?? '0', ['0', '1'], true)) $errors[] = 'Lựa chọn thú cưng không hợp lệ.';
-        }
-
-        $amenityIds = [];
-        $submittedAmenities = $input['amenities'] ?? [];
-        if (!is_array($submittedAmenities)) {
-            $errors[] = 'Danh sách tiện ích không hợp lệ.';
-            $submittedAmenities = [];
-        }
-        foreach ($submittedAmenities as $amenityId) {
-            $id = filter_var($amenityId, FILTER_VALIDATE_INT);
-            if (!$id || $id < 1) {
-                $errors[] = 'Tiện ích đã chọn không hợp lệ.';
-                break;
-            }
-            $amenityIds[] = (int)$id;
-        }
-        $amenityIds = array_values(array_unique($amenityIds));
-        if (!$errors && !(new Amenity())->hasIds($amenityIds)) $errors[] = 'Một hoặc nhiều tiện ích không hợp lệ.';
+        $validated = $this->validateListingInput($input, false);
+        $errors = $validated['errors'];
+        $propertyData = $validated['data'];
+        $propertyData['user_id'] = Auth::id();
+        $amenityIds = $validated['amenity_ids'];
 
         $images = $this->uploadedImages($errors);
         $coverIndex = filter_var($input['cover_image'] ?? 0, FILTER_VALIDATE_INT);
@@ -305,27 +431,6 @@ class AgentController extends Controller
             $imagePaths[] = 'uploads/properties/' . $fileName;
         }
 
-        $propertyData = [
-            'user_id' => Auth::id(),
-            'type_id' => (int)$typeId,
-            'ward_id' => (int)$wardId,
-            'title' => $title,
-            'description' => $description,
-            'listing_type' => $listingType,
-            'price' => (float)$price,
-            'deposit' => $deposit,
-            'area' => (float)$area,
-            'bedrooms' => (int)$bedrooms,
-            'bathrooms' => (int)$bathrooms,
-            'direction' => trim($input['direction'] ?? '') ?: null,
-            'legal_status' => trim($input['legal_status'] ?? '') ?: null,
-            'furniture' => $furniture,
-            'pets_allowed' => $petsAllowed,
-            'address_detail' => trim($input['address_detail'] ?? '') ?: null,
-            'latitude' => ($latitude !== null && $latitude !== false) ? (float)$latitude : null,
-            'longitude' => ($longitude !== null && $longitude !== false) ? (float)$longitude : null,
-        ];
-
         try {
             (new Property())->createListing($propertyData, $imagePaths, $amenityIds, $coverIndex);
         } catch (PDOException $error) {
@@ -353,10 +458,42 @@ class AgentController extends Controller
 
     private function showEditForm(array $listing): void
     {
+        $location = new Location();
+        $property = new Property();
+        $provinceId = (int)($listing['province_id'] ?? 0);
+        $districtId = (int)($listing['district_id'] ?? 0);
+        $wardId = (int)($listing['ward_id'] ?? 0);
+
+        if ($wardId > 0 && (!$districtId || !$provinceId)) {
+            $wardRow = (new Ward())->findById($wardId);
+            if ($wardRow) {
+                $districtId = (int)($wardRow['district_id'] ?? 0);
+                if ($districtId > 0 && !$provinceId) {
+                    $provinceId = (int)($location->provinceByDistrict($districtId) ?? 0);
+                }
+            }
+            $listing['district_id'] = $districtId;
+            $listing['province_id'] = $provinceId;
+        }
+
+        $selectedAmenities = isset($listing['amenities']) && is_array($listing['amenities'])
+            ? array_map('intval', $listing['amenities'])
+            : (!empty($listing['id']) ? $property->amenityIdsForListing((int)$listing['id']) : []);
+
+        $existingImages = !empty($listing['id'])
+            ? (new PropertyImage())->findByPropertyId((int)$listing['id'])
+            : [];
+
         $this->view('agent/edit', [
             'title' => 'Sửa tin đăng',
             'listing' => $listing,
             'propertyTypes' => (new PropertyType())->allSorted(),
+            'provinces' => $location->provinces(),
+            'districts' => $provinceId > 0 ? $location->districtsByProvince($provinceId) : [],
+            'wards' => $districtId > 0 ? $location->wardsByDistrict($districtId) : [],
+            'amenities' => (new Amenity())->allSorted(),
+            'selectedAmenities' => $selectedAmenities,
+            'existingImages' => $existingImages,
         ]);
     }
 
@@ -370,17 +507,32 @@ class AgentController extends Controller
         $this->verifyCsrf();
     }
 
-    private function uploadedImages(array &$errors): array
+    private function uploadedImages(array &$errors, bool $requireAtLeastOne = true): array
     {
         $images = [];
         $files = $_FILES['images'] ?? null;
         if (!$files || !isset($files['name']) || !is_array($files['name'])) {
-            $errors[] = 'Vui lòng tải lên ít nhất một ảnh.';
+            if ($requireAtLeastOne) {
+                $errors[] = 'Vui lòng tải lên ít nhất một ảnh.';
+            }
             return $images;
         }
 
-        $count = count($files['name']);
-        if ($count < 1 || $count > 10) {
+        $nonEmptyIndices = [];
+        foreach ($files['name'] as $idx => $name) {
+            if ($name !== '' && ($files['error'][$idx] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+                $nonEmptyIndices[] = $idx;
+            }
+        }
+
+        $count = count($nonEmptyIndices);
+        if ($count < 1) {
+            if ($requireAtLeastOne) {
+                $errors[] = 'Tải lên từ 1 đến 10 ảnh.';
+            }
+            return $images;
+        }
+        if ($count > 10) {
             $errors[] = 'Tải lên từ 1 đến 10 ảnh.';
             return $images;
         }
@@ -391,7 +543,7 @@ class AgentController extends Controller
             'image/webp' => 'webp',
         ];
         $fileInfo = new finfo(FILEINFO_MIME_TYPE);
-        for ($index = 0; $index < $count; $index++) {
+        foreach ($nonEmptyIndices as $index) {
             if (($files['error'][$index] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK
                 || ($files['size'][$index] ?? 0) < 1
                 || ($files['size'][$index] ?? 0) > 5 * 1024 * 1024

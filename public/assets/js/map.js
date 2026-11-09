@@ -704,7 +704,7 @@ window.BdsMap = (function () {
           '<div style="min-width: 200px; font-family: system-ui, -apple-system, sans-serif; line-height: 1.45; padding: 2px;">' +
             '<div class="d-flex align-items-center gap-2 mb-1">' +
               '<span style="font-size: 1.25rem;">' + item.icon + '</span>' +
-              '<strong class="text-dark" style="font-size: 0.875rem;">' + item.name + '</strong>' +
+              '<strong class="text-dark" style="font-size: 0.875rem;">' + escapeHtml(item.name) + '</strong>' +
             '</div>' +
             '<div class="text-muted small mb-1">Loại: <span class="badge bg-light text-dark border">' + item.type + '</span></div>' +
             '<div class="text-danger fw-bold small mb-2">📍 Cách ' + item.formattedDistance + ' <span class="fw-normal text-muted">(~' + walkMinutes + ' phút đi bộ)</span></div>' +
@@ -791,7 +791,7 @@ window.BdsMap = (function () {
         if (isNaN(lat) || isNaN(lng)) return;
 
         const coverImg = p.cover_url
-          ? `<img src="${p.cover_url}" alt="${p.title}" style="width: 100%; height: 110px; object-fit: cover; border-radius: 4px; margin-bottom: 6px;">`
+          ? `<img src="${escapeHtml(p.cover_url)}" alt="${escapeHtml(p.title)}" style="width: 100%; height: 110px; object-fit: cover; border-radius: 4px; margin-bottom: 6px;">`
           : '';
 
         const typeBadge = p.listing_type === 'rent'
@@ -801,18 +801,18 @@ window.BdsMap = (function () {
         const popupHtml = `
           <div class="search-map-popup" style="max-width: 230px; font-family: system-ui, sans-serif; line-height: 1.4;">
             ${coverImg}
-            <div class="fw-bold text-truncate mb-1" title="${p.title}" style="font-size: 0.85rem;">
-              <a href="${p.detail_url}" target="_blank" class="text-decoration-none text-dark">${p.title}</a>
+            <div class="fw-bold text-truncate mb-1" title="${escapeHtml(p.title)}" style="font-size: 0.85rem;">
+              <a href="${escapeHtml(p.detail_url)}" target="_blank" class="text-decoration-none text-dark">${escapeHtml(p.title)}</a>
             </div>
             <div class="d-flex justify-content-between align-items-center mb-1">
-              <span class="text-danger fw-bold" style="font-size: 0.9rem;">${p.formatted_price || p.price}</span>
+              <span class="text-danger fw-bold" style="font-size: 0.9rem;">${escapeHtml(p.price_formatted || p.formatted_price || p.price)}</span>
               ${typeBadge}
             </div>
             <div class="text-muted small mb-2" style="font-size: 0.75rem;">
-              <span>📐 ${p.area} m²</span> • <span>🛏️ ${p.bedrooms || 0} PN</span>
-              ${p.district_name ? ` • <span>📍 ${p.district_name}</span>` : ''}
+              <span>📐 ${escapeHtml(p.area)} m²</span> • <span>🛏️ ${escapeHtml(p.bedrooms || 0)} PN</span>
+              ${p.district_name ? ` • <span>📍 ${escapeHtml(p.district_name)}</span>` : ''}
             </div>
-            <a href="${p.detail_url}" class="btn btn-warning btn-sm w-100 py-1 fw-semibold text-dark" style="font-size: 0.75rem;">Xem chi tiết &rarr;</a>
+            <a href="${escapeHtml(p.detail_url)}" class="btn btn-warning btn-sm w-100 py-1 fw-semibold text-dark" style="font-size: 0.75rem;">Xem chi tiết &rarr;</a>
           </div>
         `;
 

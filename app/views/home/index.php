@@ -44,8 +44,19 @@
     <p class="small text-muted mb-0">Vui lòng quay lại sau hoặc liên hệ ban quản trị để đăng tin đầu tiên.</p>
   </div>
 <?php else: ?>
-  <div class="row g-4 mb-5">
+  <div class="row g-4 mb-4">
     <?php foreach ($properties as $p) require APP . '/views/partials/property_card.php'; ?>
   </div>
+  <?php if (($totalPages ?? 1) > 1): ?>
+    <nav aria-label="Phân trang trang chủ" class="mb-5">
+      <ul class="pagination justify-content-center">
+        <?php for ($i = 1; $i <= ($totalPages ?? 1); $i++): ?>
+          <li class="page-item <?= ($i === ($page ?? 1)) ? 'active' : '' ?>">
+            <a class="page-link" href="?<?= http_build_query(array_merge($filters ?? [], ['page' => $i])) ?>"><?= $i ?></a>
+          </li>
+        <?php endfor; ?>
+      </ul>
+    </nav>
+  <?php endif; ?>
 <?php endif; ?>
 <script src="<?= e(base_url('assets/js/search-ajax.js')) ?>"></script>

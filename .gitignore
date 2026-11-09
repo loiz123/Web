@@ -1,4 +1,5 @@
 config/config.local.php
 public/uploads/*
 !public/uploads/.gitkeep
+!public/uploads/.htaccess
 /Web/

@@ -59,6 +59,10 @@ function format_price($price): string
 function property_avatar_url(?string $path): string
 {
     if (!empty($path)) {
+        $base = rtrim((string)config('base_url'), '/');
+        if (preg_match('#^https?://#i', $path) || ($base !== '' && str_starts_with($path, $base . '/'))) {
+            return $path;
+        }
         return base_url($path);
     }
     return base_url('uploads/sample-property-01.jpg');

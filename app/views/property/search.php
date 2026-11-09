@@ -142,7 +142,7 @@ $initialMapProperties = array_map(function ($p) {
 <!-- Dữ liệu ban đầu truyền vào JS -->
 <script>
   window.INITIAL_SEARCH_DATA = {
-    properties: <?= json_encode($initialMapProperties, JSON_UNESCAPED_UNICODE) ?>,
+    properties: <?= json_for_script($initialMapProperties) ?>,
     total: <?= (int)$total ?>,
     page: <?= (int)$page ?>,
     totalPages: <?= (int)$totalPages ?>,

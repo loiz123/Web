@@ -510,6 +510,15 @@ window.PropertyCompare = (function () {
   const STORAGE_KEY = 'bds_compare_properties';
   const MAX_COMPARE = 3;
 
+  function escapeHtml(str) {
+    return String(str ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   function getList() {
     try {
       const data = localStorage.getItem(STORAGE_KEY);
@@ -620,9 +629,9 @@ window.PropertyCompare = (function () {
         item.title = p.title || '';
         var imgUrl = p.cover_url || p.avatar || '';
         item.innerHTML = (imgUrl
-          ? '<img src="' + imgUrl + '" alt="' + (p.title || '') + '">'
+          ? '<img src="' + escapeHtml(imgUrl) + '" alt="' + escapeHtml(p.title) + '">'
           : '<div class="d-flex align-items-center justify-content-center h-100 text-white small">🏠</div>') +
-          '<span class="compare-thumb-remove" title="Xóa khỏi so sánh" onclick="window.PropertyCompare.remove(' + p.id + ')">&times;</span>';
+          '<span class="compare-thumb-remove" title="Xóa khỏi so sánh" onclick="window.PropertyCompare.remove(' + Number(p.id) + ')">&times;</span>';
         thumbsContainer.appendChild(item);
       });
     }

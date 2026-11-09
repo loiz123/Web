@@ -1387,6 +1387,15 @@ if (!$hasValidCoords) {
   let activePoiCat = null;
   let currentPoiItems = [];
 
+  function escapeHtml(str) {
+    return String(str ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   async function handlePoiCategoryClick(catKey, btn) {
     if (!detailMapInstance || !detailMapInstance.loadPoi) return;
 
@@ -1429,8 +1438,8 @@ if (!$hasValidCoords) {
             '<div class="d-flex align-items-center gap-2 overflow-hidden me-2">' +
               '<span class="fs-5">' + it.icon + '</span>' +
               '<div class="text-truncate">' +
-                '<div class="fw-semibold text-dark small text-truncate" title="' + it.name + '">' + it.name + '</div>' +
-                '<div class="text-muted" style="font-size: 0.75rem;">' + it.type + ' • ~' + walkMin + ' phút đi bộ</div>' +
+                '<div class="fw-semibold text-dark small text-truncate" title="' + escapeHtml(it.name) + '">' + escapeHtml(it.name) + '</div>' +
+                '<div class="text-muted" style="font-size: 0.75rem;">' + escapeHtml(it.type) + ' • ~' + walkMin + ' phút đi bộ</div>' +
               '</div>' +
             '</div>' +
             '<span class="badge bg-danger-subtle text-danger fw-bold flex-shrink-0">' + it.formattedDistance + '</span>' +
