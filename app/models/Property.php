@@ -7,7 +7,7 @@ class Property extends Model
     protected array $fillable = [
         'user_id', 'type_id', 'ward_id', 'title', 'description', 'listing_type', 'price', 'deposit', 'area',
         'bedrooms', 'bathrooms', 'direction', 'legal_status', 'furniture', 'pets_allowed', 'address_detail',
-        'latitude', 'longitude', 'status', 'reject_reason', 'is_verified',
+        'latitude', 'longitude', 'status', 'reject_reason', 'is_verified', 'expired_at',
     ];
 
     public function typeExists(int $typeId): bool
@@ -33,7 +33,7 @@ class Property extends Model
     private function listingsForUserSql(int $userId, ?string $status): array
     {
         $sql = "SELECT p.id, p.title, p.status, p.listing_type, p.price, p.area, p.created_at,
-                       p.reject_reason,
+                       p.expired_at, p.reject_reason,
                        t.name AS type_name,
                        (SELECT image_url FROM property_images i
                         WHERE i.property_id = p.id ORDER BY i.is_cover DESC, i.id LIMIT 1) AS cover_url
@@ -47,6 +47,24 @@ class Property extends Model
         }
         $sql .= ' ORDER BY p.created_at DESC, p.id DESC';
         return $this->query($sql, $params)->fetchAll();
+    }
+
+    /**
+     * Gia hạn thời gian hiển thị của tin đăng thêm $days ngày (mặc định 30 ngày).
+     */
+    public function renewOwnedListing(int $id, int $userId, int $days = 30): bool
+    {
+        $days = max(1, min(365, $days));
+        $stmt = $this->query(
+            "UPDATE properties
+             SET expired_at = CASE
+                 WHEN expired_at IS NOT NULL AND expired_at > NOW() THEN DATE_ADD(expired_at, INTERVAL {$days} DAY)
+                 ELSE DATE_ADD(NOW(), INTERVAL {$days} DAY)
+             END
+             WHERE id = ? AND user_id = ?",
+            [$id, $userId]
+        );
+        return $stmt->rowCount() > 0;
     }
 
     public function findOwned(int $id, int $userId): ?array

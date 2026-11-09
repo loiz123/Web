@@ -46,10 +46,19 @@ class PropertyModeration extends Model
             return ['ok' => false, 'message' => 'Vui lòng nhập lý do từ chối.'];
         }
 
+        $prop = $this->query('SELECT id, user_id, title FROM properties WHERE id = ? LIMIT 1', [$id])->fetch();
+        $result = null;
+
         if (config('use_routines')) {
             try {
                 $this->query('CALL sp_moderate_property(?, ?, ?)', [$id, $action, $reason]);
-                return ['ok' => true, 'message' => $this->successMessage($action)];
+                if ($action === 'approve') {
+                    $this->query(
+                        'UPDATE properties SET expired_at = COALESCE(expired_at, DATE_ADD(NOW(), INTERVAL 30 DAY)) WHERE id = ?',
+                        [$id]
+                    );
+                }
+                $result = ['ok' => true, 'message' => $this->successMessage($action)];
             } catch (PDOException $e) {
                 $code = (int)($e->errorInfo[1] ?? 0);
                 if ($code === 1644) {            // lỗi nghiệp vụ do SIGNAL trong routine
@@ -61,14 +70,23 @@ class PropertyModeration extends Model
                 // routine chưa import: rơi xuống SQL thường
             }
         }
-        return $this->moderateSql($id, $action, $reason);
+
+        if ($result === null) {
+            $result = $this->moderateSql($id, $action, $reason);
+        }
+
+        if (!empty($result['ok']) && $prop && in_array($action, ['approve', 'reject'], true)) {
+            $this->notifyAgentModeration((int)$prop['user_id'], (int)$prop['id'], (string)$prop['title'], $action, $reason);
+        }
+
+        return $result;
     }
 
     private function moderateSql(int $id, string $action, string $reason): array
     {
         if ($action === 'approve') {
             $stmt = $this->query(
-                "UPDATE properties SET status = 'approved', reject_reason = NULL WHERE id = ? AND status = 'pending'",
+                "UPDATE properties SET status = 'approved', reject_reason = NULL, expired_at = DATE_ADD(NOW(), INTERVAL 30 DAY) WHERE id = ? AND status = 'pending'",
                 [$id]
             );
         } elseif ($action === 'reject') {
@@ -87,6 +105,30 @@ class PropertyModeration extends Model
         return ['ok' => false, 'message' => $exists
             ? 'Chỉ duyệt hoặc từ chối được tin đang chờ duyệt.'
             : 'Tin không tồn tại hoặc đã bị xóa.'];
+    }
+
+    private function notifyAgentModeration(int $agentId, int $propertyId, string $title, string $action, string $reason): void
+    {
+        try {
+            $notif = new Notification();
+            if ($action === 'approve') {
+                $notif->create(
+                    $agentId,
+                    'Tin đăng đã được duyệt',
+                    'Tin đăng "' . $title . '" của bạn đã được quản trị viên phê duyệt và hiển thị công khai (thời hạn 30 ngày).',
+                    'property/detail/' . $propertyId
+                );
+            } elseif ($action === 'reject') {
+                $notif->create(
+                    $agentId,
+                    'Tin đăng bị từ chối',
+                    'Tin đăng "' . $title . '" chưa được duyệt. Lý do: ' . $reason,
+                    'agent'
+                );
+            }
+        } catch (Throwable $e) {
+            error_log('Notification error on moderation: ' . $e->getMessage());
+        }
     }
 
     private function successMessage(string $action): string

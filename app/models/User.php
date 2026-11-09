@@ -24,14 +24,57 @@ class User extends Model
         ]);
     }
 
-    public function updateProfile(int $id, string $name, string $phone): void
+    public function updateProfile(int $id, string $name, string $phone, ?string $bio = null, ?string $avatar = null): void
     {
-        $this->update($id, ['full_name' => $name, 'phone' => $phone !== '' ? $phone : null]);
+        $data = [
+            'full_name' => $name,
+            'phone' => $phone !== '' ? $phone : null,
+        ];
+        if ($bio !== null) {
+            $data['bio'] = $bio !== '' ? $bio : null;
+        }
+        if ($avatar !== null) {
+            $data['avatar'] = $avatar !== '' ? $avatar : null;
+        }
+        $this->update($id, $data);
     }
 
-    public function setPassword(int $id, string $password): void
+    public function setPassword(int $id, string $password): string
     {
-        $this->update($id, ['password_hash' => password_hash($password, PASSWORD_DEFAULT)]);
+        $hash = password_hash($password, PASSWORD_DEFAULT);
+        $this->update($id, ['password_hash' => $hash]);
+        return $hash;
+    }
+
+    // ---------- Đặt lại mật khẩu (password_resets) ----------
+
+    public function createPasswordResetToken(string $email): string
+    {
+        $token = bin2hex(random_bytes(32));
+        $now = date('Y-m-d H:i:s');
+        $expiresAt = date('Y-m-d H:i:s', time() + 1800); // 30 phút
+
+        $this->query('DELETE FROM password_resets WHERE email = ?', [$email]);
+        $this->query(
+            'INSERT INTO password_resets (email, token, expires_at, created_at) VALUES (?, ?, ?, ?)',
+            [$email, $token, $expiresAt, $now]
+        );
+        return $token;
+    }
+
+    public function findValidPasswordReset(string $token): ?array
+    {
+        if ($token === '') return null;
+        $row = $this->query(
+            'SELECT * FROM password_resets WHERE token = ? AND expires_at >= ? ORDER BY created_at DESC LIMIT 1',
+            [$token, date('Y-m-d H:i:s')]
+        )->fetch();
+        return $row ?: null;
+    }
+
+    public function deletePasswordResetsForEmail(string $email): void
+    {
+        $this->query('DELETE FROM password_resets WHERE email = ?', [$email]);
     }
 
     // ---------- Kiểm tra dữ liệu dùng chung cho đăng ký và hồ sơ ----------

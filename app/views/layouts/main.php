@@ -1,4 +1,19 @@
-<?php /** @var string $content */ $user = Auth::user(); ?>
+<?php
+/** @var string $content */
+$user = Auth::user();
+$unreadNotifications = [];
+$unreadNotifCount = 0;
+if ($user) {
+    try {
+        $notifModel = new Notification();
+        $unreadNotifications = $notifModel->getUnreadForUser((int)$user['id'], 6);
+        $unreadNotifCount = $notifModel->countUnreadForUser((int)$user['id']);
+    } catch (Throwable $e) {
+        $unreadNotifications = [];
+        $unreadNotifCount = 0;
+    }
+}
+?>
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -17,8 +32,10 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
-  <!-- Bản đồ tương tác trực quan -->
+  <!-- Bản đồ tương tác trực quan & Gom cụm điểm ghim -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
 
   <!-- Main Custom CSS -->
   <link href="<?= e(base_url('assets/css/style.css')) ?>" rel="stylesheet">
@@ -87,11 +104,64 @@
       <!-- User Actions & Post Button -->
       <div class="d-flex align-items-center gap-2 mt-3 mt-lg-0">
         <?php if ($user): ?>
+          <!-- Biểu tượng Chuông Thông báo (In-app Notification) -->
+          <div class="dropdown">
+            <button class="btn btn-light btn-sm rounded-circle position-relative border d-flex align-items-center justify-content-center"
+                    type="button" id="notificationDropdownBtn" data-bs-toggle="dropdown" aria-expanded="false"
+                    style="width: 36px; height: 36px;" title="Thông báo">
+              <i class="bi bi-bell-fill text-secondary"></i>
+              <?php if ($unreadNotifCount > 0): ?>
+                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="notificationBadgeCount" style="font-size: 0.65rem;">
+                  <?= $unreadNotifCount > 99 ? '99+' : (int)$unreadNotifCount ?>
+                </span>
+              <?php endif; ?>
+            </button>
+            <div class="dropdown-menu dropdown-menu-end shadow border-0 mt-2 p-0 rounded-4 overflow-hidden" style="width: 340px; max-width: 92vw;" aria-labelledby="notificationDropdownBtn">
+              <div class="px-3 py-2 bg-light border-bottom d-flex justify-content-between align-items-center">
+                <span class="fw-bold small text-dark"><i class="bi bi-bell me-1 text-primary"></i>Thông báo</span>
+                <?php if ($unreadNotifCount > 0): ?>
+                  <form method="post" action="<?= e(base_url('notification/readAll')) ?>" class="m-0">
+                    <?= csrf_field() ?>
+                    <button type="submit" class="btn btn-link btn-sm p-0 text-decoration-none small fw-semibold">Đánh dấu đã đọc</button>
+                  </form>
+                <?php endif; ?>
+              </div>
+              <div class="list-group list-group-flush" style="max-height: 320px; overflow-y: auto;">
+                <?php if (empty($unreadNotifications)): ?>
+                  <div class="p-4 text-center text-muted small">
+                    <i class="bi bi-check2-circle fs-4 d-block mb-1 text-success"></i>
+                    Bạn không có thông báo mới nào.
+                  </div>
+                <?php else: ?>
+                  <?php foreach ($unreadNotifications as $notifItem): ?>
+                    <a href="<?= e(base_url('notification/read/' . (int)$notifItem['id'])) ?>" class="list-group-item list-group-item-action px-3 py-2">
+                      <div class="d-flex justify-content-between align-items-center mb-1">
+                        <strong class="small text-dark text-truncate" style="max-width: 220px;"><?= e($notifItem['title']) ?></strong>
+                        <span class="badge bg-danger-subtle text-danger rounded-pill" style="font-size: 0.6rem;">Mới</span>
+                      </div>
+                      <p class="small text-secondary mb-1 text-truncate"><?= e($notifItem['message']) ?></p>
+                      <span class="text-muted" style="font-size: 0.7rem;">
+                        <i class="bi bi-clock me-1"></i><?= date('H:i d/m/Y', strtotime((string)$notifItem['created_at'])) ?>
+                      </span>
+                    </a>
+                  <?php endforeach; ?>
+                <?php endif; ?>
+              </div>
+              <div class="p-2 bg-light border-top text-center">
+                <a href="<?= e(base_url('notification')) ?>" class="small fw-semibold text-decoration-none">Xem tất cả thông báo &rarr;</a>
+              </div>
+            </div>
+          </div>
+
           <div class="dropdown">
             <button class="btn btn-light btn-sm rounded-pill dropdown-toggle d-flex align-items-center gap-2 px-3 border" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-              <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 28px; height: 28px; font-size: 0.8rem;">
-                <?= mb_substr(e($user['full_name']), 0, 1) ?>
-              </div>
+              <?php if (!empty($user['avatar'])): ?>
+                <img src="<?= e(base_url($user['avatar'])) ?>" alt="<?= e($user['full_name']) ?>" class="rounded-circle object-fit-cover" style="width: 28px; height: 28px;">
+              <?php else: ?>
+                <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 28px; height: 28px; font-size: 0.8rem;">
+                  <?= mb_substr(e($user['full_name']), 0, 1) ?>
+                </div>
+              <?php endif; ?>
               <span class="fw-semibold small text-truncate" style="max-width: 140px;"><?= e($user['full_name']) ?></span>
             </button>
             <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 mt-2">
@@ -101,6 +171,7 @@
                 <span class="badge bg-secondary-subtle text-secondary small mt-1"><?= ucfirst($user['role']) ?></span>
               </li>
               <li><a class="dropdown-item py-2 small" href="<?= e(base_url('profile')) ?>"><i class="bi bi-person me-2 text-muted"></i>Thông tin cá nhân</a></li>
+              <li><a class="dropdown-item py-2 small" href="<?= e(base_url('notification')) ?>"><i class="bi bi-bell me-2 text-muted"></i>Thông báo của tôi<?php if ($unreadNotifCount > 0): ?><span class="badge rounded-pill bg-danger ms-2"><?= (int)$unreadNotifCount ?></span><?php endif; ?></a></li>
               <li><a class="dropdown-item py-2 small" href="<?= e(base_url('appointment/my')) ?>"><i class="bi bi-calendar-check me-2 text-muted"></i>Lịch hẹn của tôi</a></li>
               <?php if (Auth::hasRole('agent')): ?><li><a class="dropdown-item py-2 small" href="<?= e(base_url('appointment/agent')) ?>"><i class="bi bi-calendar-event me-2 text-muted"></i>Lịch hẹn khách đặt</a></li><?php endif; ?>
               <li><a class="dropdown-item py-2 small" href="<?= e(base_url('favorite')) ?>"><i class="bi bi-heart me-2 text-muted"></i>Danh sách tin đã lưu</a></li>

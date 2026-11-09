@@ -778,7 +778,16 @@ window.BdsMap = (function () {
     baseLayer.addTo(map);
     addLayerSwitcher(map, baseLayer);
 
-    const markersLayer = L.layerGroup().addTo(map);
+    // Sử dụng L.markerClusterGroup để gom cụm các điểm ghim BĐS gần nhau, chống đè ghim và tối ưu hiệu năng
+    const markersLayer = (typeof L.markerClusterGroup === 'function'
+      ? L.markerClusterGroup({
+          chunkedLoading: true,
+          spiderfyOnMaxZoom: true,
+          showCoverageOnHover: false,
+          maxClusterRadius: 50,
+        })
+      : L.layerGroup()
+    ).addTo(map);
 
     function updateMarkers(properties = []) {
       markersLayer.clearLayers();

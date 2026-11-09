@@ -6,7 +6,7 @@ CREATE DATABASE IF NOT EXISTS batdongsan CHARACTER SET utf8mb4 COLLATE utf8mb4_u
 USE batdongsan;
 
 SET FOREIGN_KEY_CHECKS = 0;
-DROP TABLE IF EXISTS saved_searches, reports, viewing_appointments, reviews, favorites,
+DROP TABLE IF EXISTS notifications, password_resets, saved_searches, reports, viewing_appointments, reviews, favorites,
   property_amenities, amenities, property_images, properties, property_types,
   wards, districts, provinces, users, roles;
 SET FOREIGN_KEY_CHECKS = 1;
@@ -85,6 +85,7 @@ CREATE TABLE properties (
   reject_reason  VARCHAR(255) NULL,
   is_verified    TINYINT(1) NOT NULL DEFAULT 0,         -- tick xanh
   views          INT UNSIGNED NOT NULL DEFAULT 0,
+  expired_at     DATETIME NULL,                         -- thời hạn hiển thị tin đăng (30 ngày từ lúc duyệt)
   created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_prop_user FOREIGN KEY (user_id) REFERENCES users(id),
@@ -164,6 +165,27 @@ CREATE TABLE reports (                       -- báo cáo tin giả/giá ảo
   created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_rep_prop FOREIGN KEY (property_id) REFERENCES properties(id) ON DELETE CASCADE,
   CONSTRAINT fk_rep_user FOREIGN KEY (reporter_id) REFERENCES users(id)      ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE password_resets (               -- khôi phục mật khẩu qua token hết hạn sau 30 phút
+  email      VARCHAR(191) NOT NULL,
+  token      VARCHAR(191) NOT NULL,
+  expires_at DATETIME NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_password_resets_email (email),
+  INDEX idx_password_resets_token (token)
+) ENGINE=InnoDB;
+
+CREATE TABLE notifications (                 -- thông báo trong ứng dụng (In-app Notification)
+  id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id    INT UNSIGNED NOT NULL,
+  title      VARCHAR(255) NOT NULL,
+  message    TEXT,
+  link       VARCHAR(255) NULL,
+  is_read    TINYINT NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_notifications_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_notifications_user_read (user_id, is_read, created_at)
 ) ENGINE=InnoDB;
 
 -- Indexes bổ sung tối ưu truy vấn lọc, sắp xếp và lấy ảnh bìa

@@ -75,4 +75,99 @@ class AuthController extends Controller
         flash('info', 'Bạn đã đăng xuất.');
         $this->redirect('');
     }
+
+    public function forgot(): void
+    {
+        if (Auth::check()) $this->redirect('');
+
+        if ($this->isPost()) {
+            $this->verifyCsrf();
+            $email = strtolower(trim((string)($_POST['email'] ?? '')));
+
+            if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                flash('danger', 'Vui lòng nhập địa chỉ email hợp lệ.');
+                $_SESSION['old'] = ['email' => $email];
+            } else {
+                $users = new User();
+                $user = $users->findByEmail($email);
+                if (!$user) {
+                    unset($_SESSION['old']);
+                    flash('success', 'Một liên kết đặt lại mật khẩu đã được gửi tới email của bạn (nếu tài khoản tồn tại trong hệ thống). Vui lòng kiểm tra hộp thư đến hoặc hòm thư rác.');
+                } elseif ($user['status'] === 'locked') {
+                    flash('danger', 'Tài khoản này hiện đang bị khóa. Vui lòng liên hệ bộ phận hỗ trợ.');
+                } else {
+                    $token = $users->createPasswordResetToken($email);
+                    $relativeResetPath = base_url('auth/reset?token=' . urlencode($token));
+                    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+                    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+                    $fullResetUrl = preg_match('#^https?://#i', $relativeResetPath)
+                        ? $relativeResetPath
+                        : ($scheme . '://' . $host . $relativeResetPath);
+
+                    unset($_SESSION['old']);
+                    $mailer = new Mailer();
+                    $sent = $mailer->sendPasswordResetEmail(
+                        $email,
+                        (string)($user['full_name'] ?? 'Quý khách'),
+                        $fullResetUrl,
+                        30
+                    );
+
+                    if ($sent) {
+                        flash('success', 'Một liên kết đặt lại mật khẩu đã được gửi tới email của bạn (nếu tài khoản tồn tại trong hệ thống). Vui lòng kiểm tra hộp thư đến hoặc hòm thư rác.');
+                    } else {
+                        flash('danger', 'Không thể gửi email lúc này. Vui lòng liên hệ quản trị viên hoặc kiểm tra cấu hình hòm thư.');
+                    }
+                }
+            }
+        }
+
+        $this->view('auth/forgot', [
+            'title' => 'Quên mật khẩu',
+        ]);
+        unset($_SESSION['old']);
+    }
+
+    public function reset(string $tokenParam = ''): void
+    {
+        if (Auth::check()) $this->redirect('');
+        $token = trim((string)($_GET['token'] ?? ($_POST['token'] ?? $tokenParam)));
+        $users = new User();
+        $resetRow = $users->findValidPasswordReset($token);
+
+        if (!$resetRow) {
+            flash('danger', 'Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn (30 phút). Vui lòng gửi lại yêu cầu.');
+            $this->redirect('auth/forgot');
+            return;
+        }
+
+        if ($this->isPost()) {
+            $this->verifyCsrf();
+            $pass    = (string)($_POST['password'] ?? '');
+            $confirm = (string)($_POST['password_confirm'] ?? '');
+            $errors  = User::validatePassword($pass, $confirm);
+
+            if ($errors) {
+                foreach ($errors as $err) flash('danger', $err);
+            } else {
+                $user = $users->findByEmail($resetRow['email']);
+                if (!$user) {
+                    flash('danger', 'Tài khoản không tồn tại.');
+                    $this->redirect('auth/forgot');
+                    return;
+                }
+                $users->setPassword((int)$user['id'], $pass);
+                $users->deletePasswordResetsForEmail($resetRow['email']);
+                flash('success', 'Đặt lại mật khẩu thành công. Vui lòng đăng nhập bằng mật khẩu mới.');
+                $this->redirect('auth/login');
+                return;
+            }
+        }
+
+        $this->view('auth/reset', [
+            'title' => 'Đặt lại mật khẩu mới',
+            'token' => $token,
+            'email' => $resetRow['email'],
+        ]);
+    }
 }

@@ -90,23 +90,14 @@ class AgentController extends Controller
         $savedFiles = [];
         if (!empty($newImages)) {
             $uploadDir = config('upload_dir');
-            if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true) && !is_dir($uploadDir)) {
-                flash('danger', 'Không thể tạo thư mục lưu ảnh. Vui lòng thử lại.');
+            $stored = $this->storePropertyData($newImages, $uploadDir);
+            if ($stored === null) {
+                flash('danger', 'Không thể lưu hoặc nén ảnh đã tải lên. Vui lòng thử lại.');
                 $this->showEditForm(array_merge($listing, $input));
                 return;
             }
-            foreach ($newImages as $image) {
-                $fileName = bin2hex(random_bytes(16)) . '.' . $image['extension'];
-                $target = rtrim($uploadDir, '/\\') . DIRECTORY_SEPARATOR . $fileName;
-                if (!move_uploaded_file($image['tmp_name'], $target)) {
-                    foreach ($savedFiles as $savedFile) @unlink($savedFile);
-                    flash('danger', 'Không thể lưu ảnh đã tải lên. Vui lòng thử lại.');
-                    $this->showEditForm(array_merge($listing, $input));
-                    return;
-                }
-                $savedFiles[] = $target;
-                $newImagePaths[] = 'uploads/properties/' . $fileName;
-            }
+            $newImagePaths = $stored['image_paths'];
+            $savedFiles = $stored['saved_files'];
         }
 
         $coverImageId = isset($input['cover_image_id']) && $input['cover_image_id'] !== ''
@@ -135,14 +126,19 @@ class AgentController extends Controller
             return;
         }
 
-        // Xóa file vật lý của các ảnh đã xóa
+        // Xóa file vật lý của các ảnh đã xóa (bao gồm cả ảnh thumbnail nếu có)
         foreach ($deleteImageIds as $delId) {
             $imagePath = $existingById[$delId]['image_url'] ?? '';
             $fileName = basename($imagePath);
             if (!preg_match('/^[a-f0-9]{32}\.(jpg|png|webp)$/', $fileName)) continue;
-            $filePath = rtrim(config('upload_dir'), '/\\') . DIRECTORY_SEPARATOR . $fileName;
+            $uploadBase = rtrim(config('upload_dir'), '/\\') . DIRECTORY_SEPARATOR;
+            $filePath = $uploadBase . $fileName;
+            $thumbPath = $uploadBase . 'thumb_' . $fileName;
             if (is_file($filePath) && !@unlink($filePath)) {
                 error_log('Unable to remove deleted property image: ' . $filePath);
+            }
+            if (is_file($thumbPath)) {
+                @unlink($thumbPath);
             }
         }
 
@@ -350,6 +346,22 @@ class AgentController extends Controller
         $this->json(['id' => $id, 'status' => $status], true, 'Đã cập nhật trạng thái tin.');
     }
 
+    public function renew(int $id): void
+    {
+        $this->requirePostAndCsrf();
+        $ok = (new Property())->renewOwnedListing($id, (int)Auth::id(), 30);
+        if ($this->wantsJson()) {
+            $this->json(['id' => $id], $ok, $ok ? 'Đã gia hạn tin đăng thêm 30 ngày.' : 'Không thể gia hạn tin đăng này.', $ok ? 200 : 400);
+            return;
+        }
+        if ($ok) {
+            flash('success', 'Đã gia hạn tin đăng thêm 30 ngày hiển thị.');
+        } else {
+            flash('danger', 'Không tìm thấy tin đăng của bạn để gia hạn.');
+        }
+        $this->redirect('agent');
+    }
+
     public function delete(int $id): void
     {
         $this->requirePostAndCsrf();
@@ -368,9 +380,14 @@ class AgentController extends Controller
         foreach ($imagePaths as $imagePath) {
             $fileName = basename($imagePath);
             if (!preg_match('/^[a-f0-9]{32}\.(jpg|png|webp)$/', $fileName)) continue;
-            $filePath = rtrim(config('upload_dir'), '/\\') . DIRECTORY_SEPARATOR . $fileName;
+            $uploadBase = rtrim(config('upload_dir'), '/\\') . DIRECTORY_SEPARATOR;
+            $filePath = $uploadBase . $fileName;
+            $thumbPath = $uploadBase . 'thumb_' . $fileName;
             if (is_file($filePath) && !unlink($filePath)) {
                 error_log('Unable to remove deleted property image: ' . $filePath);
+            }
+            if (is_file($thumbPath)) {
+                @unlink($thumbPath);
             }
         }
         flash('success', 'Tin đăng đã được xóa.');
@@ -410,31 +427,19 @@ class AgentController extends Controller
         }
 
         $uploadDir = config('upload_dir');
-        if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true) && !is_dir($uploadDir)) {
-            flash('danger', 'Không thể tạo thư mục lưu ảnh. Vui lòng thử lại.');
+        $stored = $this->storePropertyData($images, $uploadDir);
+        if ($stored === null) {
+            flash('danger', 'Không thể lưu hoặc nén ảnh đã tải lên. Vui lòng thử lại.');
             $this->showCreateForm($input);
             return;
         }
-
-        $imagePaths = [];
-        $savedFiles = [];
-        foreach ($images as $index => $image) {
-            $fileName = bin2hex(random_bytes(16)) . '.' . $image['extension'];
-            $target = rtrim($uploadDir, '/\\') . DIRECTORY_SEPARATOR . $fileName;
-            if (!move_uploaded_file($image['tmp_name'], $target)) {
-                foreach ($savedFiles as $savedFile) unlink($savedFile);
-                flash('danger', 'Không thể lưu ảnh đã tải lên. Vui lòng thử lại.');
-                $this->showCreateForm($input);
-                return;
-            }
-            $savedFiles[] = $target;
-            $imagePaths[] = 'uploads/properties/' . $fileName;
-        }
+        $imagePaths = $stored['image_paths'];
+        $savedFiles = $stored['saved_files'];
 
         try {
             (new Property())->createListing($propertyData, $imagePaths, $amenityIds, $coverIndex);
         } catch (PDOException $error) {
-            foreach ($savedFiles as $savedFile) unlink($savedFile);
+            foreach ($savedFiles as $savedFile) @unlink($savedFile);
             error_log($error->getMessage());
             flash('danger', 'Không thể lưu tin đăng. Vui lòng thử lại.');
             $this->showCreateForm($input);
@@ -443,6 +448,43 @@ class AgentController extends Controller
 
         flash('success', 'Tin đăng đã được gửi và đang chờ duyệt (pending).');
         $this->redirect('agent/create');
+    }
+
+    /**
+     * Nén và resize ảnh tự động sang WebP (tối đa 1600px, quality 82) + sinh ảnh thumbnail 450x300px
+     * sử dụng PHP GD (imagecreatetruecolor, imagecopyresampled, imagewebp).
+     *
+     * @param array<int, array{tmp_name: string, extension: string}> $images
+     * @return array{image_paths: string[], saved_files: string[]}|null
+     */
+    public function storePropertyData(array $images, string $uploadDir): ?array
+    {
+        if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true) && !is_dir($uploadDir)) {
+            return null;
+        }
+
+        $imagePaths = [];
+        $savedFiles = [];
+
+        foreach ($images as $image) {
+            $res = ImageHelper::processPropertyImage($image['tmp_name'], $uploadDir, 1600, 82, true);
+            if ($res === null) {
+                foreach ($savedFiles as $savedFile) {
+                    if (is_file($savedFile)) @unlink($savedFile);
+                }
+                return null;
+            }
+            $savedFiles[] = $res['full_path'];
+            if (!empty($res['thumb_path'])) {
+                $savedFiles[] = $res['thumb_path'];
+            }
+            $imagePaths[] = $res['relative_path'];
+        }
+
+        return [
+            'image_paths' => $imagePaths,
+            'saved_files' => $savedFiles,
+        ];
     }
 
     private function showCreateForm(array $values = []): void

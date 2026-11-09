@@ -41,6 +41,8 @@ $initialMapProperties = array_map(function ($p) {
 ?>
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
 
 <div class="search-page-container">
   <!-- Tiêu đề & Thống kê nhanh -->
@@ -157,5 +159,6 @@ $initialMapProperties = array_map(function ($p) {
 </script>
 
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script src="<?= e(base_url('assets/js/map.js')) ?>"></script>
 <script src="<?= e(base_url('assets/js/search-ajax.js')) ?>"></script>

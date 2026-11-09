@@ -591,7 +591,12 @@ if (!$hasValidCoords) {
               <?php endif; ?>
             </div>
             <h5 class="fw-bold mb-1"><?= e($property['agent_name'] ?: 'Môi giới BĐS') ?></h5>
-            <p class="text-muted small mb-3">Đại diện đăng tin bất động sản</p>
+            <p class="text-muted small mb-2">Đại diện đăng tin bất động sản</p>
+            <?php if (!empty($property['agent_bio'])): ?>
+              <p class="small text-secondary bg-light rounded-3 p-2 mb-3 border"><?= nl2br(e($property['agent_bio'])) ?></p>
+            <?php else: ?>
+              <div class="mb-2"></div>
+            <?php endif; ?>
 
             <div class="d-grid gap-2">
               <?php if (!empty($property['agent_phone'])): ?>

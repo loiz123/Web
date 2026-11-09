@@ -416,6 +416,164 @@ $t->assert(
     "6.10 database/schema.sql đã bổ sung đủ 3 composite indexes tối ưu truy vấn"
 );
 
+// =========================================================================
+// 7. KIỂM THỬ 7 HẠNG MỤC NÂNG CẤP HOÀN THIỆN 15/15 (MỤC 4, 7, 8, 9, 10, 14, 15)
+// =========================================================================
+echo "\nSUITE 7: KIỂM THỬ 7 HẠNG MỤC NÂNG CẤP BỔ SUNG (HOÀN THIỆN 100% 15 KHUYẾT ĐIỂM)\n";
+
+require_once APP . '/core/Auth.php';
+require_once APP . '/models/User.php';
+require_once APP . '/models/Notification.php';
+require_once APP . '/models/Property.php';
+require_once APP . '/helpers/ImageHelper.php';
+require_once APP . '/helpers/Mailer.php';
+
+// 7.1 Quên mật khẩu (SMTP Mailer + OWASP anti-enumeration) & Thu hồi phiên cũ khi đổi mật khẩu
+$authSrc = file_get_contents(APP . '/core/Auth.php');
+$authCtrlSrc = file_get_contents(APP . '/controllers/AuthController.php');
+$forgotViewSrc = file_get_contents(APP . '/views/auth/forgot.php');
+$userModel = new User();
+$testResetToken = $userModel->createPasswordResetToken('agent1@bds.local');
+$foundReset = $userModel->findValidPasswordReset($testResetToken);
+$userModel->deletePasswordResetsForEmail('agent1@bds.local');
+
+$mailer = new Mailer(['enabled' => false, 'host' => 'smtp.gmail.com', 'port' => 587, 'username' => '', 'password' => '', 'from_name' => 'Bất Động Sản']);
+$mailHtml = Mailer::buildPasswordResetHtml('Nguyễn Văn Test', 'http://localhost/batdongsan/public/auth/reset?token=' . $testResetToken, 30);
+$mailer->sendPasswordResetEmail('agent1@bds.local', 'Nguyễn Văn Test', 'http://localhost/batdongsan/public/auth/reset?token=' . $testResetToken, 30);
+$smtpCfg = config('smtp', []);
+
+$t->assert(
+    strpos($authSrc, 'password_signature') !== false
+    && strpos($authSrc, 'pwd_sig') !== false
+    && strpos($authSrc, 'updatePasswordSignature') !== false
+    && strpos($authCtrlSrc, 'function forgot(') !== false
+    && strpos($authCtrlSrc, 'function reset(') !== false
+    && strpos($authCtrlSrc, 'sendPasswordResetEmail') !== false
+    && strpos($forgotViewSrc, '$resetLink') === false
+    && strpos($mailHtml, 'Đặt lại mật khẩu') !== false
+    && strpos($mailHtml, '/auth/reset?token=') !== false
+    && is_array($smtpCfg) && array_key_exists('host', $smtpCfg) && $smtpCfg['host'] === 'smtp.gmail.com'
+    && is_file(ROOT . '/storage/logs/mail.log')
+    && is_file(APP . '/views/auth/forgot.php')
+    && is_file(APP . '/views/auth/reset.php')
+    && $foundReset !== null
+    && ($foundReset['email'] ?? '') === 'agent1@bds.local',
+    "7.1 [Mục 4/15] Quên mật khẩu (SMTP Mailer, password_resets, /auth/forgot, /auth/reset) & Thu hồi phiên cũ qua password_signature hoạt động chuẩn xác"
+);
+
+// 7.2 Vòng đời tin đăng (expired_at + Gia hạn tin) & Chống tăng lượt xem ảo
+$propControllerSrc = file_get_contents(APP . '/controllers/PropertyController.php');
+$agentControllerSrc = file_get_contents(APP . '/controllers/AgentController.php');
+$agentIndexViewSrc = file_get_contents(APP . '/views/agent/index.php');
+$hasExpiredCol = !empty($db->query("SHOW COLUMNS FROM properties LIKE 'expired_at'")->fetchAll());
+
+$t->assert(
+    $hasExpiredCol
+    && strpos($propControllerSrc, "\$_SESSION['viewed_properties'][\$id]") !== false
+    && strpos($agentControllerSrc, 'function renew(') !== false
+    && strpos($agentIndexViewSrc, 'agent/renew/') !== false
+    && strpos($agentIndexViewSrc, 'Gia hạn tin') !== false,
+    "7.2 [Mục 7/15] Vòng đời tin đăng (cột expired_at, nút Gia hạn tin +30 ngày) & Chống tăng lượt xem ảo bằng session"
+);
+
+// 7.3 Hệ thống Thông báo In-app (Notification)
+$notifModel = new Notification();
+$testUserRow = $db->query("SELECT id FROM users ORDER BY id ASC LIMIT 1")->fetch();
+$testUid = (int)($testUserRow['id'] ?? 1);
+$notifId = $notifModel->create($testUid, 'Kiểm thử thông báo', 'Nội dung kiểm thử hệ thống thông báo', 'notification');
+$unreadList = $notifModel->getUnreadForUser($testUid, 10);
+$markedOk = $notifModel->markAsRead($notifId, $testUid);
+$notifModel->markAllAsRead($testUid);
+$db->prepare("DELETE FROM notifications WHERE id = ?")->execute([$notifId]);
+
+$mainLayoutSrc = file_get_contents(APP . '/views/layouts/main.php');
+$apptCtrlSrc = file_get_contents(APP . '/controllers/AppointmentController.php');
+$modModelSrc = file_get_contents(APP . '/models/PropertyModeration.php');
+
+$t->assert(
+    $notifId > 0
+    && !empty($unreadList)
+    && $markedOk
+    && is_file(APP . '/controllers/NotificationController.php')
+    && is_file(APP . '/views/notification/index.php')
+    && strpos($mainLayoutSrc, 'notificationDropdownBtn') !== false
+    && strpos($apptCtrlSrc, 'new Notification()') !== false
+    && strpos($modModelSrc, 'new Notification()') !== false,
+    "7.3 [Mục 8/15] Hệ thống Thông báo In-app (Model Notification, NotificationController, chuông Navbar & tự động bắn thông báo 3 luồng)"
+);
+
+// 7.4 Nén và Resize ảnh tự động (WebP) + tạo thumbnail
+$tmpImgPath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'test_bds_large_' . uniqid() . '.jpg';
+$tmpOutDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'test_bds_webp_' . uniqid();
+$gdImg = imagecreatetruecolor(2000, 1200);
+$bgColor = imagecolorallocate($gdImg, 35, 110, 185);
+imagefill($gdImg, 0, 0, $bgColor);
+imagejpeg($gdImg, $tmpImgPath, 92);
+imagedestroy($gdImg);
+
+$processedWebp = ImageHelper::processPropertyImage($tmpImgPath, $tmpOutDir, 1600, 82, true);
+$webpSizeInfo = ($processedWebp && is_file($processedWebp['full_path'])) ? getimagesize($processedWebp['full_path']) : false;
+$thumbSizeInfo = ($processedWebp && !empty($processedWebp['thumb_path']) && is_file($processedWebp['thumb_path'])) ? getimagesize($processedWebp['thumb_path']) : false;
+
+if (is_file($tmpImgPath)) @unlink($tmpImgPath);
+if ($processedWebp) {
+    if (is_file($processedWebp['full_path'])) @unlink($processedWebp['full_path']);
+    if (!empty($processedWebp['thumb_path']) && is_file($processedWebp['thumb_path'])) @unlink($processedWebp['thumb_path']);
+}
+if (is_dir($tmpOutDir)) @rmdir($tmpOutDir);
+
+$t->assert(
+    $processedWebp !== null
+    && $webpSizeInfo !== false
+    && $webpSizeInfo[0] === 1600
+    && $webpSizeInfo['mime'] === 'image/webp'
+    && $thumbSizeInfo !== false
+    && $thumbSizeInfo[0] === 450
+    && $thumbSizeInfo[1] === 300
+    && strpos($agentControllerSrc, 'storePropertyData') !== false,
+    "7.4 [Mục 9/15] Nén và Resize ảnh tự động sang WebP (2000px -> 1600px, quality 82) kèm sinh ảnh thumbnail 450x300px"
+);
+
+// 7.5 Bản đồ Marker Clustering (Leaflet.markercluster)
+$mapJsSrc = file_get_contents(ROOT . '/public/assets/js/map.js');
+$searchViewSrc = file_get_contents(APP . '/views/property/search.php');
+
+$t->assert(
+    strpos($mainLayoutSrc, 'leaflet.markercluster@1.5.3') !== false
+    && strpos($searchViewSrc, 'leaflet.markercluster@1.5.3') !== false
+    && strpos($mapJsSrc, 'L.markerClusterGroup') !== false
+    && strpos($mapJsSrc, 'chunkedLoading: true') !== false
+    && strpos($mapJsSrc, 'spiderfyOnMaxZoom: true') !== false,
+    "7.5 [Mục 10/15] Bản đồ tìm kiếm tích hợp Leaflet.markercluster (chunkedLoading, spiderfyOnMaxZoom)"
+);
+
+// 7.6 Trang lỗi 500 chỉn chu & Global Exception Handler
+$indexFrontSrc = file_get_contents(ROOT . '/public/index.php');
+$error500Path = APP . '/views/errors/500.php';
+$error500Src = is_file($error500Path) ? file_get_contents($error500Path) : '';
+
+$t->assert(
+    is_file($error500Path)
+    && strpos($error500Src, '500') !== false
+    && strpos($indexFrontSrc, 'catch (Throwable $e)') !== false
+    && strpos($indexFrontSrc, "views/errors/500.php") !== false,
+    "7.6 [Mục 14/15] Trang lỗi 500 thân thiện (app/views/errors/500.php) và Global Exception Handler trong public/index.php"
+);
+
+// 7.7 Cập nhật Avatar và Bio cho tài khoản
+$profileCtrlSrc = file_get_contents(APP . '/controllers/ProfileController.php');
+$profileViewSrc = file_get_contents(APP . '/views/profile/index.php');
+$detailViewSrc = file_get_contents(APP . '/views/property/detail.php');
+
+$t->assert(
+    strpos($profileCtrlSrc, 'uploads/avatars') !== false
+    && strpos($profileCtrlSrc, "'bio'") !== false
+    && strpos($profileViewSrc, 'name="avatar"') !== false
+    && strpos($profileViewSrc, 'name="bio"') !== false
+    && strpos($detailViewSrc, 'agent_bio') !== false,
+    "7.7 [Mục 15/15] Cập nhật Avatar (kèm xem trước) và Bio cho tài khoản trong ProfileController & hiển thị trên trang chi tiết tin"
+);
+
 // TỔNG KẾT BÁO CÁO
 $t->report();
 

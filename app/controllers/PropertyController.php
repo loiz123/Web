@@ -119,9 +119,12 @@ class PropertyController extends Controller
             return;
         }
 
-        // Tăng lượt xem tin
-        $finder->incrementViews($id);
-        $property['views'] = ((int)$property['views']) + 1;
+        // Chống tăng lượt xem ảo: chỉ tăng views 1 lần cho mỗi tin trong cùng phiên trình duyệt
+        if (empty($_SESSION['viewed_properties'][$id])) {
+            $finder->incrementViews($id);
+            $property['views'] = ((int)$property['views']) + 1;
+            $_SESSION['viewed_properties'][$id] = time();
+        }
 
         $images = $finder->getImages($id);
         $amenities = $finder->getAmenities($id);

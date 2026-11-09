@@ -273,6 +273,7 @@ class PropertyFinder extends Model
                        u.phone AS agent_phone,
                        u.email AS agent_email,
                        u.avatar AS agent_avatar,
+                       u.bio AS agent_bio,
                        (SELECT image_url FROM property_images i WHERE i.property_id = p.id ORDER BY i.is_cover DESC, i.id LIMIT 1) AS cover_url
                 FROM properties p
                 JOIN property_types t ON t.id = p.type_id

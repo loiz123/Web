@@ -82,4 +82,17 @@ class Appointment extends Model
         );
         return $stmt->rowCount() > 0;
     }
+
+    /** Lấy chi tiết lịch hẹn kèm thông tin bất động sản và môi giới. */
+    public function findWithProperty(int $id): ?array
+    {
+        $row = $this->query(
+            'SELECT va.*, p.title AS property_title, p.user_id AS agent_id
+             FROM viewing_appointments va
+             JOIN properties p ON p.id = va.property_id
+             WHERE va.id = ? LIMIT 1',
+            [$id]
+        )->fetch();
+        return $row ?: null;
+    }
 }

@@ -46,7 +46,18 @@ $statusLabels = [
                 <div class="d-flex flex-wrap justify-content-between gap-2">
                   <div>
                     <h2 class="h5 card-title mb-1"><?= e($listing['title']) ?></h2>
-                    <p class="text-muted small mb-2"><?= e($listing['type_name']) ?> · <?= $listing['listing_type'] === 'rent' ? 'Cho thuê' : 'Bán' ?> · <?= e(number_format((float)$listing['area'], 1, ',', '.')) ?> m²</p>
+                    <p class="text-muted small mb-2">
+                      <?= e($listing['type_name']) ?> · <?= $listing['listing_type'] === 'rent' ? 'Cho thuê' : 'Bán' ?> · <?= e(number_format((float)$listing['area'], 1, ',', '.')) ?> m²
+                      <?php if (!empty($listing['expired_at'])): ?>
+                        <?php
+                          $expTs = strtotime((string)$listing['expired_at']);
+                          $isExpired = $expTs !== false && $expTs < time();
+                        ?>
+                        · <span class="<?= $isExpired ? 'text-danger fw-semibold' : 'text-success' ?>">
+                            <i class="bi bi-clock-history me-1"></i><?= $isExpired ? 'Đã hết hạn: ' : 'Hết hạn: ' ?><?= date('d/m/Y', $expTs) ?>
+                          </span>
+                      <?php endif; ?>
+                    </p>
                   </div>
                   <span class="badge text-bg-secondary align-self-start" data-status-badge><?= e($statusLabels[$listing['status']] ?? $listing['status']) ?></span>
                 </div>
@@ -58,6 +69,12 @@ $statusLabels = [
                 <?php endif; ?>
                 <div class="d-flex flex-wrap gap-2">
                   <a class="btn btn-sm btn-outline-primary" href="<?= e(base_url('agent/edit/' . (int)$listing['id'])) ?>">Sửa tin</a>
+                  <form method="post" action="<?= e(base_url('agent/renew/' . (int)$listing['id'])) ?>">
+                    <?= csrf_field() ?>
+                    <button type="submit" class="btn btn-sm btn-outline-info" title="Gia hạn thời gian hiển thị tin đăng thêm 30 ngày">
+                      <i class="bi bi-arrow-clockwise me-1"></i>Gia hạn tin (+30 ngày)
+                    </button>
+                  </form>
                   <div class="d-flex flex-wrap gap-2" data-status-actions>
                   <?php if ($listing['status'] === 'approved'): ?>
                     <form method="post" action="<?= e(base_url('agent/status/' . (int)$listing['id'])) ?>" data-status-path="<?= e('agent/status/' . (int)$listing['id']) ?>" data-status-form>
