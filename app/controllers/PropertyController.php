@@ -385,4 +385,12 @@ class PropertyController extends Controller
         echo '  </nav>';
         echo '</div>';
     }
+
+    /**
+     * Báo cáo tin vi phạm (chuyển tiếp tới ReportController::submit)
+     */
+    public function report(): void
+    {
+        (new ReportController())->submit();
+    }
 }
