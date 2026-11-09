@@ -112,13 +112,13 @@ if (!$hasValidCoords) {
         <?php if (!empty($images)): ?>
           <div class="mb-2">
             <button type="button" class="border-0 bg-transparent p-0 w-100 gallery-open" data-bs-toggle="modal" data-bs-target="#galleryModal" aria-label="Xem ảnh lớn">
-              <img id="mainGalleryImg" src="<?= e(base_url($images[0]['image_url'])) ?>" alt="<?= e($property['title']) ?>" class="gallery-main shadow-sm border">
+              <img id="mainGalleryImg" src="<?= e(image_url($images[0]['image_url'])) ?>" alt="<?= e($property['title']) ?>" class="gallery-main shadow-sm border">
             </button>
           </div>
           <?php if (count($images) > 1): ?>
             <div class="d-flex gap-2 overflow-auto pb-2">
               <?php foreach ($images as $idx => $img): ?>
-                <img src="<?= e(base_url($img['image_url'])) ?>" data-gallery-url="<?= e(base_url($img['image_url'])) ?>" alt="Ảnh <?= $idx + 1 ?>" class="gallery-thumb <?= $idx === 0 ? 'active' : '' ?>">
+                <img src="<?= e(image_url($img['image_url'])) ?>" data-gallery-url="<?= e(image_url($img['image_url'])) ?>" alt="Ảnh <?= $idx + 1 ?>" class="gallery-thumb <?= $idx === 0 ? 'active' : '' ?>">
               <?php endforeach; ?>
             </div>
           <?php endif; ?>
@@ -701,7 +701,7 @@ if (!$hasValidCoords) {
         <?php foreach ($similarList as $item): ?>
           <?php
             $simAvatar = !empty($item['cover_url'])
-              ? base_url($item['cover_url'])
+              ? image_url($item['cover_url'])
               : (!empty($item['avatar_url']) ? $item['avatar_url'] : property_avatar_url($item['avatar'] ?? null));
             $simDetailUrl = base_url('property/detail/' . (int)$item['id']);
             $simListingType = $item['listing_type'] ?? 'sale';
@@ -1002,7 +1002,7 @@ if (!$hasValidCoords) {
           <div class="carousel-inner">
             <?php foreach ($images as $index => $image): ?>
               <div class="carousel-item <?= $index === 0 ? 'active' : '' ?>">
-                <img src="<?= e(base_url($image['image_url'])) ?>" class="gallery-modal-img" alt="Ảnh <?= $index + 1 ?> của <?= e($property['title']) ?>">
+                <img src="<?= e(image_url($image['image_url'])) ?>" class="gallery-modal-img" alt="Ảnh <?= $index + 1 ?> của <?= e($property['title']) ?>">
                 <div class="text-center py-2"><?= $index + 1 ?> / <?= count($images) ?></div>
               </div>
             <?php endforeach; ?>
@@ -1241,8 +1241,8 @@ if (!$hasValidCoords) {
       area: <?= json_for_script($property['area'] . ' m²') ?>,
       district: <?= json_for_script($property['district_name'] ?? '') ?>,
       district_name: <?= json_for_script($property['district_name'] ?? '') ?>,
-      image: <?= json_for_script(!empty($images[0]['image_url']) ? base_url($images[0]['image_url']) : property_avatar_url($property['avatar'] ?? null)) ?>,
-      avatar_url: <?= json_for_script(!empty($images[0]['image_url']) ? base_url($images[0]['image_url']) : property_avatar_url($property['avatar'] ?? null)) ?>,
+      image: <?= json_for_script(!empty($images[0]['image_url']) ? image_url($images[0]['image_url']) : property_avatar_url($property['avatar'] ?? null)) ?>,
+      avatar_url: <?= json_for_script(!empty($images[0]['image_url']) ? image_url($images[0]['image_url']) : property_avatar_url($property['avatar'] ?? null)) ?>,
       url: <?= json_for_script(base_url('property/detail/' . (int)$property['id'])) ?>
     };
 
@@ -1344,7 +1344,7 @@ if (!$hasValidCoords) {
     price: <?= (float)($property['price'] ?? 0) ?>,
     price_formatted: <?= json_for_script(format_price($property['price'])) ?>,
     area: <?= (float)($property['area'] ?? 0) ?>,
-    avatar: <?= json_for_script(!empty($images[0]['image_url']) ? base_url($images[0]['image_url']) : property_avatar_url($property['avatar'] ?? null)) ?>,
+    avatar: <?= json_for_script(!empty($images[0]['image_url']) ? image_url($images[0]['image_url']) : property_avatar_url($property['avatar'] ?? null)) ?>,
     listing_type: <?= json_for_script($property['listing_type'] ?? 'sale') ?>,
     address: <?= json_for_script($property['ward_name'] . ', ' . $property['district_name']) ?>,
     url: window.location.href

@@ -1,5 +1,5 @@
 <?php
-// [D] Duyệt tin của admin. Dùng routine sp_moderate_property, tự chuyển sang SQL thường khi use_routines = false.
+// [D] Duyệt tin của admin qua stored procedure.
 class PropertyModeration extends Model
 {
     protected string $table = 'properties';
@@ -13,17 +13,8 @@ class PropertyModeration extends Model
             $status = 'pending';
         }
 
-        $total = (int)$this->query('SELECT COUNT(*) FROM properties WHERE status = ?', [$status])->fetchColumn();
-        $items = $this->query(
-            "SELECT p.id, p.title, p.listing_type, p.price, p.area, p.address_detail, p.status,
-                    p.reject_reason, p.created_at, u.full_name AS agent_name
-             FROM properties p
-             JOIN users u ON u.id = p.user_id
-             WHERE p.status = ?
-             ORDER BY p.created_at ASC, p.id ASC
-             LIMIT $perPage OFFSET $offset",
-            [$status]
-        )->fetchAll();
+        $total = (int)($this->call('sp_moderation_count', [$status])[0]['total'] ?? 0);
+        $items = $this->call('sp_moderation_list', [$status, $perPage, $offset]);
 
         return ['items' => $items, 'total' => $total, 'page' => $page];
     }
@@ -31,8 +22,9 @@ class PropertyModeration extends Model
     /** Số tin theo trạng thái (cho dashboard). */
     public function countByStatus(): array
     {
-        return $this->query('SELECT status, COUNT(*) AS total FROM properties GROUP BY status')
-            ->fetchAll(PDO::FETCH_KEY_PAIR);
+        $result = [];
+        foreach ($this->call('sp_dashboard_by_status') as $row) $result[$row['status']] = $row['total'];
+        return $result;
     }
 
     /** @return array{ok: bool, message: string} */
@@ -46,45 +38,11 @@ class PropertyModeration extends Model
             return ['ok' => false, 'message' => 'Vui lòng nhập lý do từ chối.'];
         }
 
-        if (config('use_routines')) {
-            try {
-                $this->query('CALL sp_moderate_property(?, ?, ?)', [$id, $action, $reason]);
-                return ['ok' => true, 'message' => $this->successMessage($action)];
-            } catch (PDOException $e) {
-                $code = (int)($e->errorInfo[1] ?? 0);
-                if ($code === 1644) {            // lỗi nghiệp vụ do SIGNAL trong routine
-                    return ['ok' => false, 'message' => (string)($e->errorInfo[2] ?? 'Không thực hiện được.')];
-                }
-                if ($code !== 1305) {            // 1305 = routine chưa được cài; lỗi khác thì ném tiếp
-                    throw $e;
-                }
-                // routine chưa import: rơi xuống SQL thường
-            }
-        }
-        return $this->moderateSql($id, $action, $reason);
-    }
-
-    private function moderateSql(int $id, string $action, string $reason): array
-    {
-        if ($action === 'approve') {
-            $stmt = $this->query(
-                "UPDATE properties SET status = 'approved', reject_reason = NULL WHERE id = ? AND status = 'pending'",
-                [$id]
-            );
-        } elseif ($action === 'reject') {
-            $stmt = $this->query(
-                "UPDATE properties SET status = 'rejected', reject_reason = ? WHERE id = ? AND status = 'pending'",
-                [$reason, $id]
-            );
-        } else {
-            $stmt = $this->query('DELETE FROM properties WHERE id = ?', [$id]);
-        }
-
-        if ($stmt->rowCount() > 0) {
+        $result = $this->call('sp_moderation_apply', [$id, $action, $reason])[0] ?? [];
+        if ((int)($result['affected'] ?? 0) > 0) {
             return ['ok' => true, 'message' => $this->successMessage($action)];
         }
-        $exists = $this->query('SELECT 1 FROM properties WHERE id = ?', [$id])->fetchColumn();
-        return ['ok' => false, 'message' => $exists
+        return ['ok' => false, 'message' => !empty($result['exists_after'])
             ? 'Chỉ duyệt hoặc từ chối được tin đang chờ duyệt.'
             : 'Tin không tồn tại hoặc đã bị xóa.'];
     }

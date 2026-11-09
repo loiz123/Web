@@ -24,12 +24,7 @@ class Auth
     public static function validate(): void
     {
         if (!self::check()) return;
-        $stmt = Database::connection()->prepare(
-            'SELECT u.id, u.full_name, u.email, u.status, r.name AS role_name
-             FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = ?'
-        );
-        $stmt->execute([self::id()]);
-        $u = $stmt->fetch();
+        $u = (new User())->sessionUser((int)self::id());
         if ($u && $u['status'] !== 'locked') { self::store($u); return; }
 
         unset($_SESSION['user']);

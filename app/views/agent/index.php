@@ -38,7 +38,7 @@ $statusLabels = [
           <div class="row g-0">
             <?php if ($listing['cover_url']): ?>
               <div class="col-12 col-md-3">
-                <img src="<?= e(base_url($listing['cover_url'])) ?>" class="img-fluid rounded-start h-100 w-100 object-fit-cover" alt="<?= e($listing['title']) ?>">
+                <img src="<?= e(image_url($listing['cover_url'])) ?>" class="img-fluid rounded-start h-100 w-100 object-fit-cover" alt="<?= e($listing['title']) ?>">
               </div>
             <?php endif; ?>
             <div class="col">

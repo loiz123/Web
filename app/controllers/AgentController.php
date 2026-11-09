@@ -164,13 +164,10 @@ class AgentController extends Controller
             flash('danger', 'Không thể xóa tin đăng. Vui lòng thử lại.');
             $this->redirect('agent');
         }
+        $storage = new ImageStorage();
         foreach ($imagePaths as $imagePath) {
-            $fileName = basename($imagePath);
-            if (!preg_match('/^[a-f0-9]{32}\.(jpg|png|webp)$/', $fileName)) continue;
-            $filePath = rtrim(config('upload_dir'), '/\\') . DIRECTORY_SEPARATOR . $fileName;
-            if (is_file($filePath) && !unlink($filePath)) {
-                error_log('Unable to remove deleted property image: ' . $filePath);
-            }
+            try { $storage->remove($imagePath); }
+            catch (Throwable $error) { error_log('Unable to remove deleted property image: ' . $error->getMessage()); }
         }
         flash('success', 'Tin đăng đã được xóa.');
         $this->redirect('agent');
@@ -283,26 +280,18 @@ class AgentController extends Controller
             return;
         }
 
-        $uploadDir = config('upload_dir');
-        if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true) && !is_dir($uploadDir)) {
-            flash('danger', 'Không thể tạo thư mục lưu ảnh. Vui lòng thử lại.');
+        $storage = new ImageStorage();
+        $imagePaths = [];
+        try {
+            foreach ($images as $image) $imagePaths[] = $storage->store($image['tmp_name'], $image['extension']);
+        } catch (Throwable $error) {
+            foreach ($imagePaths as $path) {
+                try { $storage->remove($path); } catch (Throwable $ignored) { error_log('Unable to clean up uploaded image'); }
+            }
+            error_log('Image upload failed: ' . $error->getMessage());
+            flash('danger', 'Không thể lưu ảnh đã tải lên. Vui lòng thử lại.');
             $this->showCreateForm($input);
             return;
-        }
-
-        $imagePaths = [];
-        $savedFiles = [];
-        foreach ($images as $index => $image) {
-            $fileName = bin2hex(random_bytes(16)) . '.' . $image['extension'];
-            $target = rtrim($uploadDir, '/\\') . DIRECTORY_SEPARATOR . $fileName;
-            if (!move_uploaded_file($image['tmp_name'], $target)) {
-                foreach ($savedFiles as $savedFile) unlink($savedFile);
-                flash('danger', 'Không thể lưu ảnh đã tải lên. Vui lòng thử lại.');
-                $this->showCreateForm($input);
-                return;
-            }
-            $savedFiles[] = $target;
-            $imagePaths[] = 'uploads/properties/' . $fileName;
         }
 
         $propertyData = [
@@ -328,8 +317,10 @@ class AgentController extends Controller
 
         try {
             (new Property())->createListing($propertyData, $imagePaths, $amenityIds, $coverIndex);
-        } catch (PDOException $error) {
-            foreach ($savedFiles as $savedFile) unlink($savedFile);
+        } catch (Throwable $error) {
+            foreach ($imagePaths as $path) {
+                try { $storage->remove($path); } catch (Throwable $ignored) { error_log('Unable to clean up uploaded image'); }
+            }
             error_log($error->getMessage());
             flash('danger', 'Không thể lưu tin đăng. Vui lòng thử lại.');
             $this->showCreateForm($input);

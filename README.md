@@ -2,14 +2,14 @@
 
 ## Chạy trên máy (XAMPP / Laragon, PHP >= 8.0)
 1. Copy thư mục vào `htdocs` (hoặc `www`). Bật Apache + MySQL.
-2. phpMyAdmin → Import lần lượt: `database/schema.sql` → `database/seed.sql` → `database/procedures.sql` → `database/procedures/quoc.sql` → `database/procedures/hai.sql`.
+2. phpMyAdmin → Import lần lượt: `database/schema.sql` → `database/seed.sql` → `database/procedures.sql` → `database/procedures/quoc.sql` → `database/procedures/hai.sql`; chọn database `batdongsan` rồi import tiếp `location_reads.sql`, `appointment.sql`, `account_and_saved_search.sql`, `interactions.sql`, `property_images.sql`, `report.sql`, `dashboard.sql`, `admin_users.sql`, `moderation.sql`, `catalog.sql`, `property_detail.sql`, `property_agent.sql`, `property_search.sql` trong `database/procedures/`.
 3. Copy `config/config.local.example.php` thành `config/config.local.php`, sửa user/pass DB. (File này không commit.)
 4. Mở `http://localhost/batdongsan/public/`.
 
 Tài khoản demo (mật khẩu `Admin@123`): `admin@demo.local`, `agent@demo.local`, `customer@demo.local`.
 
 ## Deploy free hosting
-- Import 3 file SQL qua phpMyAdmin của host. Nếu host **không cho tạo routine**: bỏ qua `procedures.sql`, đặt `'use_routines' => false` trong `config.local.php` (code tự dùng SQL thường).
+- Cần MySQL cho phép tạo và gọi stored procedure; import các file procedure như phần chạy trên máy. Ứng dụng yêu cầu procedure và không tự chuyển sang SQL thường.
 - Upload toàn bộ project; file `.htaccess` ở gốc tự chuyển request vào `public/`. Nếu link bị lệch, điền `'base_url'` trong config.local.php.
 
 ## Cấu trúc
@@ -27,7 +27,7 @@ app/helpers/       functions.php (e(), base_url(), csrf_field(), flash()...)
 
 ## Quy ước
 - URL: `/controller/action/param` → `ControllerController::action(param)`. `/admin/users/lock/3` → `AdminUsersController::lock(3)` (file trong `controllers/admin/`).
-- Model: khai báo `$table`, `$fillable`; dùng `create/update/find/delete` có sẵn; truy vấn riêng viết bằng `$this->query()`; gọi routine bằng `$this->call('sp_ten', [...])`.
+- Model gọi stored procedure bằng `$this->call('sp_ten', [...])`; mỗi chức năng dữ liệu có procedure tương ứng.
 - Luôn dùng prepared statement. Mọi form POST có `<?= csrf_field() ?>`; AJAX gửi header `X-CSRF-Token` (hàm `api()` trong `assets/js/app.js` đã làm sẵn).
 - AJAX trả JSON qua `$this->json($data, $success, $message)` → `{success, message, data}`.
 - Chặn quyền: `$this->requireRole('agent')` ở constructor hoặc đầu action.
@@ -38,7 +38,7 @@ app/helpers/       functions.php (e(), base_url(), csrf_field(), flash()...)
 - Chọn ảnh bìa, nhập địa chỉ chi tiết và chọn tọa độ trên bản đồ; cả địa chỉ và cặp tọa độ đều bắt buộc. Vị trí được tải theo tỉnh/thành bằng AJAX; tiện ích được lưu cùng tin đăng.
 - Tin mới được lưu với trạng thái `pending` để quản trị viên duyệt.
 - Mở `/agent` để xem và lọc tin theo trạng thái; môi giới có thể sửa, ẩn tin đã duyệt, gửi tin đã ẩn duyệt lại hoặc xóa tin của mình.
-- Dashboard agent hỗ trợ đổi trạng thái bằng AJAX; routine `hai.sql` có thể bỏ qua nếu hosting không cho tạo stored procedure vì code có SQL dự phòng.
+- Dashboard agent hỗ trợ đổi trạng thái bằng AJAX qua stored procedure.
 - Mỗi lần sửa hoặc gửi tin đã ẩn duyệt lại sẽ chuyển tin về `pending` để quản trị viên duyệt lại.
 
 ## Phân công (tìm `TODO [A|B|C|D]` trong code)

@@ -5,7 +5,7 @@
     <div class="property-card-img-wrap">
       <a href="<?= e(base_url('property/detail/' . $p['id'])) ?>" class="d-block h-100 w-100">
         <?php if (!empty($p['cover_url'])): ?>
-          <img src="<?= e(base_url($p['cover_url'])) ?>" class="card-img-top" alt="<?= e($p['title']) ?>" loading="lazy">
+          <img src="<?= e(image_url($p['cover_url'])) ?>" class="card-img-top" alt="<?= e($p['title']) ?>" loading="lazy">
         <?php else: ?>
           <div class="card-img-top bg-secondary-subtle d-flex flex-column align-items-center justify-content-center text-muted h-100">
             <i class="bi bi-image fs-3 mb-1"></i>
@@ -28,7 +28,7 @@
                   'bedrooms'        => (int)$p['bedrooms'],
                   'district_name'   => $p['district_name'] ?? '',
                   'listing_type'    => $p['listing_type'],
-                  'cover_url'       => !empty($p['cover_url']) ? base_url($p['cover_url']) : '',
+                  'cover_url'       => !empty($p['cover_url']) ? image_url($p['cover_url']) : '',
                   'detail_url'      => base_url('property/detail/' . $p['id'])
               ], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE)) ?>)">
         <i class="bi bi-arrow-left-right"></i>

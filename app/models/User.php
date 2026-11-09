@@ -7,31 +7,34 @@ class User extends Model
 
     public function findByEmail(string $email): ?array
     {
-        $row = $this->query(
-            'SELECT u.*, r.name AS role_name FROM users u JOIN roles r ON r.id = u.role_id WHERE u.email = ?',
-            [$email]
-        )->fetch();
+        $row = $this->call('sp_user_by_email', [$email])[0] ?? null;
         return $row ?: null;
+    }
+
+    public function find(int $id): ?array
+    {
+        return $this->call('sp_user_by_id', [$id])[0] ?? null;
+    }
+
+    public function sessionUser(int $id): ?array
+    {
+        return $this->call('sp_user_session', [$id])[0] ?? null;
     }
 
     public function register(string $name, string $email, string $phone, string $password, string $roleName): int
     {
-        $roleId = (int)$this->query('SELECT id FROM roles WHERE name = ?', [$roleName])->fetchColumn();
-        return $this->create([
-            'role_id' => $roleId, 'full_name' => $name, 'email' => $email,
-            'phone' => $phone !== '' ? $phone : null,
-            'password_hash' => password_hash($password, PASSWORD_DEFAULT),
-        ]);
+        $rows = $this->call('sp_user_register', [$name, $email, $phone !== '' ? $phone : null, password_hash($password, PASSWORD_DEFAULT), $roleName]);
+        return (int)($rows[0]['id'] ?? 0);
     }
 
     public function updateProfile(int $id, string $name, string $phone): void
     {
-        $this->update($id, ['full_name' => $name, 'phone' => $phone !== '' ? $phone : null]);
+        $this->call('sp_user_update_profile', [$id, $name, $phone !== '' ? $phone : null]);
     }
 
     public function setPassword(int $id, string $password): void
     {
-        $this->update($id, ['password_hash' => password_hash($password, PASSWORD_DEFAULT)]);
+        $this->call('sp_user_set_password', [$id, password_hash($password, PASSWORD_DEFAULT)]);
     }
 
     // ---------- Kiểm tra dữ liệu dùng chung cho đăng ký và hồ sơ ----------

@@ -56,10 +56,16 @@ function format_price($price): string
 /**
  * Trả về URL ảnh đại diện BĐS hoặc ảnh mặc định nếu không có.
  */
+function image_url(string $path): string
+{
+    if (preg_match('~^https://res\.cloudinary\.com/[a-zA-Z0-9_-]+/image/upload/~', $path)) return $path;
+    return base_url($path);
+}
+
 function property_avatar_url(?string $path): string
 {
     if (!empty($path)) {
-        return base_url($path);
+        return image_url($path);
     }
     return base_url('uploads/sample-property-01.jpg');
 }

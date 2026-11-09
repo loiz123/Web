@@ -34,7 +34,7 @@ $initialMapProperties = array_map(function ($p) {
         'longitude'       => !empty($p['longitude']) ? (float)$p['longitude'] : null,
         'district_name'   => $p['district_name'] ?? '',
         'ward_name'       => $p['ward_name'] ?? '',
-        'cover_url'       => !empty($p['cover_url']) ? base_url($p['cover_url']) : '',
+        'cover_url'       => !empty($p['cover_url']) ? image_url($p['cover_url']) : '',
         'detail_url'      => base_url('property/detail/' . $p['id']),
     ];
 }, $properties);

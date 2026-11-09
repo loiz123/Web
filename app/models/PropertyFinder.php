@@ -4,30 +4,9 @@ class PropertyFinder extends Model
 {
     protected string $table = 'properties';
 
-    private const BASE_SELECT = "SELECT p.id, p.title, p.listing_type, p.price, p.area, p.bedrooms, p.bathrooms,
-            p.direction, p.is_verified, p.latitude, p.longitude, p.created_at,
-            t.id AS type_id, t.name AS type_name,
-            w.id AS ward_id, w.name AS ward_name,
-            d.id AS district_id, d.name AS district_name,
-            pr.id AS province_id, pr.name AS province_name,
-            (SELECT image_url FROM property_images i WHERE i.property_id = p.id ORDER BY i.is_cover DESC, i.id LIMIT 1) AS cover_url
-        FROM properties p
-        JOIN property_types t ON t.id = p.type_id
-        JOIN wards w ON w.id = p.ward_id
-        JOIN districts d ON d.id = w.district_id
-        JOIN provinces pr ON pr.id = d.province_id";
-
     public function latest(int $limit = 8): array
     {
-        if (config('use_routines')) {
-            try {
-                return $this->call('sp_latest_properties', [$limit]);
-            } catch (PDOException $e) {
-                // Fallback nếu routine lỗi
-            }
-        }
-        $sql = self::BASE_SELECT . " WHERE p.status = 'approved' ORDER BY p.created_at DESC, p.id DESC LIMIT " . (int)$limit;
-        return $this->query($sql)->fetchAll();
+        return $this->call('sp_latest_properties_v3', [max(0, $limit)]);
     }
 
     /**
@@ -98,165 +77,29 @@ class PropertyFinder extends Model
         return $parsed;
     }
 
-    /**
-     * Xây dựng mệnh đề WHERE, Params và ORDER BY dùng chung cho search và countSearch
-     */
-    private function buildQueryParts(array $f): array
+    /** Chuẩn bị các tham số dùng chung cho danh sách và tổng kết quả. */
+    private function searchParameters(array $filters): array
     {
-        $f = $this->parseFilters($f);
-        $where = " WHERE p.status = 'approved'";
-        $params = [];
-
-        if (!empty($f['keyword'])) {
-            $rawKeyword = trim($f['keyword']);
-            $kw = '%' . $rawKeyword . '%';
-            if (str_contains($rawKeyword, ',')) {
-                $firstSegment = trim(explode(',', $rawKeyword)[0]);
-                $cleanSegment = trim((string)preg_replace('/^(Phường|Xã|Thị trấn|Quận|Huyện|Thành phố|TP\.?|Tỉnh)\s+/iu', '', $firstSegment));
-                $kwSegment = '%' . ($cleanSegment !== '' ? $cleanSegment : $firstSegment) . '%';
-                $where .= " AND ((p.title LIKE ? OR p.address_detail LIKE ? OR w.name LIKE ? OR d.name LIKE ? OR pr.name LIKE ? OR t.name LIKE ?)"
-                        . " OR (p.title LIKE ? OR p.address_detail LIKE ? OR w.name LIKE ? OR d.name LIKE ? OR pr.name LIKE ? OR t.name LIKE ?))";
-                array_push($params, $kw, $kw, $kw, $kw, $kw, $kw, $kwSegment, $kwSegment, $kwSegment, $kwSegment, $kwSegment, $kwSegment);
-            } else {
-                $where .= " AND (p.title LIKE ? OR p.address_detail LIKE ? OR w.name LIKE ? OR d.name LIKE ? OR pr.name LIKE ? OR t.name LIKE ?)";
-                array_push($params, $kw, $kw, $kw, $kw, $kw, $kw);
-            }
+        $f = $this->parseFilters($filters);
+        $segment = null;
+        if ($f['keyword'] !== null && str_contains($f['keyword'], ',')) {
+            $first = trim(explode(',', $f['keyword'])[0]);
+            $clean = trim((string)preg_replace('/^(Phường|Xã|Thị trấn|Quận|Huyện|Thành phố|TP\.?|Tỉnh)\s+/iu', '', $first));
+            $segment = $clean !== '' ? $clean : $first;
         }
-
-        if (!empty($f['listing_type'])) {
-            $where .= " AND p.listing_type = ?";
-            $params[] = $f['listing_type'];
-        }
-
-        if (!empty($f['type_id'])) {
-            $where .= " AND p.type_id = ?";
-            $params[] = (int)$f['type_id'];
-        }
-
-        if (!empty($f['ward_id'])) {
-            $where .= " AND p.ward_id = ?";
-            $params[] = (int)$f['ward_id'];
-        } elseif (!empty($f['district_id'])) {
-            $where .= " AND d.id = ?";
-            $params[] = (int)$f['district_id'];
-        } elseif (!empty($f['province_id'])) {
-            $where .= " AND pr.id = ?";
-            $params[] = (int)$f['province_id'];
-        }
-
-        if ($f['min_price'] !== null) {
-            $where .= " AND p.price >= ?";
-            $params[] = $f['min_price'];
-        }
-        if ($f['max_price'] !== null) {
-            $where .= " AND p.price <= ?";
-            $params[] = $f['max_price'];
-        }
-
-        if ($f['min_area'] !== null) {
-            $where .= " AND p.area >= ?";
-            $params[] = $f['min_area'];
-        }
-        if ($f['max_area'] !== null) {
-            $where .= " AND p.area <= ?";
-            $params[] = $f['max_area'];
-        }
-
-        if (!empty($f['bedrooms'])) {
-            if ($f['bedrooms'] === '5+' || (int)$f['bedrooms'] >= 5) {
-                $where .= " AND p.bedrooms >= 5";
-            } elseif ((int)$f['bedrooms'] > 0) {
-                $where .= " AND p.bedrooms = ?";
-                $params[] = (int)$f['bedrooms'];
-            }
-        }
-
-        $order = match ($f['sort_by'] ?? 'newest') {
-            'oldest'     => " ORDER BY p.created_at ASC, p.id ASC",
-            'price_asc'  => " ORDER BY p.price ASC, p.id ASC",
-            'price_desc' => " ORDER BY p.price DESC, p.id DESC",
-            'area_asc'   => " ORDER BY p.area ASC, p.id ASC",
-            'area_desc'  => " ORDER BY p.area DESC, p.id DESC",
-            default      => " ORDER BY p.created_at DESC, p.id DESC",
-        };
-
-        return [$where, $params, $order];
+        $bedrooms = $f['bedrooms'] === '5+' ? 5 : ($f['bedrooms'] !== null ? (int)$f['bedrooms'] : null);
+        return [$f['keyword'], $segment, $f['listing_type'], $f['type_id'], $f['province_id'], $f['district_id'], $f['ward_id'], $f['min_price'], $f['max_price'], $f['min_area'], $f['max_area'], $bedrooms];
     }
 
-    /**
-     * Tìm kiếm tin BĐS với bộ lọc linh hoạt, sắp xếp và phân trang
-     */
     public function search(array $f, int $limit = 12, int $offset = 0): array
     {
-        $limit = max(1, min(100, $limit));
-        $offset = max(0, $offset);
-
-        // Thử gọi stored procedure nếu bật use_routines và từ khóa không phải chuỗi địa chỉ đa thành phần
-        if (config('use_routines') && !str_contains((string)($f['keyword'] ?? ''), ',')) {
-            $pf = $this->parseFilters($f);
-            try {
-                return $this->call('sp_search_properties_v2', [
-                    $pf['keyword'],
-                    $pf['listing_type'],
-                    $pf['type_id'],
-                    $pf['province_id'],
-                    $pf['district_id'],
-                    $pf['ward_id'],
-                    $pf['min_price'],
-                    $pf['max_price'],
-                    $pf['min_area'],
-                    $pf['max_area'],
-                    $pf['bedrooms'] === '5+' ? 5 : ($pf['bedrooms'] !== null ? (int)$pf['bedrooms'] : null),
-                    $pf['sort_by'],
-                    $limit,
-                    $offset
-                ]);
-            } catch (PDOException $e) {
-                // Fallback nếu procedure chưa tạo hoặc thiếu tham số
-            }
-        }
-
-        [$where, $params, $order] = $this->buildQueryParts($f);
-        $sql = self::BASE_SELECT . $where . $order . ' LIMIT ' . (int)$limit . ' OFFSET ' . (int)$offset;
-        return $this->query($sql, $params)->fetchAll();
+        $parsed = $this->parseFilters($f);
+        return $this->call('sp_search_properties_v3', [...$this->searchParameters($f), $parsed['sort_by'], max(1, min(100, $limit)), max(0, $offset)]);
     }
 
-    /**
-     * Đếm tổng số kết quả khớp với bộ lọc (phục vụ phân trang)
-     */
     public function countSearch(array $f): int
     {
-        if (config('use_routines') && !str_contains((string)($f['keyword'] ?? ''), ',')) {
-            $pf = $this->parseFilters($f);
-            try {
-                $rows = $this->call('sp_count_search_properties_v2', [
-                    $pf['keyword'],
-                    $pf['listing_type'],
-                    $pf['type_id'],
-                    $pf['province_id'],
-                    $pf['district_id'],
-                    $pf['ward_id'],
-                    $pf['min_price'],
-                    $pf['max_price'],
-                    $pf['min_area'],
-                    $pf['max_area'],
-                    $pf['bedrooms'] === '5+' ? 5 : ($pf['bedrooms'] !== null ? (int)$pf['bedrooms'] : null)
-                ]);
-                if (!empty($rows[0]['total'])) {
-                    return (int)$rows[0]['total'];
-                }
-            } catch (PDOException $e) {
-                // Fallback nếu procedure chưa tạo
-            }
-        }
-
-        [$where, $params] = $this->buildQueryParts($f);
-        $sql = "SELECT COUNT(*) FROM properties p
-                JOIN property_types t ON t.id = p.type_id
-                JOIN wards w ON w.id = p.ward_id
-                JOIN districts d ON d.id = w.district_id
-                JOIN provinces pr ON pr.id = d.province_id" . $where;
-        return (int)$this->query($sql, $params)->fetchColumn();
+        return (int)($this->call('sp_count_search_properties_v3', $this->searchParameters($f))[0]['total'] ?? 0);
     }
 
     /**
@@ -264,23 +107,7 @@ class PropertyFinder extends Model
      */
     public function findDetail(int $id): ?array
     {
-        $sql = "SELECT p.*,
-                       t.name AS type_name,
-                       w.name AS ward_name,
-                       d.id AS district_id, d.name AS district_name,
-                       pr.id AS province_id, pr.name AS province_name,
-                       u.full_name AS agent_name,
-                       u.phone AS agent_phone,
-                       u.email AS agent_email,
-                       u.avatar AS agent_avatar
-                FROM properties p
-                JOIN property_types t ON t.id = p.type_id
-                JOIN wards w ON w.id = p.ward_id
-                JOIN districts d ON d.id = w.district_id
-                JOIN provinces pr ON pr.id = d.province_id
-                JOIN users u ON u.id = p.user_id
-                WHERE p.id = ? LIMIT 1";
-        $prop = $this->query($sql, [$id])->fetch();
+        $prop = $this->call('sp_property_detail', [$id])[0] ?? null;
         if (!$prop) return null;
 
         // Nếu tin chưa có tọa độ kinh độ / vĩ độ, cung cấp fallback theo quận/tỉnh
@@ -326,37 +153,25 @@ class PropertyFinder extends Model
     /** Danh sách hình ảnh của tin */
     public function getImages(int $propertyId): array
     {
-        return $this->query(
-            "SELECT id, image_url, is_cover FROM property_images WHERE property_id = ? ORDER BY is_cover DESC, id ASC",
-            [$propertyId]
-        )->fetchAll();
+        return $this->call('sp_property_detail_images', [$propertyId]);
     }
 
     /** Danh sách tiện ích của tin */
     public function getAmenities(int $propertyId): array
     {
-        return $this->query(
-            "SELECT a.id, a.name
-             FROM property_amenities pa
-             JOIN amenities a ON a.id = pa.amenity_id
-             WHERE pa.property_id = ?
-             ORDER BY a.name ASC",
-            [$propertyId]
-        )->fetchAll();
+        return $this->call('sp_property_detail_amenities', [$propertyId]);
     }
 
     /** Tăng lượt xem tin */
     public function incrementViews(int $propertyId): void
     {
-        $this->query("UPDATE properties SET views = views + 1, updated_at = updated_at WHERE id = ?", [$propertyId]);
+        $this->call('sp_property_increment_views', [$propertyId]);
     }
 
     /** Lấy các tin cùng loại tương tự */
     public function getSimilar(int $propertyId, int $typeId, int $limit = 3): array
     {
-        $sql = self::BASE_SELECT . " WHERE p.status = 'approved' AND p.id != ? AND p.type_id = ?
-                ORDER BY p.created_at DESC LIMIT " . (int)$limit;
-        return $this->query($sql, [$propertyId, $typeId])->fetchAll();
+        return $this->call('sp_property_same_type', [$propertyId, $typeId, max(0, $limit)]);
     }
 
     /** Lấy danh sách bất động sản tương tự theo khu vực, phân khúc & mức giá */

@@ -8,25 +8,13 @@ class Review extends Model
     /** Lấy danh sách đánh giá của một tin đăng. */
     public function forProperty(int $propertyId): array
     {
-        return $this->query(
-            'SELECT r.*, u.full_name AS user_name, u.avatar AS user_avatar, u.role_id
-             FROM reviews r
-             JOIN users u ON u.id = r.user_id
-             WHERE r.property_id = ?
-             ORDER BY r.created_at DESC',
-            [$propertyId]
-        )->fetchAll();
+        return $this->call('sp_review_for_property', [$propertyId]);
     }
 
     /** Thống kê điểm trung bình và tổng số đánh giá của một tin. */
     public function getStats(int $propertyId): array
     {
-        $row = $this->query(
-            'SELECT COUNT(*) AS total, AVG(rating) AS avg_rating
-             FROM reviews
-             WHERE property_id = ?',
-            [$propertyId]
-        )->fetch();
+        $row = $this->call('sp_review_stats', [$propertyId])[0] ?? [];
 
         $total = (int)($row['total'] ?? 0);
         $avg = $total > 0 ? round((float)$row['avg_rating'], 1) : 0.0;
@@ -41,10 +29,7 @@ class Review extends Model
     /** Lấy đánh giá của một người dùng cụ thể trên tin đăng này. */
     public function getUserReview(int $propertyId, int $userId): ?array
     {
-        $res = $this->query(
-            'SELECT * FROM reviews WHERE property_id = ? AND user_id = ? LIMIT 1',
-            [$propertyId, $userId]
-        )->fetch();
+        $res = $this->call('sp_review_by_user', [$propertyId, $userId])[0] ?? null;
 
         return $res ?: null;
     }
@@ -58,29 +43,12 @@ class Review extends Model
             $comment = $matches[0] ?? '';
         }
 
-        // Kiểm tra xem tin có tồn tại không
-        $propExists = (bool)$this->query('SELECT 1 FROM properties WHERE id = ?', [$propertyId])->fetchColumn();
-        if (!$propExists) {
-            return false;
-        }
-
-        $stmt = $this->query(
-            'INSERT INTO reviews (property_id, user_id, rating, comment)
-             VALUES (?, ?, ?, ?)
-             ON DUPLICATE KEY UPDATE rating = VALUES(rating), comment = VALUES(comment), created_at = CURRENT_TIMESTAMP',
-            [$propertyId, $userId, $rating, $comment]
-        );
-
-        return $stmt->rowCount() > 0;
+        return (int)($this->call('sp_review_save', [$propertyId, $userId, $rating, $comment])[0]['affected'] ?? 0) > 0;
     }
 
     /** Xóa đánh giá của chính người dùng. */
     public function deleteByUser(int $id, int $userId): bool
     {
-        $stmt = $this->query(
-            'DELETE FROM reviews WHERE id = ? AND user_id = ?',
-            [$id, $userId]
-        );
-        return $stmt->rowCount() > 0;
+        return (int)($this->call('sp_review_delete', [$id, $userId])[0]['affected'] ?? 0) > 0;
     }
 }

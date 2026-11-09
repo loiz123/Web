@@ -7,24 +7,13 @@ class Report extends Model
 
     public function hasOpenReport(int $propertyId, int $reporterId): bool
     {
-        return (bool)$this->query(
-            "SELECT 1 FROM reports WHERE property_id = ? AND reporter_id = ? AND status = 'open'",
-            [$propertyId, $reporterId]
-        )->fetchColumn();
+        return $this->call('sp_report_exists', [$propertyId, $reporterId]) !== [];
     }
 
     /** Khách báo cáo tin. Trả id mới, 0 nếu tin chưa được duyệt (không phải approved) hoặc đã có báo cáo đang mở của người này. */
     public function submit(int $propertyId, int $reporterId, string $reason): int
     {
-        $exists = $this->query("SELECT 1 FROM properties WHERE id = ? AND status = 'approved'", [$propertyId])->fetchColumn();
-        if (!$exists || $this->hasOpenReport($propertyId, $reporterId)) {
-            return 0;
-        }
-        $this->query(
-            'INSERT INTO reports (property_id, reporter_id, reason) VALUES (?, ?, ?)',
-            [$propertyId, $reporterId, mb_substr(trim($reason), 0, 255)]
-        );
-        return (int)$this->db->lastInsertId();
+        return (int)($this->call('sp_report_create', [$propertyId, $reporterId, mb_substr(trim($reason), 0, 255)])[0]['id'] ?? 0);
     }
 
     /** Danh sách cho admin, có phân trang. $status = null để lấy tất cả. */
@@ -34,31 +23,16 @@ class Report extends Model
         $perPage = max(1, min(50, $perPage));
         $offset = ($page - 1) * $perPage;
 
-        $where = '';
-        $params = [];
-        if ($status !== null && in_array($status, ['open', 'resolved', 'dismissed'], true)) {
-            $where = 'WHERE r.status = ?';
-            $params[] = $status;
-        }
-
-        $total = (int)$this->query("SELECT COUNT(*) FROM reports r $where", $params)->fetchColumn();
-        $items = $this->query(
-            "SELECT r.*, p.title AS property_title, p.status AS property_status, u.full_name AS reporter_name
-             FROM reports r
-             JOIN properties p ON p.id = r.property_id
-             JOIN users u ON u.id = r.reporter_id
-             $where
-             ORDER BY r.created_at DESC
-             LIMIT $perPage OFFSET $offset",
-            $params
-        )->fetchAll();
+        $status = in_array($status, ['open', 'resolved', 'dismissed'], true) ? $status : null;
+        $total = (int)($this->call('sp_report_count', [$status])[0]['total'] ?? 0);
+        $items = $this->call('sp_report_list', [$status, $perPage, $offset]);
 
         return ['items' => $items, 'total' => $total, 'page' => $page];
     }
 
     public function countOpen(): int
     {
-        return (int)$this->query("SELECT COUNT(*) FROM reports WHERE status = 'open'")->fetchColumn();
+        return (int)($this->call('sp_report_count', ['open'])[0]['total'] ?? 0);
     }
 
     /** Admin xử lý: resolved hoặc dismissed. Nếu $hideProperty thì ẩn luôn tin vi phạm. */
@@ -69,14 +43,10 @@ class Report extends Model
         }
         $this->db->beginTransaction();
         try {
-            $stmt = $this->query("UPDATE reports SET status = ? WHERE id = ? AND status = 'open'", [$newStatus, $id]);
-            if ($stmt->rowCount() === 0) {
+            $rows = $this->call('sp_report_resolve', [$id, $newStatus, $hideProperty ? 1 : 0]);
+            if ((int)($rows[0]['affected'] ?? 0) === 0) {
                 $this->db->rollBack();
                 return false;
-            }
-            if ($hideProperty && $newStatus === 'resolved') {
-                $propId = (int)$this->query('SELECT property_id FROM reports WHERE id = ?', [$id])->fetchColumn();
-                $this->query("UPDATE properties SET status = 'hidden' WHERE id = ? AND status = 'approved'", [$propId]);
             }
             $this->db->commit();
             return true;

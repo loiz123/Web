@@ -22,12 +22,8 @@ class SavedSearch extends Model
 
         $json = json_encode($cleanFilters, JSON_UNESCAPED_UNICODE);
 
-        $this->query(
-            "INSERT INTO saved_searches (user_id, name, filters, created_at) VALUES (?, ?, ?, NOW())",
-            [$userId, $cleanName, $json]
-        );
-
-        return (int)$this->db->lastInsertId();
+        $rows = $this->call('sp_saved_search_create', [$userId, $cleanName, $json]);
+        return (int)($rows[0]['id'] ?? 0);
     }
 
     /**
@@ -35,10 +31,7 @@ class SavedSearch extends Model
      */
     public function getByUser(int $userId): array
     {
-        $rows = $this->query(
-            "SELECT * FROM saved_searches WHERE user_id = ? ORDER BY created_at DESC",
-            [$userId]
-        )->fetchAll(PDO::FETCH_ASSOC);
+        $rows = $this->call('sp_saved_search_list', [$userId]);
 
         foreach ($rows as &$row) {
             $row['filter_data'] = json_decode($row['filters'], true) ?: [];
@@ -53,10 +46,7 @@ class SavedSearch extends Model
      */
     public function findOwned(int $id, int $userId): ?array
     {
-        $row = $this->query(
-            "SELECT * FROM saved_searches WHERE id = ? AND user_id = ? LIMIT 1",
-            [$id, $userId]
-        )->fetch(PDO::FETCH_ASSOC);
+        $row = $this->call('sp_saved_search_find', [$id, $userId])[0] ?? null;
 
         if ($row) {
             $row['filter_data'] = json_decode($row['filters'], true) ?: [];
@@ -71,9 +61,7 @@ class SavedSearch extends Model
      */
     public function deleteOwned(int $id, int $userId): bool
     {
-        return $this->query(
-            "DELETE FROM saved_searches WHERE id = ? AND user_id = ?",
-            [$id, $userId]
-        )->rowCount() > 0;
+        $rows = $this->call('sp_saved_search_delete', [$id, $userId]);
+        return (int)($rows[0]['affected'] ?? 0) > 0;
     }
 }
