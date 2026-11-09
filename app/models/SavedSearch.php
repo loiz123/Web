@@ -16,9 +16,10 @@ class SavedSearch extends Model
         }
 
         // Lọc bỏ các key rỗng trước khi lưu JSON
-        $cleanFilters = array_filter($filters, function ($val) {
-            return $val !== null && $val !== '';
-        });
+        $cleanFilters = [];
+        foreach ($filters as $key => $value) {
+            if ($value !== null && $value !== '') $cleanFilters[$key] = $value;
+        }
 
         $json = json_encode($cleanFilters, JSON_UNESCAPED_UNICODE);
 

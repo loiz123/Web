@@ -46,8 +46,9 @@ class PropertyController extends Controller
             $this->renderPagination($page, $totalPages, $total, $limit);
             $paginationHtml = ob_get_clean();
 
-            $mapProperties = array_map(function ($p) {
-                return [
+            $mapProperties = [];
+            foreach ($properties as $p) {
+                $mapProperties[] = [
                     'id'              => (int)$p['id'],
                     'title'           => $p['title'],
                     'price'           => (float)$p['price'],
@@ -63,7 +64,7 @@ class PropertyController extends Controller
                     'cover_url'       => !empty($p['cover_url']) ? image_url($p['cover_url']) : '',
                     'detail_url'      => base_url('property/detail/' . $p['id']),
                 ];
-            }, $properties);
+            }
 
             $this->json([
                 'total'          => $total,

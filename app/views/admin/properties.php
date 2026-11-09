@@ -3,7 +3,7 @@ $items = $result['items'];
 $total = (int)$result['total'];
 $page = (int)$result['page'];
 $pages = max(1, (int)ceil($total / $perPage));
-$url = fn(string $t, int $p) => base_url('admin/properties') . '?tab=' . $t . '&page=' . $p;
+$propertiesUrl = base_url('admin/properties');
 ?>
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h1 class="h4 mb-0">Duyệt tin đăng</h1>
@@ -11,8 +11,8 @@ $url = fn(string $t, int $p) => base_url('admin/properties') . '?tab=' . $t . '&
 </div>
 
 <ul class="nav nav-tabs mb-3">
-  <li class="nav-item"><a class="nav-link <?= $tab === 'pending' ? 'active' : '' ?>" href="<?= e($url('pending', 1)) ?>">Tin chờ duyệt</a></li>
-  <li class="nav-item"><a class="nav-link <?= $tab === 'reports' ? 'active' : '' ?>" href="<?= e($url('reports', 1)) ?>">Báo cáo vi phạm</a></li>
+  <li class="nav-item"><a class="nav-link <?= $tab === 'pending' ? 'active' : '' ?>" href="<?= e($propertiesUrl . '?tab=pending&page=1') ?>">Tin chờ duyệt</a></li>
+  <li class="nav-item"><a class="nav-link <?= $tab === 'reports' ? 'active' : '' ?>" href="<?= e($propertiesUrl . '?tab=reports&page=1') ?>">Báo cáo vi phạm</a></li>
 </ul>
 
 <div id="mod-alert" class="alert d-none" role="alert"></div>
@@ -67,7 +67,7 @@ $url = fn(string $t, int $p) => base_url('admin/properties') . '?tab=' . $t . '&
 <?php if ($pages > 1): ?>
 <nav><ul class="pagination">
   <?php for ($i = 1; $i <= $pages; $i++): ?>
-    <li class="page-item <?= $i === $page ? 'active' : '' ?>"><a class="page-link" href="<?= e($url($tab, $i)) ?>"><?= $i ?></a></li>
+    <li class="page-item <?= $i === $page ? 'active' : '' ?>"><a class="page-link" href="<?= e($propertiesUrl . '?tab=' . $tab . '&page=' . $i) ?>"><?= $i ?></a></li>
   <?php endfor; ?>
 </ul></nav>
 <?php endif; ?>

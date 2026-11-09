@@ -32,12 +32,16 @@ class AdminStats extends Model
     public function propertiesByDistrict(): array
     {
         $rows = $this->call('sp_dashboard_by_district');
-        return array_map(fn(array $r): array => [
-            'district' => $r['district_name'],
-            'province' => $r['province_name'],
-            'total'    => (int)$r['total'],
-            'approved' => (int)$r['approved'],
-        ], $rows);
+        $result = [];
+        foreach ($rows as $r) {
+            $result[] = [
+                'district' => $r['district_name'],
+                'province' => $r['province_name'],
+                'total'    => (int)$r['total'],
+                'approved' => (int)$r['approved'],
+            ];
+        }
+        return $result;
     }
 
 }

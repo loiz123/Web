@@ -22,12 +22,13 @@ header('X-Frame-Options: SAMEORIGIN');
 header('Referrer-Policy: strict-origin-when-cross-origin');
 header('Permissions-Policy: geolocation=(), camera=(), microphone=()');
 
-spl_autoload_register(function (string $class): void {
+function autoloadApplicationClass(string $class): void {
     foreach (['core', 'models', 'controllers', 'controllers/admin', 'helpers'] as $dir) {
         $file = APP . "/$dir/$class.php";
         if (is_file($file)) { require $file; return; }
     }
-});
+}
+spl_autoload_register('autoloadApplicationClass');
 require APP . '/helpers/functions.php';
 
 ini_set('display_errors', config('debug') ? '1' : '0');

@@ -11,12 +11,13 @@ define('ROOT', dirname(__DIR__));
 define('APP', ROOT . '/app');
 $GLOBALS['config'] = require ROOT . '/config/config.php';
 
-spl_autoload_register(function (string $class): void {
+function autoloadUiTestClass(string $class): void {
     foreach (['core', 'models', 'controllers', 'controllers/admin', 'helpers'] as $dir) {
         $file = APP . "/$dir/$class.php";
         if (is_file($file)) { require $file; return; }
     }
-});
+}
+spl_autoload_register('autoloadUiTestClass');
 require APP . '/helpers/functions.php';
 
 echo "\n--- KIỂM THỬ CÁC TÍNH NĂNG MỚI (MORTGAGE, POI, COMPARE) ---\n";
@@ -174,7 +175,7 @@ $simList = $propertyModel->getSimilarProperties(
     (float)($prop14['price'] ?? 2000000000),
     4
 );
-assertTest("8.2 getSimilarProperties trả về tối đa 4 BĐS đã duyệt và khác currentId", is_array($simList) && count($simList) > 0 && count($simList) <= 4 && !in_array((int)$prop14['id'], array_map(fn($r) => (int)$r['id'], $simList), true));
+assertTest("8.2 getSimilarProperties trả về tối đa 4 BĐS đã duyệt và khác currentId", is_array($simList) && count($simList) > 0 && count($simList) <= 4 && !in_array((int)$prop14['id'], array_map('intval', array_column($simList, 'id')), true));
 assertTest("8.3 Mỗi BĐS tương tự đều có avatar_url và cover_url", !empty($simList[0]['avatar_url']) && array_key_exists('cover_url', $simList[0]));
 assertTest("8.4 detail.php có khối Bất động sản tương tự trong khu vực (4 cột row-cols-lg-4)", strpos($detailViewContent, 'Bất động sản tương tự trong khu vực') !== false && strpos($detailViewContent, 'row-cols-1 row-cols-md-2 row-cols-lg-4 g-3') !== false);
 

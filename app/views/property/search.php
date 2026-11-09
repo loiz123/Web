@@ -20,8 +20,9 @@
  * @var array $savedSearches
  */
 
-$initialMapProperties = array_map(function ($p) {
-    return [
+$initialMapProperties = [];
+foreach ($properties as $p) {
+    $initialMapProperties[] = [
         'id'              => (int)$p['id'],
         'title'           => $p['title'],
         'price'           => (float)$p['price'],
@@ -37,7 +38,7 @@ $initialMapProperties = array_map(function ($p) {
         'cover_url'       => !empty($p['cover_url']) ? image_url($p['cover_url']) : '',
         'detail_url'      => base_url('property/detail/' . $p['id']),
     ];
-}, $properties);
+}
 ?>
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
