@@ -86,6 +86,12 @@ if ($user) {
           </a>
         </li>
         <li class="nav-item">
+          <a class="nav-link <?= str_starts_with($currentUrl, 'property/map') ? 'active' : '' ?>" href="<?= e(base_url('property/map')) ?>">
+            <i class="bi bi-map text-primary"></i>
+            <span>Bản đồ</span>
+          </a>
+        </li>
+        <li class="nav-item">
           <a class="nav-link <?= str_starts_with($currentUrl, 'property/compare') ? 'active' : '' ?>" href="<?= e(base_url('property/compare')) ?>">
             <i class="bi bi-arrow-left-right text-success"></i>
             <span>So sánh</span>
@@ -330,7 +336,7 @@ if ($user) {
       <div class="col-lg-3 col-md-6 col-6">
         <h6 class="text-white fw-bold">Công cụ & Dịch vụ</h6>
         <ul class="list-unstyled d-flex flex-column gap-2 small">
-          <li><a href="<?= e(base_url('property/search')) ?>"><i class="bi bi-map me-1"></i>Bản đồ bất động sản trực quan</a></li>
+          <li><a href="<?= e(base_url('property/map')) ?>"><i class="bi bi-map me-1"></i>Bản đồ bất động sản trực quan</a></li>
           <li><a href="<?= e(base_url('property/compare')) ?>"><i class="bi bi-arrow-left-right me-1"></i>So sánh chi tiết thông số dự án</a></li>
           <li><a href="<?= e(base_url('property/search')) ?>#calc"><i class="bi bi-calculator me-1"></i>Công cụ tính lãi suất vay mua nhà</a></li>
           <li><a href="<?= e(base_url('favorite')) ?>"><i class="bi bi-bookmark-heart me-1"></i>Danh sách bất động sản đã lưu</a></li>

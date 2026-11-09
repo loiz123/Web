@@ -99,6 +99,77 @@ class PropertyController extends Controller
         ]);
     }
 
+    /**
+     * [C - Thiện] Bản đồ bất động sản trực quan (Leaflet OpenStreetMap + Marker Clustering)
+     * Tuyến đường: /property/map
+     */
+    public function map(): void
+    {
+        $allowedKeys = [
+            'keyword', 'listing_type', 'type_id', 'province_id', 'district_id', 'ward_id',
+            'min_price', 'max_price', 'price_range', 'min_area', 'max_area', 'area_range',
+            'bedrooms', 'sort_by'
+        ];
+        $filters = array_intersect_key($_GET, array_flip($allowedKeys));
+
+        $location = new Location();
+        if (!empty($filters['district_id']) && empty($filters['province_id'])) {
+            $filters['province_id'] = $location->provinceByDistrict((int)$filters['district_id']);
+        }
+
+        $finder = new PropertyFinder();
+        $rawProperties = $finder->forMap($filters);
+
+        $mapProperties = array_map(function ($p) {
+            $coverUrl = !empty($p['cover_url']) ? property_avatar_url($p['cover_url']) : property_avatar_url(null);
+            return [
+                'id'              => (int)$p['id'],
+                'title'           => $p['title'],
+                'slug'            => slugify($p['title']),
+                'price'           => (float)$p['price'],
+                'formatted_price' => format_price($p['price']),
+                'area'            => (float)$p['area'],
+                'bedrooms'        => (int)($p['bedrooms'] ?? 0),
+                'bathrooms'       => (int)($p['bathrooms'] ?? 0),
+                'listing_type'    => $p['listing_type'],
+                'type_id'         => (int)($p['type_id'] ?? 0),
+                'type_name'       => $p['type_name'] ?? '',
+                'latitude'        => !empty($p['latitude']) ? (float)$p['latitude'] : null,
+                'longitude'       => !empty($p['longitude']) ? (float)$p['longitude'] : null,
+                'province_id'     => (int)($p['province_id'] ?? 0),
+                'province_name'   => $p['province_name'] ?? '',
+                'district_id'     => (int)($p['district_id'] ?? 0),
+                'district_name'   => $p['district_name'] ?? '',
+                'ward_name'       => $p['ward_name'] ?? '',
+                'address_detail'  => $p['address_detail'] ?? '',
+                'cover_url'       => $coverUrl,
+                'detail_url'      => base_url('property/detail/' . $p['id']),
+            ];
+        }, $rawProperties);
+
+        if ($this->wantsJson()) {
+            $this->json([
+                'total'      => count($mapProperties),
+                'properties' => $mapProperties,
+            ], true);
+            return;
+        }
+
+        $provinces = $location->provinces();
+        $districts = !empty($filters['province_id']) ? $location->districtsByProvince((int)$filters['province_id']) : [];
+        $propertyTypes = (new PropertyType())->allSorted();
+
+        $this->view('property/map', [
+            'title'         => 'Bản đồ bất động sản trực quan',
+            'properties'    => $mapProperties,
+            'total'         => count($mapProperties),
+            'filters'       => $filters,
+            'provinces'     => $provinces,
+            'districts'     => $districts,
+            'propertyTypes' => $propertyTypes,
+        ]);
+    }
+
     public function detail($id = 0): void
     {
         $id = (int)$id;

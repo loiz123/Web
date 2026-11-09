@@ -21,7 +21,7 @@ $GLOBALS['config'] = require ROOT . '/config/config.php';
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: SAMEORIGIN');
 header('Referrer-Policy: strict-origin-when-cross-origin');
-header('Permissions-Policy: geolocation=(), camera=(), microphone=()');
+header('Permissions-Policy: geolocation=(self), camera=(), microphone=()');
 
 spl_autoload_register(function (string $class): void {
     foreach (['core', 'models', 'controllers', 'controllers/admin', 'helpers'] as $dir) {

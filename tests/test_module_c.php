@@ -708,7 +708,70 @@ $t->assert(
     "8.6 Tuân thủ UX Writing Guard: không rò rỉ thuật ngữ kỹ thuật/đồ án trong văn bản giao diện người dùng cuối"
 );
 
+// =========================================================================
+// SUITE 9: TRANG BẢN ĐỒ BẤT ĐỘNG SẢN TRỰC QUAN (PROPERTY MAP) & LIÊN KẾT MENU
+// =========================================================================
+echo "\nSUITE 9: TRANG BẢN ĐỒ BẤT ĐỘNG SẢN TRỰC QUAN (PROPERTY MAP) & LIÊN KẾT MENU\n";
+
+// 9.1 Helper slugify tạo slug tiếng Việt không dấu chuẩn SEO
+$testSlug = slugify('Đất nền biệt thự sinh thái Hải Châu Đà Nẵng 2026!');
+$t->assert(
+    $testSlug === 'dat-nen-biet-thu-sinh-thai-hai-chau-da-nang-2026',
+    "9.1 Helper slugify() tạo slug tiếng Việt không dấu chuẩn SEO",
+    "Kết quả: {$testSlug}"
+);
+
+// 9.2 PropertyFinder::forMap lấy danh sách BĐS approved kèm tọa độ đầy đủ
+$mapProps = $finder->forMap();
+$t->assert(!empty($mapProps), "9.2 PropertyFinder::forMap() trả về danh sách BĐS", "Số lượng: " . count($mapProps));
+
+$allApproved = true;
+$allHaveCoords = true;
+foreach ($mapProps as $mp) {
+    if ($mp['status'] !== 'approved') $allApproved = false;
+    if (empty($mp['latitude']) || empty($mp['longitude'])) $allHaveCoords = false;
+}
+$t->assert($allApproved, "9.2.1 100% tin đăng trên bản đồ đều có status = 'approved'");
+$t->assert($allHaveCoords, "9.2.2 100% tin đăng trên bản đồ đều có tọa độ latitude, longitude hợp lệ");
+
+// 9.3 Action PropertyController::map() tồn tại và hợp lệ
+$propCtrlRefl = new ReflectionClass('PropertyController');
+$t->assert(
+    $propCtrlRefl->hasMethod('map') && $propCtrlRefl->getMethod('map')->isPublic(),
+    "9.3 PropertyController::map() tồn tại và là public action method"
+);
+
+// 9.4 File View app/views/property/map.php hoàn chỉnh, có markercluster, my-location và bộ lọc
+$mapViewPath = APP . '/views/property/map.php';
+$mapViewContent = is_file($mapViewPath) ? file_get_contents($mapViewPath) : '';
+$t->assert(
+    is_file($mapViewPath)
+    && strpos($mapViewContent, 'id="propertyMap"') !== false
+    && strpos($mapViewContent, 'markerClusterGroup') !== false
+    && strpos($mapViewContent, 'btnMyLocation') !== false
+    && strpos($mapViewContent, 'filterProvince') !== false
+    && strpos($mapViewContent, 'filterListingType') !== false
+    && strpos($mapViewContent, 'filterPriceRange') !== false
+    && strpos($mapViewContent, 'mapSidebarList') !== false,
+    "9.4 View app/views/property/map.php tích hợp đầy đủ Leaflet, MarkerCluster, My Location và bộ lọc"
+);
+
+// 9.5 Kiểm tra liên kết footer và menu trỏ chính xác đến property/map
+$layoutContent = file_get_contents(APP . '/views/layouts/main.php');
+$t->assert(
+    strpos($layoutContent, "base_url('property/map')") !== false
+    && strpos($layoutContent, 'Bản đồ bất động sản trực quan') !== false,
+    "9.5 Liên kết 'Bản đồ bất động sản trực quan' trong menu & footer trỏ chính xác đến property/map"
+);
+
+// 9.6 Kiểm tra UX Writing Guard trên view map.php (không lộ stack công nghệ hay thông tin đồ án)
+$mapUxOk = strpos($mapViewContent, 'Module C') === false
+    && strpos($mapViewContent, 'Hà Ngọc Thiện') === false
+    && strpos($mapViewContent, 'UEH') === false;
+$t->assert($mapUxOk, "9.6 View map.php tuân thủ UX Writing Guard (chuẩn tiếng Việt thương mại)");
+
 // TỔNG KẾT BÁO CÁO
 $t->report();
 
 exit($t->hasFailures() ? 1 : 0);
+

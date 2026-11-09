@@ -68,3 +68,61 @@ function property_avatar_url(?string $path): string
     return base_url('uploads/sample-property-01.jpg');
 }
 
+/**
+ * Hiển thị thời gian tương đối thân thiện (Vừa xong, 5 phút trước, 2 giờ trước, ...).
+ */
+function time_ago(?string $datetime): string
+{
+    if (empty($datetime)) return '';
+    $ts = strtotime($datetime);
+    if ($ts === false) return $datetime;
+    $diff = time() - $ts;
+    if ($diff < 60) {
+        return 'Vừa xong';
+    }
+    if ($diff < 3600) {
+        return (int)floor($diff / 60) . ' phút trước';
+    }
+    if ($diff < 86400) {
+        return (int)floor($diff / 3600) . ' giờ trước';
+    }
+    if ($diff < 604800) {
+        $days = (int)floor($diff / 86400);
+        return $days === 1 ? 'Hôm qua lúc ' . date('H:i', $ts) : $days . ' ngày trước';
+    }
+    return date('H:i d/m/Y', $ts);
+}
+
+/**
+ * Chuyển chuỗi tiếng Việt có dấu thành URL slug không dấu chuẩn SEO.
+ */
+function slugify(?string $text): string
+{
+    if (empty($text)) return '';
+    $text = (string)$text;
+    $unicode = [
+        'a' => 'á|à|ả|ã|ạ|ă|ắ|ằ|ẳ|ẵ|ặ|â|ấ|ầ|ẩ|ẫ|ậ',
+        'd' => 'đ',
+        'e' => 'é|è|ẻ|ẽ|ẹ|ê|ế|ề|ể|ễ|ệ',
+        'i' => 'í|ì|ỉ|ĩ|ị',
+        'o' => 'ó|ò|ỏ|õ|ọ|ô|ố|ồ|ổ|ỗ|ộ|ơ|ớ|ờ|ở|ỡ|ợ',
+        'u' => 'ú|ù|ủ|ũ|ụ|ư|ứ|ừ|ử|ữ|ự',
+        'y' => 'ý|ỳ|ỷ|ỹ|ỵ',
+        'A' => 'Á|À|Ả|Ã|Ạ|Ă|Ắ|Ặ|Ằ|Ẳ|Ẵ|Â|Ấ|Ầ|Ẩ|Ẫ|Ậ',
+        'D' => 'Đ',
+        'E' => 'É|È|Ẻ|Ẽ|Ẹ|Ê|Ế|Ề|Ể|Ễ|Ệ',
+        'I' => 'Í|Ì|Ỉ|Ĩ|Ị',
+        'O' => 'Ó|Ò|Ỏ|Õ|Ọ|Ô|Ố|Ồ|Ổ|Ỗ|Ộ|Ơ|Ớ|Ờ|Ở|Ỡ|Ợ',
+        'U' => 'Ú|Ù|Ủ|Ũ|Ụ|Ư|Ứ|Ừ|Ử|Ữ|Ự',
+        'Y' => 'Ý|Ỳ|Ỷ|Ỹ|Ỵ',
+    ];
+    foreach ($unicode as $nonAccent => $accent) {
+        $text = preg_replace("/($accent)/u", $nonAccent, $text);
+    }
+    $text = strtolower(trim((string)$text));
+    $text = preg_replace('/[^a-z0-9\-\s]/', '', $text);
+    $text = preg_replace('/[\s\-]+/', '-', (string)$text);
+    return trim((string)$text, '-');
+}
+
+

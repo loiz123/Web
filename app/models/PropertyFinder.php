@@ -4,7 +4,7 @@ class PropertyFinder extends Model
 {
     protected string $table = 'properties';
 
-    private const BASE_SELECT = "SELECT p.id, p.title, p.listing_type, p.price, p.area, p.bedrooms, p.bathrooms,
+    private const BASE_SELECT = "SELECT p.id, p.title, p.status, p.listing_type, p.price, p.area, p.bedrooms, p.bathrooms,
             p.direction, p.is_verified, p.latitude, p.longitude, p.created_at,
             t.id AS type_id, t.name AS type_name,
             w.id AS ward_id, w.name AS ward_name,
@@ -219,6 +219,31 @@ class PropertyFinder extends Model
         [$where, $params, $order] = $this->buildQueryParts($f);
         $sql = self::BASE_SELECT . $where . $order . ' LIMIT ' . (int)$limit . ' OFFSET ' . (int)$offset;
         return $this->query($sql, $params)->fetchAll();
+    }
+
+    /**
+     * Lấy danh sách tất cả BĐS đang hiển thị (approved) phục vụ hiển thị bản đồ trực quan
+     */
+    public function forMap(array $filters = []): array
+    {
+        [$where, $params, $order] = $this->buildQueryParts($filters);
+        $sql = self::BASE_SELECT . $where . $order;
+        $properties = $this->query($sql, $params)->fetchAll();
+
+        // Đảm bảo mọi tin đều có tọa độ (fallback theo quận/tỉnh nếu thiếu)
+        foreach ($properties as &$p) {
+            if (empty($p['latitude']) || empty($p['longitude'])) {
+                $fallback = $this->getDistrictFallbackCoords((int)($p['district_id'] ?? 0), (int)($p['province_id'] ?? 1));
+                $p['latitude'] = $fallback['lat'];
+                $p['longitude'] = $fallback['lng'];
+                $p['is_coord_fallback'] = true;
+            } else {
+                $p['is_coord_fallback'] = false;
+            }
+        }
+        unset($p);
+
+        return $properties;
     }
 
     /**
