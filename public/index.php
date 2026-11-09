@@ -4,10 +4,13 @@ declare(strict_types=1);
 define('ROOT', dirname(__DIR__));
 define('APP', ROOT . '/app');
 
+$isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+    || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+
 session_set_cookie_params([
     'lifetime' => 0,
     'path' => '/',
-    'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
+    'secure' => $isHttps,
     'httponly' => true,
     'samesite' => 'Lax',
 ]);

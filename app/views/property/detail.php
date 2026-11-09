@@ -792,7 +792,9 @@ if (!$hasValidCoords) {
 </div>
 
 <?php
-  $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+  $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+      || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+  $scheme = $isHttps ? 'https' : 'http';
   $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
   $shareFullUrl = $scheme . '://' . $host . base_url('property/detail/' . (int)$property['id']);
   $shareMailSubject = 'Chia sẻ bất động sản: ' . ($property['title'] ?? '');
