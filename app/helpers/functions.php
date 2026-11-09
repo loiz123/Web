@@ -16,6 +16,8 @@ function base_url(string $path = ''): string
     $base = config('base_url');
     if ($base === '' || $base === null) {
         $base = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'])), '/');
+    } else {
+        $base = rtrim((string)$base, '/');
     }
     return $base . '/' . ltrim($path, '/');
 }
