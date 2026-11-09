@@ -261,6 +261,7 @@ function setupAgentForm() {
   var selectedWard = ward.dataset.selected;
 
   province.addEventListener('change', function () {
+    if (province.dataset.autoPopulating === '1') return;
     selectedDistrict = '';
     selectedWard = '';
     loadLocationOptions(
@@ -273,6 +274,7 @@ function setupAgentForm() {
   });
 
   district.addEventListener('change', function () {
+    if (district.dataset.autoPopulating === '1') return;
     selectedWard = '';
     loadLocationOptions(
       district.value ? `api/wards/${district.value}` : '',

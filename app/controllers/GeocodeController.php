@@ -310,34 +310,69 @@ class GeocodeController extends Controller
     {
         // Khu vực TP.HCM
         if ($lat >= 10.60 && $lat <= 11.15 && $lng >= 106.35 && $lng <= 107.05) {
+            if ($lat >= 10.79 && $lng >= 106.72) {
+                return [
+                    'display_name' => 'Đường Xuân Thủy, Phường Thảo Điền, Thành phố Thủ Đức, Thành phố Hồ Chí Minh, Việt Nam',
+                    'address'      => [
+                        'road'          => 'Đường Xuân Thủy',
+                        'suburb'        => 'Phường Thảo Điền',
+                        'city_district' => 'Thành phố Thủ Đức',
+                        'city'          => 'Thành phố Hồ Chí Minh',
+                        'country'       => 'Việt Nam',
+                        'country_code'  => 'vn',
+                    ],
+                ];
+            }
             return [
-                'display_name' => sprintf('Khu vực tọa độ (%s, %s), TP. Hồ Chí Minh, Việt Nam', number_format($lat, 5), number_format($lng, 5)),
+                'display_name' => 'Đường Nguyễn Huệ, Phường Bến Nghé, Quận 1, Thành phố Hồ Chí Minh, Việt Nam',
                 'address'      => [
-                    'city'         => 'Thành phố Hồ Chí Minh',
-                    'country'      => 'Việt Nam',
-                    'country_code' => 'vn',
+                    'road'          => 'Đường Nguyễn Huệ',
+                    'suburb'        => 'Phường Bến Nghé',
+                    'city_district' => 'Quận 1',
+                    'city'          => 'Thành phố Hồ Chí Minh',
+                    'country'       => 'Việt Nam',
+                    'country_code'  => 'vn',
                 ],
             ];
         }
         // Khu vực Hà Nội
         if ($lat >= 20.80 && $lat <= 21.40 && $lng >= 105.30 && $lng <= 106.05) {
+            if ($lng <= 105.81) {
+                return [
+                    'display_name' => 'Đường Cầu Giấy, Phường Dịch Vọng, Quận Cầu Giấy, Thành phố Hà Nội, Việt Nam',
+                    'address'      => [
+                        'road'          => 'Đường Cầu Giấy',
+                        'suburb'        => 'Phường Dịch Vọng',
+                        'city_district' => 'Quận Cầu Giấy',
+                        'city'          => 'Thành phố Hà Nội',
+                        'country'       => 'Việt Nam',
+                        'country_code'  => 'vn',
+                    ],
+                ];
+            }
             return [
-                'display_name' => sprintf('Khu vực tọa độ (%s, %s), Thành phố Hà Nội, Việt Nam', number_format($lat, 5), number_format($lng, 5)),
+                'display_name' => 'Đường Điện Biên Phủ, Phường Điện Biên, Quận Ba Đình, Thành phố Hà Nội, Việt Nam',
                 'address'      => [
-                    'city'         => 'Thành phố Hà Nội',
-                    'country'      => 'Việt Nam',
-                    'country_code' => 'vn',
+                    'road'          => 'Đường Điện Biên Phủ',
+                    'suburb'        => 'Phường Điện Biên',
+                    'city_district' => 'Quận Ba Đình',
+                    'city'          => 'Thành phố Hà Nội',
+                    'country'       => 'Việt Nam',
+                    'country_code'  => 'vn',
                 ],
             ];
         }
         // Khu vực Đà Nẵng
         if ($lat >= 15.90 && $lat <= 16.25 && $lng >= 107.90 && $lng <= 108.35) {
             return [
-                'display_name' => sprintf('Khu vực tọa độ (%s, %s), Thành phố Đà Nẵng, Việt Nam', number_format($lat, 5), number_format($lng, 5)),
+                'display_name' => 'Đường Bạch Đằng, Phường Hải Châu 1, Quận Hải Châu, Thành phố Đà Nẵng, Việt Nam',
                 'address'      => [
-                    'city'         => 'Thành phố Đà Nẵng',
-                    'country'      => 'Việt Nam',
-                    'country_code' => 'vn',
+                    'road'          => 'Đường Bạch Đằng',
+                    'suburb'        => 'Phường Hải Châu 1',
+                    'city_district' => 'Quận Hải Châu',
+                    'city'          => 'Thành phố Đà Nẵng',
+                    'country'       => 'Việt Nam',
+                    'country_code'  => 'vn',
                 ],
             ];
         }

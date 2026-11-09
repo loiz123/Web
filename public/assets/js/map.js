@@ -244,14 +244,18 @@ window.BdsMap = (function () {
         }
 
         const displayName = payload?.display_name || payload?.data?.display_name || '';
+        const addressObj = payload?.address || payload?.data?.address || null;
 
         if (payload && payload.success && displayName) {
           setCoordinates(lat, lng, `<strong>Vị trí đã chọn</strong><br><span class="small">${escapeHtml(displayName)}</span>`);
 
-          // Tự động điền nếu ô Địa chỉ (#address hoặc #address-detail) đang trống
+          // Tự động phân tích địa chỉ ngược (Reverse Geocoding) -> chọn Tỉnh/Quận/Phường và điền tên đường vào #address-detail
           const targetField = detailAddressInput || document.querySelector('#address, #address-detail, input[name="address_detail"]');
           let autoFilled = false;
-          if (targetField && !targetField.value.trim()) {
+          if (window.BdsAddressParser && typeof window.BdsAddressParser.handleReverseGeocode === 'function') {
+            await window.BdsAddressParser.handleReverseGeocode(displayName, addressObj, { fillInput: true });
+            autoFilled = true;
+          } else if (targetField && !targetField.value.trim()) {
             applySuggestedAddress(displayName, true);
             autoFilled = true;
           }
@@ -474,6 +478,40 @@ window.BdsMap = (function () {
       }
     }
 
+    /**
+     * Tự động định vị tọa độ trên bản đồ khi người dùng nhập địa chỉ chi tiết (#address-detail)
+     */
+    async function geocodeSilent(query) {
+      const q = (query || '').trim();
+      if (!q) return null;
+      try {
+        const contextualQuery = addLocationContext(q);
+        let res = null;
+        if (typeof api === 'function') {
+          try {
+            res = await api('geocode?q=' + encodeURIComponent(contextualQuery));
+            if ((!res || !res.success || !Array.isArray(res.data) || res.data.length === 0) && contextualQuery !== q) {
+              res = await api('geocode?q=' + encodeURIComponent(q));
+            }
+          } catch (e) {}
+        }
+        const data = (res && res.success && Array.isArray(res.data)) ? res.data : [];
+        const first = data[0];
+        if (first && Number.isFinite(Number(first.lat)) && Number.isFinite(Number(first.lng))) {
+          const foundLat = Number(first.lat);
+          const foundLng = Number(first.lng);
+          map.setView([foundLat, foundLng], 16);
+          setCoordinates(foundLat, foundLng, `<strong>${escapeHtml(first.display_name || q)}</strong>`);
+          if (statusEl) {
+            statusEl.className = 'alert alert-success py-2 small mb-2';
+            statusEl.innerHTML = `<i class="bi bi-geo-alt-fill text-danger me-1"></i>Đã tự động định vị trên bản đồ: <strong>${foundLat.toFixed(6)}, ${foundLng.toFixed(6)}</strong>`;
+          }
+          return first;
+        }
+      } catch (e) {}
+      return null;
+    }
+
     if (searchBtn) {
       searchBtn.addEventListener('click', (e) => {
         e.preventDefault();
@@ -492,14 +530,18 @@ window.BdsMap = (function () {
 
     applyAntiGreyScreen(map, mapEl);
 
-    return {
+    const pickerInstance = {
       map,
       marker,
       setCoordinates,
       searchLocation,
+      geocodeSilent,
       reverseGeocode,
       invalidateSize: () => map.invalidateSize(),
     };
+    BdsMap.activePicker = pickerInstance;
+    mapEl._bdsPicker = pickerInstance;
+    return pickerInstance;
   }
 
   // Cấu hình danh mục tiện ích xung quanh (POI)

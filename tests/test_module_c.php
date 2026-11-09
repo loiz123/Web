@@ -577,6 +577,97 @@ $t->assert(
     "7.7 [Mục 15/15] Cập nhật Avatar (kèm xem trước) và Bio cho tài khoản trong ProfileController & hiển thị trên trang chi tiết tin"
 );
 
+// =========================================================================
+// 8. ĐỊA GIỚI HÀNH CHÍNH 63 TỈNH/THÀNH & BÓC TÁCH ĐỊA CHỈ THÔNG MINH
+// =========================================================================
+echo "\nSUITE 8: ĐỊA GIỚI HÀNH CHÍNH 63 TỈNH/THÀNH & BÓC TÁCH ĐỊA CHỈ THÔNG MINH\n";
+
+require_once APP . '/models/Location.php';
+
+// 8.1 Kiểm tra số lượng tỉnh/thành (> 60), quận/huyện, phường/xã và file seed SQL offline
+$provinceCount = (int)$db->query("SELECT COUNT(*) FROM provinces")->fetchColumn();
+$districtCount = (int)$db->query("SELECT COUNT(*) FROM districts")->fetchColumn();
+$wardCount     = (int)$db->query("SELECT COUNT(*) FROM wards")->fetchColumn();
+$seedSqlPath   = ROOT . '/database/seeds/vietnam_administrative_divisions.sql';
+
+$t->assert(
+    $provinceCount >= 63
+    && $districtCount >= 690
+    && $wardCount >= 10000
+    && is_file($seedSqlPath)
+    && filesize($seedSqlPath) > 200000,
+    "8.1 CSDL Địa giới hành chính Việt Nam nạp đủ {$provinceCount} Tỉnh/Thành (> 60), {$districtCount} Quận/Huyện, {$wardCount} Phường/Xã kèm file seed SQL offline",
+    "Provinces={$provinceCount}, Districts={$districtCount}, Wards={$wardCount}"
+);
+
+// 8.2 Kiểm tra phân cấp Tỉnh -> Quận/Huyện -> Phường/Xã qua Location Model
+$locModel     = new Location();
+$allProvinces = $locModel->provinces();
+$hcmDistricts = $locModel->districtsByProvince(1);
+$hnDistricts  = $locModel->districtsByProvince(2);
+$dnDistricts  = $locModel->districtsByProvince(3);
+$q1Wards      = $locModel->wardsByDistrict(1);
+$cgWards      = $locModel->wardsByDistrict(5);
+
+$t->assert(
+    count($allProvinces) === 63
+    && count($hcmDistricts) >= 22
+    && count($hnDistricts) >= 30
+    && count($dnDistricts) >= 7
+    && count($q1Wards) >= 10
+    && count($cgWards) >= 8
+    && $locModel->isValidWard(1, 1, 1) === true
+    && $locModel->isValidWard(2, 5, 7) === true
+    && $locModel->isValidWard(3, 6, 8) === true
+    && $locModel->isValidWard(1, 5, 7) === false,
+    "8.2 Phân cấp Tỉnh -> Quận/Huyện -> Phường/Xã hoạt động chính xác (HCM: " . count($hcmDistricts) . " quận/huyện, HN: " . count($hnDistricts) . " quận/huyện, Q.1: " . count($q1Wards) . " phường)"
+);
+
+// 8.3 Kiểm tra tính toàn vẹn của 18 tin đăng hiện có và các ID cố định (Provinces 1..3, Districts 1..6, Wards 1..8)
+$fixedProvinces = $db->query("SELECT id, name FROM provinces WHERE id IN (1,2,3) ORDER BY id")->fetchAll(PDO::FETCH_KEY_PAIR);
+$fixedWards     = $db->query("SELECT id, name FROM wards WHERE id BETWEEN 1 AND 8 ORDER BY id")->fetchAll(PDO::FETCH_KEY_PAIR);
+$validPropertiesCount = (int)$db->query("
+    SELECT COUNT(*)
+    FROM properties p
+    INNER JOIN wards w ON w.id = p.ward_id
+    INNER JOIN districts d ON d.id = w.district_id
+    INNER JOIN provinces pr ON pr.id = d.province_id
+")->fetchColumn();
+$totalPropertiesCount = (int)$db->query("SELECT COUNT(*) FROM properties")->fetchColumn();
+
+$t->assert(
+    $totalPropertiesCount >= 18
+    && $validPropertiesCount === $totalPropertiesCount
+    && ($fixedProvinces[1] ?? '') === 'TP. Hồ Chí Minh'
+    && ($fixedProvinces[2] ?? '') === 'Hà Nội'
+    && ($fixedProvinces[3] ?? '') === 'Đà Nẵng'
+    && count($fixedWards) === 8
+    && ($fixedWards[1] ?? '') === 'Phường Bến Nghé'
+    && ($fixedWards[8] ?? '') === 'Phường Hải Châu 1',
+    "8.3 Bảo toàn 100% liên kết khóa ngoại ward_id của {$validPropertiesCount}/{$totalPropertiesCount} tin đăng hiện có và giữ nguyên ID gốc (Provinces 1..3, Districts 1..6, Wards 1..8)"
+);
+
+// 8.4 Kiểm tra cơ chế Bóc tách địa chỉ thông minh (Smart Address Parser) & Đồng bộ 2 chiều bản đồ Leaflet
+$addressParserPath = ROOT . '/public/assets/js/address-parser.js';
+$addressParserSrc  = is_file($addressParserPath) ? file_get_contents($addressParserPath) : '';
+$agentCreateSrc    = file_get_contents(APP . '/views/agent/create.php');
+$agentEditSrc      = file_get_contents(APP . '/views/agent/edit.php');
+
+$t->assert(
+    is_file($addressParserPath)
+    && strpos($addressParserSrc, 'BdsAddressParser') !== false
+    && strpos($addressParserSrc, 'parseAndPopulate') !== false
+    && strpos($addressParserSrc, 'handleReverseGeocode') !== false
+    && strpos($addressParserSrc, 'addressParseFeedback') !== false
+    && strpos($agentCreateSrc, 'id="addressParseFeedback"') !== false
+    && strpos($agentCreateSrc, 'assets/js/address-parser.js') !== false
+    && strpos($agentEditSrc, 'id="addressParseFeedback"') !== false
+    && strpos($agentEditSrc, 'assets/js/address-parser.js') !== false
+    && strpos($mapJsSrc, 'handleReverseGeocode') !== false
+    && strpos($mapJsSrc, 'geocodeSilent') !== false,
+    "8.4 Tích hợp Smart Address Parsing (address-parser.js), UX Feedback (#addressParseFeedback) và đồng bộ 2 chiều với Leaflet Map (geocodeSilent & handleReverseGeocode)"
+);
+
 // TỔNG KẾT BÁO CÁO
 $t->report();
 

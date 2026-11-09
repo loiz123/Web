@@ -4,7 +4,7 @@ class Location extends Model
 {
     protected string $table = 'provinces';
 
-    public function provinces(): array { return $this->query('SELECT id, name FROM provinces ORDER BY name')->fetchAll(); }
+    public function provinces(): array { return $this->query('SELECT id, name FROM provinces ORDER BY CASE WHEN id IN (1, 2, 3) THEN id ELSE 999 END, name')->fetchAll(); }
     public function districtsByProvince(int $id): array { return $this->query('SELECT id, name FROM districts WHERE province_id = ? ORDER BY name', [$id])->fetchAll(); }
     public function wardsByDistrict(int $id): array { return $this->query('SELECT id, name FROM wards WHERE district_id = ? ORDER BY name', [$id])->fetchAll(); }
     public function provinceByDistrict(int $districtId): ?int

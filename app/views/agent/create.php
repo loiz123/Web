@@ -98,7 +98,8 @@ $selectedAmenities = is_array($values['amenities'] ?? null) ? $values['amenities
   </div>
   <div class="col-12 col-md-6">
     <label for="address-detail" class="form-label">Địa chỉ chi tiết</label>
-    <input id="address-detail" name="address_detail" maxlength="200" class="form-control" required value="<?= e($values['address_detail'] ?? '') ?>">
+    <input id="address-detail" name="address_detail" maxlength="200" class="form-control" placeholder="VD: Số 123 Nguyễn Huệ, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh" required value="<?= e($values['address_detail'] ?? '') ?>">
+    <small class="text-success d-flex align-items-center gap-1 mt-1 d-none" id="addressParseFeedback"><i class="bi bi-geo-alt-fill"></i> Đã tự động nhận diện: Phường ..., Quận ..., Tỉnh ...</small>
   </div>
   <div class="col-12 col-md-6">
     <label for="legal-status" class="form-label">Pháp lý</label>
@@ -167,6 +168,7 @@ $selectedAmenities = is_array($values['amenities'] ?? null) ? $values['amenities
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="<?= e(base_url('assets/js/map.js')) ?>"></script>
+<script src="<?= e(base_url('assets/js/address-parser.js')) ?>"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   var form = document.getElementById('agent-create-form');

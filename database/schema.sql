@@ -159,13 +159,22 @@ CREATE TABLE viewing_appointments (
 CREATE TABLE reports (                       -- báo cáo tin giả/giá ảo
   id          INT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
   property_id INT UNSIGNED NOT NULL,
-  reporter_id INT UNSIGNED NOT NULL,
+  reporter_id INT UNSIGNED NULL,
   reason      VARCHAR(255) NOT NULL,
-  status      ENUM('open','resolved','dismissed') NOT NULL DEFAULT 'open',
+  description TEXT NULL,
+  status      ENUM('open','pending','resolved','dismissed') NOT NULL DEFAULT 'open',
+  admin_notes TEXT NULL,
   created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_report_status (status),
+  INDEX idx_report_property (property_id),
   CONSTRAINT fk_rep_prop FOREIGN KEY (property_id) REFERENCES properties(id) ON DELETE CASCADE,
   CONSTRAINT fk_rep_user FOREIGN KEY (reporter_id) REFERENCES users(id)      ON DELETE CASCADE
 ) ENGINE=InnoDB;
+
+CREATE OR REPLACE VIEW property_reports AS
+SELECT id, property_id, reporter_id AS user_id, reason, description, status, admin_notes, created_at, updated_at
+FROM reports;
 
 CREATE TABLE password_resets (               -- khôi phục mật khẩu qua token hết hạn sau 30 phút
   email      VARCHAR(191) NOT NULL,
@@ -182,6 +191,7 @@ CREATE TABLE notifications (                 -- thông báo trong ứng dụng (
   title      VARCHAR(255) NOT NULL,
   message    TEXT,
   link       VARCHAR(255) NULL,
+  type       VARCHAR(30) NOT NULL DEFAULT 'info',
   is_read    TINYINT NOT NULL DEFAULT 0,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_notifications_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -192,4 +202,12 @@ CREATE TABLE notifications (                 -- thông báo trong ứng dụng (
 CREATE INDEX idx_prop_status_created ON properties (status, created_at DESC);
 CREATE INDEX idx_prop_status_area ON properties (status, listing_type, area);
 CREATE INDEX idx_prop_img_cover ON property_images (property_id, is_cover DESC, id);
+
+-- Indexes tối ưu truy vấn phân cấp Địa giới hành chính (63 Tỉnh/Thành - Quận/Huyện - Phường/Xã)
+CREATE INDEX idx_provinces_name ON provinces (name);
+CREATE INDEX idx_districts_province_id ON districts (province_id);
+CREATE INDEX idx_districts_province_name ON districts (province_id, name);
+CREATE INDEX idx_wards_district_id ON wards (district_id);
+CREATE INDEX idx_wards_district_name ON wards (district_id, name);
+
 

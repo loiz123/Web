@@ -40,6 +40,7 @@ const BdsLocation = (() => {
 
   function bind(select) {
     select.addEventListener('change', async () => {
+      if (select.dataset.autoPopulating === '1') return;
       const target = document.querySelector(select.dataset.target);
       if (!target) return;
       clearChain(target);
