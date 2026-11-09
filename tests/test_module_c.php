@@ -668,6 +668,46 @@ $t->assert(
     "8.4 Tích hợp Smart Address Parsing (address-parser.js), UX Feedback (#addressParseFeedback) và đồng bộ 2 chiều với Leaflet Map (geocodeSilent & handleReverseGeocode)"
 );
 
+// 8.5 Kiểm tra Live Autocomplete trên bản đồ, Fallback đa tầng (không ép Quận 1) và API Hành chính nội bộ
+$geoCtrlSrc = file_get_contents(APP . '/controllers/GeocodeController.php');
+$apiCtrlSrc = file_get_contents(APP . '/controllers/ApiController.php');
+$locModel = new Location();
+$adminSearchGoVap = $locModel->searchAdministrative('Bình Thạnh', 5);
+$resolvedMergedWard = $locModel->resolveFromAddress('Phường Bình Lợi Trung', 'Thành phố Hồ Chí Minh', 1);
+$resolvedNoDistrict = $locModel->resolveFromAddress('Phường Thảo Điền', 'Thành phố Hồ Chí Minh', 1);
+
+$t->assert(
+    strpos($mapJsSrc, "addEventListener('input'") !== false
+    && strpos($mapJsSrc, 'buildSearchTierQueries') !== false
+    && strpos($mapJsSrc, 'api/locations/search') !== false
+    && strpos($mapJsSrc, 'syncSelectedAddressToForm') !== false
+    && strpos($mapJsSrc, 'mapSearchSuggestions') !== false
+    && strpos($addressParserSrc, 'api/locations/resolve') !== false
+    && strpos($geoCtrlSrc, 'buildSearchCandidateQueries') !== false
+    && strpos($apiCtrlSrc, 'function locations(') !== false
+    && !empty($adminSearchGoVap)
+    && ($resolvedMergedWard['district']['name'] ?? '') === 'Quận Bình Thạnh'
+    && ($resolvedNoDistrict['district']['name'] ?? '') === 'TP. Thủ Đức'
+    && ($resolvedNoDistrict['ward']['name'] ?? '') === 'Phường Thảo Điền',
+    "8.5 Live Autocomplete (#mapSearchAddress), Fallback đa tầng không ép Quận 1, API hành chính nội bộ & đồng bộ ngược Tỉnh/Quận/Phường hoạt động chính xác"
+);
+
+// 8.6 Kiểm tra UX Writing Guard trên các thành phần giao diện tìm kiếm địa chỉ & đăng tin
+$createSnippetOk = strpos($agentCreateSrc, 'OpenStreetMap') === false
+    && strpos($agentCreateSrc, 'Nominatim') === false
+    && strpos($agentCreateSrc, 'Module C') === false;
+$editSnippetOk = strpos($agentEditSrc, 'OpenStreetMap') === false
+    && strpos($agentEditSrc, 'Nominatim') === false
+    && strpos($agentEditSrc, 'Module C') === false;
+$geoMsgOk = strpos($geoCtrlSrc, 'OpenStreetMap') === false
+    && strpos($geoCtrlSrc, 'Nominatim bị') === false
+    && strpos($geoCtrlSrc, 'Leaflet') === false;
+
+$t->assert(
+    $createSnippetOk && $editSnippetOk && $geoMsgOk,
+    "8.6 Tuân thủ UX Writing Guard: không rò rỉ thuật ngữ kỹ thuật/đồ án trong văn bản giao diện người dùng cuối"
+);
+
 // TỔNG KẾT BÁO CÁO
 $t->report();
 

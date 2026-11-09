@@ -185,16 +185,46 @@ window.BdsMap = (function () {
       if (!suggestedText) return;
       const targetField = detailAddressInput || document.querySelector('#address, #address-detail, input[name="address_detail"]') || addressInput;
       if (targetField) {
+        targetField.dataset.suppressAutoParse = '1';
         targetField.value = suggestedText;
         targetField.dispatchEvent(new Event('input', { bubbles: true }));
         targetField.dispatchEvent(new Event('change', { bubbles: true }));
+        setTimeout(() => { delete targetField.dataset.suppressAutoParse; }, 80);
       }
       if (addressInput && addressInput !== targetField && !addressInput.value.trim()) {
+        addressInput.dataset.suppressSearchInput = '1';
         addressInput.value = suggestedText;
+        setTimeout(() => { delete addressInput.dataset.suppressSearchInput; }, 80);
       }
       if (!isAuto && window.BDS && typeof window.BDS.toast === 'function') {
         window.BDS.toast('Đã áp dụng địa chỉ gợi ý vào ô Địa chỉ.', 'success', 'Định vị địa chỉ');
       }
+    }
+
+    function extractHouseNumberHint(rawQuery, target) {
+      const q = String(rawQuery || '').trim();
+      if (!q) return '';
+      const firstSeg = q.split(/[,;]+/)[0].trim();
+      const match = firstSeg.match(/^(?:số\s+|so\s+)?(\d+[a-zA-Z0-9\/\-]*)\s+(.+)$/i);
+      if (!match) return '';
+      const houseNo = match[1];
+      const typedStreet = match[2].toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').trim();
+      const road = String(target?.address?.road || target?.display_name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
+      if (typedStreet.length >= 3 && road.includes(typedStreet)) {
+        return houseNo;
+      }
+      return '';
+    }
+
+    async function syncSelectedAddressToForm(displayName, addressObj, extraOpts = {}) {
+      if (!displayName && !extraOpts.directIds) return null;
+      if (window.BdsAddressParser && typeof window.BdsAddressParser.handleReverseGeocode === 'function') {
+        return await window.BdsAddressParser.handleReverseGeocode(displayName || '', addressObj || null, Object.assign({
+          fillInput: true,
+        }, extraOpts));
+      }
+      applySuggestedAddress(displayName, Boolean(extraOpts.isAuto));
+      return null;
     }
 
     let reverseAbortController = null;
@@ -249,11 +279,11 @@ window.BdsMap = (function () {
         if (payload && payload.success && displayName) {
           setCoordinates(lat, lng, `<strong>Vị trí đã chọn</strong><br><span class="small">${escapeHtml(displayName)}</span>`);
 
-          // Tự động phân tích địa chỉ ngược (Reverse Geocoding) -> chọn Tỉnh/Quận/Phường và điền tên đường vào #address-detail
+          // Tự động phân tích địa chỉ ngược -> chọn Tỉnh/Quận/Phường và điền số nhà + tên đường vào #address-detail
           const targetField = detailAddressInput || document.querySelector('#address, #address-detail, input[name="address_detail"]');
           let autoFilled = false;
           if (window.BdsAddressParser && typeof window.BdsAddressParser.handleReverseGeocode === 'function') {
-            await window.BdsAddressParser.handleReverseGeocode(displayName, addressObj, { fillInput: true });
+            await syncSelectedAddressToForm(displayName, addressObj, { updateMapSearch: true, isAuto: true });
             autoFilled = true;
           } else if (targetField && !targetField.value.trim()) {
             applySuggestedAddress(displayName, true);
@@ -285,8 +315,11 @@ window.BdsMap = (function () {
 
             const applyBtn = suggestionEl.querySelector('#btnApplyReverseAddress');
             if (applyBtn) {
-              applyBtn.addEventListener('click', function () {
-                applySuggestedAddress(displayName, false);
+              applyBtn.addEventListener('click', async function () {
+                await syncSelectedAddressToForm(displayName, addressObj, { updateMapSearch: true, isAuto: false });
+                if (window.BDS && typeof window.BDS.toast === 'function') {
+                  window.BDS.toast('Đã đồng bộ Tỉnh/Quận/Phường và địa chỉ chi tiết.', 'success', 'Định vị địa chỉ');
+                }
                 applyBtn.classList.remove('btn-primary');
                 applyBtn.classList.add('btn-success');
                 applyBtn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Đã áp dụng địa chỉ';
@@ -327,55 +360,184 @@ window.BdsMap = (function () {
       reverseGeocode(e.latlng.lat, e.latlng.lng);
     });
 
-    // Tìm địa chỉ khi người dùng yêu cầu và chọn một kết quả từ API.
+    // Danh sách gợi ý địa chỉ trực quan ngay dưới ô #mapSearchAddress
     const resultsEl = document.createElement('div');
-    resultsEl.className = 'list-group mb-2';
+    resultsEl.id = 'mapSearchSuggestions';
+    resultsEl.className = 'list-group shadow-sm mb-2';
     resultsEl.setAttribute('aria-label', 'Kết quả tìm địa chỉ');
+    resultsEl.style.maxHeight = '260px';
+    resultsEl.style.overflowY = 'auto';
     resultsEl.hidden = true;
     if (addressInput && addressInput.parentElement) {
       addressInput.parentElement.insertAdjacentElement('afterend', resultsEl);
     }
 
-    function chooseLocation(target) {
-      const lat = Number(target.lat);
-      const lng = Number(target.lng);
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    let activeResultIndex = -1;
+    let currentSuggestions = [];
+    let searchDebounceTimer = null;
+    let searchAbortController = null;
+    let searchRequestSeq = 0;
+
+    function getBaseUrlPrefix() {
+      if (typeof BASE_URL !== 'undefined' && BASE_URL) {
+        return String(BASE_URL).replace(/\/+$/, '');
+      }
+      const meta = document.querySelector('meta[name="base-url"]');
+      return meta ? String(meta.content || '').replace(/\/+$/, '') : '';
+    }
+
+    async function fetchJsonWithSignal(url, signal) {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        signal: signal || undefined,
+      });
+      if (!response.ok) return null;
+      return await response.json();
+    }
+
+    async function chooseLocation(target) {
+      if (!target) return;
+      const typedQuery = addressInput ? addressInput.value.trim() : '';
       const displayName = target.display_name || 'Vị trí đã chọn';
-      map.setView([lat, lng], 16);
-      setCoordinates(lat, lng, `<strong>Vị trí đã chọn</strong><br><span class="small">${escapeHtml(displayName)}</span>`);
+      let lat = target.lat !== undefined && target.lat !== null ? Number(target.lat) : NaN;
+      let lng = target.lng !== undefined && target.lng !== null ? Number(target.lng) : NaN;
+      let addressObj = target.address || null;
+
       resultsEl.hidden = true;
+      activeResultIndex = -1;
+
+      // Nếu gợi ý đến từ danh mục hành chính nội bộ (chưa có sẵn lat/lng), tự động tra cứu tọa độ của địa danh đó
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        if (statusEl) {
+          statusEl.className = 'alert alert-info py-2 small mb-2 d-flex align-items-center gap-2';
+          statusEl.innerHTML = `<span class="spinner-border spinner-border-sm text-primary" role="status"></span><span>Đang định vị khu vực <strong>${escapeHtml(displayName)}</strong>...</span>`;
+        }
+        try {
+          const base = getBaseUrlPrefix();
+          const geoJson = await fetchJsonWithSignal(`${base}/geocode?q=${encodeURIComponent(displayName + ', Việt Nam')}`);
+          if (geoJson && geoJson.success && Array.isArray(geoJson.data) && geoJson.data.length > 0) {
+            lat = Number(geoJson.data[0].lat);
+            lng = Number(geoJson.data[0].lng);
+            if (!addressObj && geoJson.data[0].address) {
+              addressObj = geoJson.data[0].address;
+            }
+          }
+        } catch (e) {}
+      }
+
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        map.setView([lat, lng], target.level === 'province' ? 12 : (target.level === 'district' ? 14 : 16));
+        setCoordinates(lat, lng, `<strong>Vị trí đã chọn</strong><br><span class="small">${escapeHtml(displayName)}</span>`);
+      }
+
+      const houseNumberHint = target.source === 'admin' ? '' : extractHouseNumberHint(typedQuery, target);
+      const directIds = target.province_id ? {
+        province_id: target.province_id,
+        district_id: target.district_id || null,
+        ward_id: target.ward_id || null,
+      } : null;
+
+      const synced = await syncSelectedAddressToForm(displayName, addressObj, {
+        fillInput: true,
+        houseNumberHint: houseNumberHint,
+        directIds: directIds,
+        updateMapSearch: true,
+        isAuto: true,
+      });
+
+      const resolvedParts = [];
+      if (synced && synced.ward && synced.ward.name) resolvedParts.push(synced.ward.name);
+      if (synced && synced.district && synced.district.name) resolvedParts.push(synced.district.name);
+      if (synced && synced.province && synced.province.name) resolvedParts.push(synced.province.name);
+
       if (statusEl) {
         statusEl.className = 'alert alert-success py-2 small mb-2';
-        statusEl.textContent = 'Đã chọn: ' + displayName + '. Có thể kéo điểm ghim để điều chỉnh.';
+        statusEl.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i>Đã chọn: <strong>${escapeHtml(displayName)}</strong>` +
+          (resolvedParts.length ? ` <span class="text-muted">(${escapeHtml(resolvedParts.join(', '))})</span>` : '') +
+          '. Có thể kéo điểm ghim để điều chỉnh.';
       }
-      if (suggestionEl && target.display_name) {
+
+      if (suggestionEl && displayName) {
         suggestionEl.classList.remove('d-none');
         suggestionEl.innerHTML = `
           <div class="p-3 rounded-3 border border-primary-subtle bg-primary-subtle bg-opacity-10 d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2">
             <div class="small">
-              <div class="fw-semibold text-dark mb-1"><i class="bi bi-pin-map-fill text-primary me-1"></i>Địa chỉ đã chọn:</div>
-              <div class="text-secondary">${escapeHtml(target.display_name)}</div>
+              <div class="fw-semibold text-dark d-flex align-items-center gap-1 mb-1">
+                <i class="bi bi-pin-map-fill text-primary"></i>
+                <span>Địa chỉ đã chọn:</span>
+                ${synced && synced.province ? '<span class="badge bg-success-subtle text-success border border-success-subtle ms-1">Đã tự động điền</span>' : ''}
+              </div>
+              <div class="text-secondary">${escapeHtml(displayName)}</div>
             </div>
             <button type="button" class="btn btn-sm btn-primary fw-semibold flex-shrink-0 bds-btn-touch px-3" id="btnApplyReverseAddress">
               <i class="bi bi-check2-circle me-1"></i>Áp dụng vào ô Địa chỉ
             </button>
           </div>
         `;
-        suggestionEl.querySelector('#btnApplyReverseAddress')?.addEventListener('click', function () {
-          applySuggestedAddress(target.display_name, false);
-          this.classList.replace('btn-primary', 'btn-success');
-          this.innerHTML = '<i class="bi bi-check-lg me-1"></i>Đã áp dụng địa chỉ';
+        suggestionEl.querySelector('#btnApplyReverseAddress')?.addEventListener('click', async function () {
+          const btn = this;
+          await syncSelectedAddressToForm(displayName, addressObj, {
+            fillInput: true,
+            houseNumberHint: houseNumberHint,
+            directIds: directIds,
+            updateMapSearch: true,
+            isAuto: false,
+          });
+          if (window.BDS && typeof window.BDS.toast === 'function') {
+            window.BDS.toast('Đã đồng bộ Tỉnh/Quận/Phường và địa chỉ chi tiết.', 'success', 'Định vị địa chỉ');
+          }
+          btn.classList.replace('btn-primary', 'btn-success');
+          btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Đã áp dụng địa chỉ';
         });
       }
     }
 
-    function createLocationButton(target) {
+    function createLocationButton(target, index) {
       const button = document.createElement('button');
       button.type = 'button';
-      button.className = 'list-group-item list-group-item-action small py-2';
-      button.textContent = target.display_name || 'Vị trí không có tên';
-      button.addEventListener('click', function () { chooseLocation(target); });
+      button.className = 'list-group-item list-group-item-action small py-2 d-flex align-items-start justify-content-between gap-2';
+      button.dataset.suggestionIndex = String(index);
+
+      const leftSpan = document.createElement('span');
+      leftSpan.className = 'd-flex align-items-start gap-2 text-start';
+      const iconHtml = target.source === 'admin'
+        ? '<i class="bi bi-building text-info mt-1 flex-shrink-0"></i>'
+        : '<i class="bi bi-geo-alt-fill text-danger mt-1 flex-shrink-0"></i>';
+      leftSpan.innerHTML = iconHtml + '<span>' + escapeHtml(target.display_name || 'Vị trí không có tên') + '</span>';
+      button.appendChild(leftSpan);
+
+      if (target.source === 'admin') {
+        const badge = document.createElement('span');
+        badge.className = 'badge bg-light text-secondary border flex-shrink-0';
+        badge.textContent = 'Khu vực hành chính';
+        button.appendChild(badge);
+      }
+
+      button.addEventListener('click', function () {
+        chooseLocation(target);
+      });
       return button;
+    }
+
+    function highlightActiveSuggestion(newIndex) {
+      const buttons = resultsEl.querySelectorAll('button[data-suggestion-index]');
+      if (!buttons.length) {
+        activeResultIndex = -1;
+        return;
+      }
+      if (newIndex < 0) newIndex = buttons.length - 1;
+      if (newIndex >= buttons.length) newIndex = 0;
+      activeResultIndex = newIndex;
+      buttons.forEach((btn, idx) => {
+        btn.classList.toggle('active', idx === activeResultIndex);
+      });
+    }
+
+    function getSelectedProvinceName() {
+      const select = document.querySelector('select[name="province_id"]');
+      if (!select || !select.value || !select.selectedOptions.length) return '';
+      return select.selectedOptions[0].textContent.trim();
     }
 
     function addLocationContext(query) {
@@ -392,86 +554,209 @@ window.BdsMap = (function () {
       return fullQuery;
     }
 
-    async function searchLocation(query) {
-      const q = (query || (addressInput && addressInput.value) || (detailAddressInput && detailAddressInput.value) || '').trim();
-      resultsEl.replaceChildren();
-      resultsEl.hidden = true;
+    /**
+     * Xây dựng danh sách truy vấn đa tầng tự do (không ép Quận 1 mặc định)
+     */
+    function buildSearchTierQueries(rawQuery) {
+      const queries = [];
+      const push = (val) => {
+        const v = String(val || '').trim();
+        if (v && !queries.includes(v)) queries.push(v);
+      };
+
+      const hasComma = rawQuery.includes(',');
+      const normRaw = rawQuery.toLocaleLowerCase('vi');
+      const provinceName = getSelectedProvinceName();
+
+      // Nếu người dùng đã chọn Tỉnh/Thành phố (và chưa gõ tên tỉnh trong chuỗi), ưu tiên tìm kèm Tỉnh/Thành phố rộng (không ép Quận)
+      if (!hasComma && provinceName) {
+        const cleanProv = provinceName.replace(/^(tỉnh|thành phố|tp\.?)\s+/i, '').trim();
+        if (cleanProv && !normRaw.includes(cleanProv.toLocaleLowerCase('vi'))) {
+          push(`${rawQuery}, ${cleanProv}, Việt Nam`);
+        }
+      }
+
+      // Luôn có tầng tìm rộng toàn Việt Nam
+      if (/việt\s*nam|vietnam/i.test(rawQuery)) {
+        push(rawQuery);
+      } else {
+        push(`${rawQuery}, Việt Nam`);
+        push(rawQuery);
+      }
+
+      return queries;
+    }
+
+    async function searchLocation(query, opts = {}) {
+      const q = (query !== undefined ? query : ((addressInput && addressInput.value) || (detailAddressInput && detailAddressInput.value) || '')).trim();
+      const seq = ++searchRequestSeq;
+      activeResultIndex = -1;
+      currentSuggestions = [];
+
+      if (searchAbortController) {
+        try { searchAbortController.abort(); } catch (e) {}
+      }
+
       if (!q) {
-        if (statusEl) {
+        resultsEl.replaceChildren();
+        resultsEl.hidden = true;
+        if (statusEl && opts.manual) {
           statusEl.className = 'alert alert-warning py-2 small mb-2';
           statusEl.textContent = 'Vui lòng nhập địa chỉ cần tìm trên bản đồ.';
         }
         return;
       }
-      if (statusEl) {
+
+      if (q.length < 2) {
+        resultsEl.replaceChildren();
+        resultsEl.hidden = true;
+        return;
+      }
+
+      searchAbortController = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const signal = searchAbortController ? searchAbortController.signal : undefined;
+
+      // Hiển thị spinner đang tìm kiếm ngay trong hộp gợi ý
+      resultsEl.replaceChildren();
+      const loadingRow = document.createElement('div');
+      loadingRow.className = 'list-group-item d-flex align-items-center gap-2 small text-secondary py-2';
+      loadingRow.innerHTML = '<span class="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true"></span><span>Đang tìm kiếm...</span>';
+      resultsEl.appendChild(loadingRow);
+      resultsEl.hidden = false;
+
+      if (statusEl && opts.manual) {
         statusEl.className = 'alert alert-info py-2 small mb-2 d-flex align-items-center gap-2';
         statusEl.innerHTML = '<span class="spinner-border spinner-border-sm text-primary" role="status"></span><span>Đang tìm địa chỉ: <em>' + escapeHtml(q) + '</em>...</span>';
       }
-      if (searchBtn) searchBtn.disabled = true;
+      if (searchBtn && opts.manual) searchBtn.disabled = true;
+
       try {
-        const contextualQuery = addLocationContext(q);
-        let res = null;
-        try {
-          if (typeof api === 'function') {
-            res = await api('geocode?q=' + encodeURIComponent(contextualQuery));
-            if ((!res || !res.success || !Array.isArray(res.data) || res.data.length === 0) && contextualQuery !== q) {
-              res = await api('geocode?q=' + encodeURIComponent(q));
+        const base = getBaseUrlPrefix();
+        const tierQueries = buildSearchTierQueries(q);
+
+        // Chạy song song tìm kiếm hành chính nội bộ + tìm kiếm địa chỉ bản đồ (Tầng 1)
+        const adminPromise = fetchJsonWithSignal(`${base}/api/locations/search?q=${encodeURIComponent(q)}&limit=4`, signal)
+          .catch(() => null);
+
+        const geocodePromise = (async () => {
+          for (const candidateQ of tierQueries) {
+            if (seq !== searchRequestSeq) return [];
+            try {
+              const res = await fetchJsonWithSignal(`${base}/geocode?q=${encodeURIComponent(candidateQ)}`, signal);
+              if (res && res.success && Array.isArray(res.data) && res.data.length > 0) {
+                return res.data;
+              }
+            } catch (err) {
+              if (err && err.name === 'AbortError') throw err;
             }
           }
-        } catch (e) {
-          // Chuyển sang truy vấn dự phòng nếu api() lỗi
-        }
+          return [];
+        })();
 
-        let data = (res && res.success && Array.isArray(res.data)) ? res.data : [];
-        if (data.length === 0) {
-          const directUrl = 'https://nominatim.openstreetmap.org/search?' + new URLSearchParams({
-            q: contextualQuery,
-            format: 'json',
-            limit: '5',
-            countrycodes: 'vn',
-          });
-          const directRes = await fetch(directUrl, {
-            headers: { 'Accept': 'application/json' },
-          });
-          if (directRes.ok) {
-            const items = await directRes.json();
-            if (Array.isArray(items) && items.length > 0) {
-              data = items.map(item => ({
-                lat: parseFloat(item.lat),
-                lng: parseFloat(item.lon),
-                display_name: item.display_name,
-              }));
+        const [adminRes, geoResultsRaw] = await Promise.all([adminPromise, geocodePromise]);
+        if (seq !== searchRequestSeq) return;
+
+        let geoResults = Array.isArray(geoResultsRaw) ? geoResultsRaw : [];
+
+        // Dự phòng trực tiếp nếu endpoint backend gặp sự cố
+        if (geoResults.length === 0) {
+          for (const candidateQ of tierQueries.slice(0, 2)) {
+            if (seq !== searchRequestSeq) return;
+            try {
+              const directUrl = 'https://nominatim.openstreetmap.org/search?' + new URLSearchParams({
+                q: candidateQ,
+                format: 'json',
+                addressdetails: '1',
+                limit: '5',
+                countrycodes: 'vn',
+                'accept-language': 'vi',
+              });
+              const directRes = await fetch(directUrl, {
+                headers: { 'Accept': 'application/json' },
+                signal,
+              });
+              if (directRes.ok) {
+                const items = await directRes.json();
+                if (Array.isArray(items) && items.length > 0) {
+                  geoResults = items.map(item => ({
+                    lat: parseFloat(item.lat),
+                    lng: parseFloat(item.lon),
+                    display_name: item.display_name,
+                    address: item.address || {},
+                  }));
+                  break;
+                }
+              }
+            } catch (err) {
+              if (err && err.name === 'AbortError') throw err;
             }
           }
         }
 
-        if (!data || data.length === 0) {
+        const adminItems = (adminRes && adminRes.success && Array.isArray(adminRes.data))
+          ? adminRes.data.map(item => Object.assign({}, item, { source: 'admin' }))
+          : [];
+
+        const seenNames = new Set();
+        const combined = [];
+
+        geoResults.forEach(item => {
+          const nameKey = String(item.display_name || '').trim().toLowerCase();
+          if (!nameKey || seenNames.has(nameKey)) return;
+          seenNames.add(nameKey);
+          combined.push(Object.assign({}, item, { source: 'geocode' }));
+        });
+
+        adminItems.forEach(item => {
+          const nameKey = String(item.display_name || '').trim().toLowerCase();
+          if (!nameKey || seenNames.has(nameKey)) return;
+          seenNames.add(nameKey);
+          combined.push(item);
+        });
+
+        if (seq !== searchRequestSeq) return;
+        resultsEl.replaceChildren();
+
+        if (combined.length === 0) {
+          const emptyEl = document.createElement('div');
+          emptyEl.className = 'list-group-item small text-muted py-2';
+          emptyEl.innerHTML = '<i class="bi bi-info-circle me-1"></i>Không tìm thấy địa chỉ cụ thể này. Bạn có thể bấm trực tiếp lên bản đồ để chọn vị trí.';
+          resultsEl.appendChild(emptyEl);
+          resultsEl.hidden = false;
+
           if (statusEl) {
             statusEl.className = 'alert alert-warning py-2 small mb-2';
-            statusEl.textContent = 'Không tìm thấy địa chỉ cụ thể. Hãy thử tên xã, tỉnh hoặc địa danh gần đó, rồi chọn vị trí chính xác trên bản đồ.';
+            statusEl.textContent = 'Không tìm thấy địa chỉ cụ thể này. Bạn có thể bấm trực tiếp lên bản đồ để chọn vị trí.';
           }
           return;
         }
 
-        for (const target of data) {
-          resultsEl.appendChild(createLocationButton(target));
-        }
+        currentSuggestions = combined;
+        combined.forEach((target, idx) => {
+          resultsEl.appendChild(createLocationButton(target, idx));
+        });
         resultsEl.hidden = false;
 
-        const first = data[0];
-        if (first && Number.isFinite(Number(first.lat)) && Number.isFinite(Number(first.lng))) {
-          map.setView([Number(first.lat), Number(first.lng)], 16);
-          setCoordinates(Number(first.lat), Number(first.lng), `<strong>${escapeHtml(first.display_name || 'Vị trí tìm thấy')}</strong>`);
+        // Chỉ tự động di chuyển xem trước khi người dùng bấm nút Tìm / Enter rõ ràng; lúc đang gõ để người dùng tự click chọn đúng khu vực
+        if (opts.manual) {
+          const firstGeo = combined.find(t => Number.isFinite(Number(t.lat)) && Number.isFinite(Number(t.lng)));
+          if (firstGeo) {
+            map.setView([Number(firstGeo.lat), Number(firstGeo.lng)], 16);
+            setCoordinates(Number(firstGeo.lat), Number(firstGeo.lng), `<strong>${escapeHtml(firstGeo.display_name || 'Vị trí tìm thấy')}</strong>`);
+          }
         }
 
         if (statusEl) {
           statusEl.className = 'alert alert-info py-2 small mb-2';
-          statusEl.textContent = 'Chọn địa chỉ phù hợp trong danh sách gợi ý bên dưới hoặc bấm trực tiếp trên bản đồ.';
+          statusEl.textContent = 'Chọn địa chỉ phù hợp trong danh sách gợi ý ở trên hoặc bấm trực tiếp trên bản đồ.';
         }
       } catch (err) {
+        if (err && err.name === 'AbortError') return;
+        resultsEl.replaceChildren();
+        resultsEl.hidden = true;
         if (statusEl) {
           statusEl.className = 'alert alert-danger py-2 small mb-2';
-          statusEl.textContent = 'Không thể tìm địa chỉ. Bạn vẫn có thể chọn trực tiếp trên bản đồ.';
+          statusEl.textContent = 'Không thể tìm địa chỉ lúc này. Bạn vẫn có thể bấm trực tiếp lên bản đồ.';
         }
       } finally {
         if (searchBtn) searchBtn.disabled = false;
@@ -491,7 +776,7 @@ window.BdsMap = (function () {
           try {
             res = await api('geocode?q=' + encodeURIComponent(contextualQuery));
             if ((!res || !res.success || !Array.isArray(res.data) || res.data.length === 0) && contextualQuery !== q) {
-              res = await api('geocode?q=' + encodeURIComponent(q));
+              res = await api('geocode?q=' + encodeURIComponent(q + ', Việt Nam'));
             }
           } catch (e) {}
         }
@@ -515,15 +800,82 @@ window.BdsMap = (function () {
     if (searchBtn) {
       searchBtn.addEventListener('click', (e) => {
         e.preventDefault();
-        searchLocation();
+        if (searchDebounceTimer) {
+          clearTimeout(searchDebounceTimer);
+          searchDebounceTimer = null;
+        }
+        searchLocation(undefined, { manual: true });
       });
     }
 
     if (addressInput) {
+      addressInput.setAttribute('autocomplete', 'off');
+
+      addressInput.addEventListener('input', () => {
+        if (addressInput.dataset.suppressSearchInput === '1') return;
+        if (searchDebounceTimer) {
+          clearTimeout(searchDebounceTimer);
+          searchDebounceTimer = null;
+        }
+        const val = addressInput.value.trim();
+        if (!val) {
+          if (searchAbortController) {
+            try { searchAbortController.abort(); } catch (e) {}
+          }
+          resultsEl.replaceChildren();
+          resultsEl.hidden = true;
+          return;
+        }
+        if (val.length < 2) {
+          resultsEl.replaceChildren();
+          resultsEl.hidden = true;
+          return;
+        }
+        searchDebounceTimer = setTimeout(() => {
+          searchLocation(val, { manual: false });
+        }, 400);
+      });
+
       addressInput.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowDown' && !resultsEl.hidden && currentSuggestions.length > 0) {
+          e.preventDefault();
+          highlightActiveSuggestion(activeResultIndex + 1);
+          return;
+        }
+        if (e.key === 'ArrowUp' && !resultsEl.hidden && currentSuggestions.length > 0) {
+          e.preventDefault();
+          highlightActiveSuggestion(activeResultIndex - 1);
+          return;
+        }
+        if (e.key === 'Escape') {
+          resultsEl.hidden = true;
+          activeResultIndex = -1;
+          return;
+        }
         if (e.key === 'Enter') {
           e.preventDefault();
-          searchLocation();
+          if (!resultsEl.hidden && activeResultIndex >= 0 && currentSuggestions[activeResultIndex]) {
+            chooseLocation(currentSuggestions[activeResultIndex]);
+            return;
+          }
+          if (searchDebounceTimer) {
+            clearTimeout(searchDebounceTimer);
+            searchDebounceTimer = null;
+          }
+          searchLocation(undefined, { manual: true });
+        }
+      });
+
+      addressInput.addEventListener('focus', () => {
+        if (currentSuggestions.length > 0 && addressInput.value.trim().length >= 2) {
+          resultsEl.hidden = false;
+        }
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!addressInput.contains(e.target) && !resultsEl.contains(e.target) && (!searchBtn || !searchBtn.contains(e.target))) {
+          resultsEl.hidden = true;
+          activeResultIndex = -1;
         }
       });
     }

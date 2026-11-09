@@ -12,18 +12,100 @@ class GeocodeController extends Controller
             $this->json(null, false, 'Vui lòng cung cấp địa chỉ cần tìm.', 400);
         }
 
-        $cacheKey = mb_strtolower($q, 'UTF-8');
+        $cacheKey = 'v2:' . mb_strtolower($q, 'UTF-8');
         $cachedResults = $this->getForwardCache($cacheKey);
         if ($cachedResults !== null) {
             $this->json($cachedResults, true, 'Tìm thấy ' . count($cachedResults) . ' kết quả phù hợp.');
         }
 
+        $candidates = $this->buildSearchCandidateQueries($q);
+        $anyNetworkOk = false;
+
+        foreach ($candidates as $candidateQuery) {
+            $resp = $this->queryNominatimSearch($candidateQuery, 6);
+            if ($resp['ok']) {
+                $anyNetworkOk = true;
+                if (!empty($resp['results'])) {
+                    $this->setForwardCache($cacheKey, $resp['results']);
+                    $this->json($resp['results'], true, 'Tìm thấy ' . count($resp['results']) . ' kết quả phù hợp.');
+                }
+            }
+        }
+
+        // Chỉ dùng catalog dự phòng cho tên thành phố/khu vực lớn khi dịch vụ bản đồ ngoại tuyến hoặc lỗi mạng
+        if (!$anyNetworkOk) {
+            $fallbackResults = $this->buildGracefulSearchFallback($q);
+            if (!empty($fallbackResults)) {
+                $this->json($fallbackResults, true, 'Tìm thấy ' . count($fallbackResults) . ' kết quả phù hợp.');
+            }
+        }
+
+        $this->json([], false, 'Không tìm thấy địa chỉ cụ thể này. Bạn có thể bấm trực tiếp lên bản đồ để chọn vị trí.');
+    }
+
+    /**
+     * Xây dựng danh sách truy vấn đa tầng từ chi tiết đến tổng quát (không ép buộc quận mặc định)
+     */
+    private function buildSearchCandidateQueries(string $q): array
+    {
+        $queries = [];
+        $push = static function (string $val) use (&$queries): void {
+            $v = trim($val);
+            if ($v !== '' && !in_array($v, $queries, true)) {
+                $queries[] = $v;
+            }
+        };
+
+        $push($q);
+
+        $rawParts = array_values(array_filter(array_map('trim', preg_split('/[,;]+/', $q) ?: [])));
+        $filteredParts = [];
+        foreach ($rawParts as $part) {
+            $low = mb_strtolower($part, 'UTF-8');
+            if ($low === 'việt nam' || $low === 'viet nam' || $low === 'vietnam' || $low === 'vn') {
+                continue;
+            }
+            $filteredParts[] = $part;
+        }
+
+        $firstPart = $filteredParts[0] ?? $q;
+        $lastPart = count($filteredParts) >= 2 ? end($filteredParts) : '';
+        $cleanLastPart = trim((string)preg_replace('/^(?:tp\.?\s+|thành\s+phố\s+|tỉnh\s+)/iu', '', (string)$lastPart));
+
+        // Tầng dự phòng 1: giữ phần đầu + tỉnh/thành cuối (bỏ qua quận/phường trung gian dễ lệch tên cũ-mới)
+        if (count($filteredParts) >= 3 && $cleanLastPart !== '') {
+            $push($firstPart . ', ' . $cleanLastPart . ', Việt Nam');
+        }
+
+        // Tầng dự phòng 2: tìm rộng trên toàn Việt Nam theo phần đường/địa điểm chính
+        if (count($filteredParts) >= 2) {
+            $push($firstPart . ', Việt Nam');
+        } elseif (!preg_match('/việt\s*nam|vietnam/iu', $q)) {
+            $push($q . ', Việt Nam');
+        }
+
+        // Tầng dự phòng 3: nếu có số nhà ở đầu mà dữ liệu bản đồ chưa đánh số nhà cụ thể, bỏ số nhà để tìm theo tên đường
+        $streetOnly = trim((string)preg_replace('/^(?:số\s+|so\s+|hẻm\s+|hem\s+|ngõ\s+|ngo\s+)?\d+[a-zA-Z0-9\/\-]*\s+/iu', '', $firstPart));
+        if ($streetOnly !== '' && $streetOnly !== $firstPart && mb_strlen($streetOnly, 'UTF-8') >= 3) {
+            if ($lastPart !== '') {
+                $push($streetOnly . ', ' . $lastPart . ', Việt Nam');
+            }
+            $push($streetOnly . ', Việt Nam');
+        }
+
+        return array_slice($queries, 0, 4);
+    }
+
+    private function queryNominatimSearch(string $q, int $limit = 6): array
+    {
         // Điều phối các phiên trên cùng máy chủ bằng file lock
         $lock = fopen(sys_get_temp_dir() . '/bds-nominatim-rate.lock', 'c+');
         if ($lock !== false && flock($lock, LOCK_EX)) {
             $last = (float)stream_get_contents($lock);
             $wait = 1.0 - (microtime(true) - $last);
-            if ($wait > 0) usleep((int)ceil($wait * 1000000));
+            if ($wait > 0) {
+                usleep((int)ceil($wait * 1000000));
+            }
             ftruncate($lock, 0);
             rewind($lock);
             fwrite($lock, (string)microtime(true));
@@ -31,11 +113,12 @@ class GeocodeController extends Controller
         }
 
         $url = 'https://nominatim.openstreetmap.org/search?' . http_build_query([
-            'q'              => $q,
-            'format'         => 'json',
-            'addressdetails' => 1,
-            'limit'          => 5,
-            'countrycodes'   => 'vn',
+            'q'               => $q,
+            'format'          => 'json',
+            'addressdetails'  => 1,
+            'limit'           => $limit,
+            'countrycodes'    => 'vn',
+            'accept-language' => 'vi',
         ]);
 
         $resp = $this->executeCurl($url, 5);
@@ -46,9 +129,12 @@ class GeocodeController extends Controller
 
         if ($resp['ok'] && !empty($resp['body'])) {
             $items = json_decode((string)$resp['body'], true);
-            if (is_array($items) && !empty($items)) {
+            if (is_array($items)) {
                 $results = [];
                 foreach ($items as $item) {
+                    if (!isset($item['lat'], $item['lon'])) {
+                        continue;
+                    }
                     $results[] = [
                         'lat'          => (float)$item['lat'],
                         'lng'          => (float)$item['lon'],
@@ -56,17 +142,11 @@ class GeocodeController extends Controller
                         'address'      => $item['address'] ?? [],
                     ];
                 }
-                $this->setForwardCache($cacheKey, $results);
-                $this->json($results, true, 'Tìm thấy ' . count($results) . ' kết quả phù hợp.');
+                return ['ok' => true, 'results' => $results];
             }
         }
 
-        $fallbackResults = $this->buildGracefulSearchFallback($q);
-        if (!empty($fallbackResults)) {
-            $this->json($fallbackResults, true, 'Tìm thấy ' . count($fallbackResults) . ' kết quả phù hợp.');
-        }
-
-        $this->json([], false, 'Không tìm thấy tọa độ phù hợp cho địa chỉ này. Bạn có thể bấm chọn trực tiếp trên bản đồ.');
+        return ['ok' => false, 'results' => []];
     }
 
     public function search(): void
@@ -445,25 +525,32 @@ class GeocodeController extends Controller
     {
         $catalog = [
             [
-                'keywords'     => ['ha noi', 'hà nội', 'hoan kiem', 'hoàn kiếm', 'ba dinh', 'cầu giấy', 'cau giay'],
+                'keywords'     => ['ha noi', 'hà nội', 'hanoi', 'hoan kiem', 'hoàn kiếm', 'ba dinh', 'ba đình', 'cau giay', 'cầu giấy'],
                 'lat'          => 21.028511,
                 'lng'          => 105.854444,
                 'display_name' => 'Thành phố Hà Nội, Việt Nam',
                 'address'      => ['city' => 'Thành phố Hà Nội', 'country' => 'Việt Nam', 'country_code' => 'vn'],
             ],
             [
-                'keywords'     => ['thao dien', 'thảo điền', 'thu duc', 'thủ đức', 'quan 2', 'quận 2'],
+                'keywords'     => ['thao dien', 'thảo điền', 'thu duc', 'thủ đức'],
                 'lat'          => 10.803100,
                 'lng'          => 106.733900,
                 'display_name' => 'Phường Thảo Điền, Thành phố Thủ Đức, Thành phố Hồ Chí Minh, Việt Nam',
-                'address'      => ['suburb' => 'Phường Thảo Điền', 'city' => 'Thành phố Hồ Chí Minh', 'country' => 'Việt Nam', 'country_code' => 'vn'],
+                'address'      => ['suburb' => 'Phường Thảo Điền', 'city_district' => 'TP. Thủ Đức', 'city' => 'Thành phố Hồ Chí Minh', 'country' => 'Việt Nam', 'country_code' => 'vn'],
             ],
             [
-                'keywords'     => ['ho chi minh', 'hồ chí minh', 'sai gon', 'sài gòn', 'quan 1', 'quận 1', 'ben nghe', 'bến nghé'],
+                'keywords'     => ['ho chi minh', 'hồ chí minh', 'tphcm', 'tp hcm', 'sai gon', 'sài gòn'],
+                'lat'          => 10.776889,
+                'lng'          => 106.700806,
+                'display_name' => 'Thành phố Hồ Chí Minh, Việt Nam',
+                'address'      => ['city' => 'Thành phố Hồ Chí Minh', 'country' => 'Việt Nam', 'country_code' => 'vn'],
+            ],
+            [
+                'keywords'     => ['quan 1', 'quận 1', 'ben nghe', 'bến nghé'],
                 'lat'          => 10.776889,
                 'lng'          => 106.700806,
                 'display_name' => 'Quận 1, Thành phố Hồ Chí Minh, Việt Nam',
-                'address'      => ['city' => 'Thành phố Hồ Chí Minh', 'country' => 'Việt Nam', 'country_code' => 'vn'],
+                'address'      => ['city_district' => 'Quận 1', 'city' => 'Thành phố Hồ Chí Minh', 'country' => 'Việt Nam', 'country_code' => 'vn'],
             ],
             [
                 'keywords'     => ['da nang', 'đà nẵng', 'hai chau', 'hải châu', 'son tra', 'sơn trà'],
@@ -477,15 +564,20 @@ class GeocodeController extends Controller
                 'lat'          => 10.729500,
                 'lng'          => 106.721800,
                 'display_name' => 'Khu đô thị Phú Mỹ Hưng, Quận 7, Thành phố Hồ Chí Minh, Việt Nam',
-                'address'      => ['suburb' => 'Quận 7', 'city' => 'Thành phố Hồ Chí Minh', 'country' => 'Việt Nam', 'country_code' => 'vn'],
+                'address'      => ['suburb' => 'Phường Tân Phong', 'city_district' => 'Quận 7', 'city' => 'Thành phố Hồ Chí Minh', 'country' => 'Việt Nam', 'country_code' => 'vn'],
             ],
         ];
 
         $norm = mb_strtolower(trim($q), 'UTF-8');
+        // Không gán tọa độ mặc định cho truy vấn số nhà/tên đường cụ thể
+        if (preg_match('/^\d+[a-z0-9\/\-]*\s+/iu', $norm)) {
+            return [];
+        }
+
         $matched = [];
         foreach ($catalog as $entry) {
             foreach ($entry['keywords'] as $kw) {
-                if (str_contains($norm, $kw) || str_contains($kw, $norm)) {
+                if (str_contains($norm, $kw) || ($norm !== '' && mb_strlen($norm, 'UTF-8') >= 4 && str_contains($kw, $norm))) {
                     $matched[] = [
                         'lat'          => $entry['lat'],
                         'lng'          => $entry['lng'],
@@ -495,15 +587,6 @@ class GeocodeController extends Controller
                     break;
                 }
             }
-        }
-
-        if (empty($matched)) {
-            $matched[] = [
-                'lat'          => 10.776889,
-                'lng'          => 106.700806,
-                'display_name' => trim($q) . ', Việt Nam',
-                'address'      => ['country' => 'Việt Nam', 'country_code' => 'vn'],
-            ];
         }
 
         return array_slice($matched, 0, 5);

@@ -115,7 +115,7 @@ $selectedAmenities = is_array($values['amenities'] ?? null) ? $values['amenities
       </div>
       <div class="card-body p-3">
         <div class="input-group mb-2">
-          <input type="text" id="mapSearchAddress" class="form-control" placeholder="Nhập địa chỉ tìm nhanh trên bản đồ (VD: Nguyễn Huệ, Bến Nghé, Quận 1, TP.HCM)...">
+          <input type="text" id="mapSearchAddress" class="form-control" placeholder="Nhập địa chỉ tìm nhanh trên bản đồ (VD: 190 Phan Văn Trị, Bình Thạnh hoặc Thảo Điền, Thủ Đức)...">
           <button type="button" class="btn btn-outline-primary" id="btnSearchMapAddress">🔍 Tìm vị trí</button>
         </div>
         <div id="mapStatus" class="alert alert-info py-2 small mb-2">
