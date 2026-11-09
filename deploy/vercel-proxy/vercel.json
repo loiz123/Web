@@ -1,0 +1,8 @@
+{
+  "buildCommand": "mkdir -p public",
+  "outputDirectory": "public",
+  "rewrites": [
+    { "source": "/", "destination": "https://batdongsan-api.onrender.com/" },
+    { "source": "/:path*", "destination": "https://batdongsan-api.onrender.com/:path*" }
+  ]
+}
