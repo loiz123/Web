@@ -3,7 +3,7 @@
  * Phục vụ: Chọn vị trí khi đăng/sửa tin, xem vị trí & tiện ích xung quanh, và bản đồ tìm kiếm BĐS.
  */
 
-window.BdsMap = (function () {
+window.BdsMap =           (function _callback(){
   const DEFAULT_LAT = 10.776889;
   const DEFAULT_LNG = 106.700806;
   const DEFAULT_ZOOM = 14;
@@ -70,19 +70,19 @@ window.BdsMap = (function () {
         map.attributionControl.setPrefix('Định vị trực tuyến');
       }
       map.invalidateSize();
-      setTimeout(() => { if (map) map.invalidateSize(); }, 150);
-      setTimeout(() => { if (map) map.invalidateSize(); }, 500);
-      setTimeout(() => { if (map) map.invalidateSize(); }, 1000);
+      setTimeout(function _callback2(){if(map)map.invalidateSize();},150);
+      setTimeout(function _callback3(){if(map)map.invalidateSize();},500);
+      setTimeout(function _callback4(){if(map)map.invalidateSize();},1000);
 
-      window.addEventListener('resize', () => { if (map) map.invalidateSize(); });
-      window.addEventListener('load', () => { if (map) map.invalidateSize(); });
+      window.addEventListener('resize', function _callback5(){if(map)map.invalidateSize();});
+      window.addEventListener('load', function _callback6(){if(map)map.invalidateSize();});
 
       if (typeof IntersectionObserver !== 'undefined' && mapEl) {
-        const observer = new IntersectionObserver((entries) => {
-          entries.forEach(entry => {
+        const observer = new IntersectionObserver(function _callback7(entries){
+          entries.forEach(function _callback8(entry){
             if (entry.isIntersecting) {
-              setTimeout(() => { if (map) map.invalidateSize(); }, 50);
-              setTimeout(() => { if (map) map.invalidateSize(); }, 200);
+              setTimeout(function _callback9(){if(map)map.invalidateSize();},50);
+              setTimeout(function _callback0(){if(map)map.invalidateSize();},200);
             }
           });
         }, { threshold: 0.1 });
@@ -130,7 +130,7 @@ window.BdsMap = (function () {
     const addressInput = typeof options.addressInput === 'string' ? document.querySelector(options.addressInput) : options.addressInput;
     const detailAddressInput = typeof options.detailAddressInput === 'string'
       ? document.querySelector(options.detailAddressInput)
-      : (options.detailAddressInput || document.querySelector('#address, #address-detail, input[name="address_detail"], input[name="address"]'));
+      :( options.detailAddressInput || document.querySelector('#address, #address-detail, input[name="address_detail"], input[name="address"]'));
     const searchBtn = typeof options.searchBtn === 'string' ? document.querySelector(options.searchBtn) : options.searchBtn;
     const statusEl = typeof options.statusEl === 'string' ? document.querySelector(options.statusEl) : options.statusEl;
 
@@ -229,7 +229,7 @@ window.BdsMap = (function () {
       try {
         const baseUrl = (typeof BASE_URL !== 'undefined' && BASE_URL)
           ? BASE_URL
-          : (document.querySelector('meta[name="base-url"]')?.content || '');
+          :( document.querySelector('meta[name="base-url"]')?.content || '');
         const endpoint = `${baseUrl}/geocode/reverse?lat=${encodeURIComponent(fixedLat)}&lng=${encodeURIComponent(fixedLng)}`;
 
         const res = await fetch(endpoint, {
@@ -281,7 +281,7 @@ window.BdsMap = (function () {
 
             const applyBtn = suggestionEl.querySelector('#btnApplyReverseAddress');
             if (applyBtn) {
-              applyBtn.addEventListener('click', function () {
+              applyBtn.addEventListener('click', function _callback1(){
                 applySuggestedAddress(displayName, false);
                 applyBtn.classList.remove('btn-primary');
                 applyBtn.classList.add('btn-success');
@@ -311,14 +311,14 @@ window.BdsMap = (function () {
     }
 
     // Sự kiện kéo marker
-    marker.on('dragend', function (e) {
+    marker.on('dragend', function _callback10(e){
       const pos = e.target.getLatLng();
       setCoordinates(pos.lat, pos.lng);
       reverseGeocode(pos.lat, pos.lng);
     });
 
     // Sự kiện click lên bản đồ để dời marker
-    map.on('click', function (e) {
+    map.on('click', function _callback11(e){
       setCoordinates(e.latlng.lat, e.latlng.lng);
       reverseGeocode(e.latlng.lat, e.latlng.lng);
     });
@@ -357,7 +357,7 @@ window.BdsMap = (function () {
             </button>
           </div>
         `;
-        suggestionEl.querySelector('#btnApplyReverseAddress')?.addEventListener('click', function () {
+        suggestionEl.querySelector('#btnApplyReverseAddress')?.addEventListener('click', function _callback12(){
           applySuggestedAddress(target.display_name, false);
           this.classList.replace('btn-primary', 'btn-success');
           this.innerHTML = '<i class="bi bi-check-lg me-1"></i>Đã áp dụng địa chỉ';
@@ -370,7 +370,7 @@ window.BdsMap = (function () {
       button.type = 'button';
       button.className = 'list-group-item list-group-item-action small py-2';
       button.textContent = target.display_name || 'Vị trí không có tên';
-      button.addEventListener('click', function () { chooseLocation(target); });
+      button.addEventListener('click', function _callback13(){chooseLocation(target);});
       return button;
     }
 
@@ -389,7 +389,7 @@ window.BdsMap = (function () {
     }
 
     async function searchLocation(query) {
-      const q = (query || (addressInput && addressInput.value) || (detailAddressInput && detailAddressInput.value) || '').trim();
+      const q = (query ||( addressInput && addressInput.value) ||( detailAddressInput && detailAddressInput.value) || '').trim();
       resultsEl.replaceChildren();
       resultsEl.hidden = true;
       if (!q) {
@@ -432,11 +432,11 @@ window.BdsMap = (function () {
           if (directRes.ok) {
             const items = await directRes.json();
             if (Array.isArray(items) && items.length > 0) {
-              data = items.map(item => ({
-                lat: parseFloat(item.lat),
+              data = items.map(function _callback14(item
+                                        ){return({lat:parseFloat(item.lat),
                 lng: parseFloat(item.lon),
                 display_name: item.display_name,
-              }));
+              });});
             }
           }
         }
@@ -475,14 +475,14 @@ window.BdsMap = (function () {
     }
 
     if (searchBtn) {
-      searchBtn.addEventListener('click', (e) => {
+      searchBtn.addEventListener('click', function _callback15(e){
         e.preventDefault();
         searchLocation();
       });
     }
 
     if (addressInput) {
-      addressInput.addEventListener('keydown', (e) => {
+      addressInput.addEventListener('keydown', function _callback16(e){
         if (e.key === 'Enter') {
           e.preventDefault();
           searchLocation();
@@ -498,7 +498,7 @@ window.BdsMap = (function () {
       setCoordinates,
       searchLocation,
       reverseGeocode,
-      invalidateSize: () => map.invalidateSize(),
+      invalidateSize: function _callback17(){return map.invalidateSize();},
     };
   }
 
@@ -622,19 +622,19 @@ window.BdsMap = (function () {
 
       // 1. Thử gọi Overpass API với timeout 1.5s
       try {
-        const filterParts = conf.osmValues.map(v => 'node["' + conf.osmKey + '"="' + v + '"](around:1600,' + lat + ',' + lng + ');').join('');
+        const filterParts = conf.osmValues.map(function _callback18(v){return'node["'+conf.osmKey+'"="'+v+'"](around:1600,'+lat+','+lng+');';}).join('');
         const query = '[out:json][timeout:2];(' + filterParts + ');out body 10;';
         const url = 'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(query);
 
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 1500);
+        const timer = setTimeout(function _callback19(){return controller.abort();},1500);
         const res = await fetch(url, { signal: controller.signal });
         clearTimeout(timer);
 
         if (res.ok) {
           const data = await res.json();
           if (data.elements && data.elements.length > 0) {
-            poiItems = data.elements.map(el => {
+            poiItems = data.elements.map(function _callback20(el){
               const name = el.tags.name || el.tags['name:vi'] || el.tags['name:en'] || conf.label;
               const d = calculateDistance(lat, lng, el.lat, el.lon);
               return {
@@ -648,7 +648,7 @@ window.BdsMap = (function () {
                 badgeClass: conf.badgeClass,
                 color: conf.color
               };
-            }).filter(item => item.distance <= 2200);
+            }).filter(function _callback21(item){return item.distance<=2200;});
           }
         }
       } catch (e) {
@@ -666,13 +666,13 @@ window.BdsMap = (function () {
           { dLat: -0.0052, dLng: 0.0015 }
         ];
         const prefix = districtName ? ' (' + districtName + ')' : '';
-        poiItems = conf.mockNames.map((name, idx) => {
+        poiItems = conf.mockNames.map(function _callback22(name,idx){
           const off = offsets[idx % offsets.length];
           const poiLat = lat + off.dLat;
           const poiLng = lng + off.dLng;
           const d = calculateDistance(lat, lng, poiLat, poiLng);
           return {
-            name: name + (idx < 2 ? prefix : ''),
+            name: name +( idx < 2 ? prefix : ''),
             lat: poiLat,
             lng: poiLng,
             distance: d,
@@ -685,11 +685,11 @@ window.BdsMap = (function () {
         });
       }
 
-      poiItems.sort((a, b) => a.distance - b.distance);
+      poiItems.sort(function _callback23(a,b){return a.distance-b.distance;});
 
       // Vẽ markers lên bản đồ
       const allPoints = [[lat, lng]];
-      poiItems.forEach(item => {
+      poiItems.forEach(function _callback24(item){
         const iconHtml = '<div class="poi-marker-icon ' + item.badgeClass + '"><span>' + item.icon + '</span></div>';
         const divIcon = L.divIcon({
           className: 'poi-div-icon',
@@ -700,7 +700,7 @@ window.BdsMap = (function () {
         });
 
         const walkMinutes = Math.max(1, Math.round(item.distance / 75));
-        const popupHtml = 
+        const popupHtml =
           '<div style="min-width: 200px; font-family: system-ui, -apple-system, sans-serif; line-height: 1.45; padding: 2px;">' +
             '<div class="d-flex align-items-center gap-2 mb-1">' +
               '<span style="font-size: 1.25rem;">' + item.icon + '</span>' +
@@ -744,7 +744,7 @@ window.BdsMap = (function () {
       loadPoi,
       clearPoi,
       POI_CONFIG,
-      invalidateSize: () => map.invalidateSize(),
+      invalidateSize: function _callback25(){return map.invalidateSize();},
     };
   }
 
@@ -784,7 +784,7 @@ window.BdsMap = (function () {
       markersLayer.clearLayers();
       const validPoints = [];
 
-      properties.forEach(p => {
+      properties.forEach(function _callback26(p){
         if (!p.latitude || !p.longitude) return;
         const lat = parseFloat(p.latitude);
         const lng = parseFloat(p.longitude);
@@ -843,7 +843,7 @@ window.BdsMap = (function () {
       map,
       markersLayer,
       updateMarkers,
-      invalidateSize: () => map.invalidateSize(),
+      invalidateSize: function _callback27(){return map.invalidateSize();},
     };
   }
 
@@ -852,4 +852,4 @@ window.BdsMap = (function () {
     initViewer,
     initSearchMap,
   };
-})();
+}                          )();

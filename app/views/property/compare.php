@@ -65,22 +65,21 @@
 
     <!-- Script tự động kiểm tra localStorage nếu người dùng truy cập trực tiếp /property/compare -->
     <script>
-      document.addEventListener('DOMContentLoaded', function() {
+      document.addEventListener('DOMContentLoaded', function _callback(){
         if (window.PropertyCompare) {
           const list = typeof window.PropertyCompare.getAll === 'function'
             ? window.PropertyCompare.getAll()
             : window.PropertyCompare.get();
           const ids = (Array.isArray(list) ? list : [])
-            .map(function (item) { return Number(item && item.id ? item.id : item); })
-            .filter(function (id) { return Number.isFinite(id) && id > 0; });
+            .map(function _callback2(item){return Number(item&&item.id?item.id:item);})
+            .filter(function _callback3(id){return Number.isFinite(id)&&id>0;});
           const currentUrl = new URL(window.location.href);
           if (ids.length > 0 && !currentUrl.searchParams.get('ids')) {
             currentUrl.searchParams.set('ids', ids.join(','));
             window.location.replace(currentUrl.toString());
           }
         }
-      });
-    </script>
+      });</script>
 
   <?php else: ?>
     <!-- Bảng so sánh chi tiết đối đầu -->
@@ -344,7 +343,7 @@
     }
     const currentUrl = new URL(window.location.href);
     const rawIds = currentUrl.searchParams.get('ids') || '';
-    const idArr = rawIds.split(',').filter(x => x && parseInt(x) !== parseInt(id));
+    const idArr = rawIds.split(',').filter(function _callback(x){return x&&parseInt(x)!==parseInt(id);});
     if (idArr.length > 0) {
       currentUrl.searchParams.set('ids', idArr.join(','));
       window.location.href = currentUrl.toString();
@@ -361,5 +360,4 @@
       }
       window.location.href = '<?= e(base_url('property/compare')) ?>';
     }
-  }
-</script>
+  }</script>

@@ -1,5 +1,5 @@
 // [D] Quốc: thao tác duyệt tin và xử lý báo cáo bằng AJAX. Dùng hàm api() trong app.js.
-(function () {
+          (function _callback(){
   const table = document.getElementById('mod-table');
   if (!table) return;
 
@@ -12,7 +12,7 @@
   let rejectRow = null;
 
   function notify(message, ok) {
-    alertBox.className = 'alert alert-' + (ok ? 'success' : 'danger');
+    alertBox.className = 'alert alert-' +( ok ? 'success' : 'danger');
     alertBox.textContent = message;
   }
 
@@ -30,10 +30,10 @@
   }
 
   async function call(path, body, row) {
-    row.querySelectorAll('button').forEach(b => (b.disabled = true));
+    row.querySelectorAll('button').forEach(function _callback2(b  ){return(b.disabled=true);});
     try {
       const res = await api(path, { method: 'POST', body });
-      notify(res.message || (res.success ? 'Thành công.' : 'Có lỗi xảy ra.'), res.success);
+      notify(res.message ||( res.success ? 'Thành công.' : 'Có lỗi xảy ra.'), res.success);
       if (res.success) {
         removeRow(row);
         return true;
@@ -41,11 +41,11 @@
     } catch (err) {
       notify('Không kết nối được máy chủ. Thử lại sau.', false);
     }
-    row.querySelectorAll('button').forEach(b => (b.disabled = false));
+    row.querySelectorAll('button').forEach(function _callback3(b   ){return(b.disabled=false);});
     return false;
   }
 
-  table.addEventListener('click', function (ev) {
+  table.addEventListener('click', function _callback4(ev){
     const btn = ev.target.closest('button[data-act]');
     if (!btn) return;
     const row = btn.closest('tr');
@@ -78,7 +78,7 @@
     }
   });
 
-  document.getElementById('reject-confirm').addEventListener('click', async function () {
+  document.getElementById('reject-confirm').addEventListener('click', async function _callback5(){
     const reason = reasonEl.value.trim();
     if (!reason) {
       reasonErr.textContent = 'Vui lòng nhập lý do từ chối.';
@@ -88,10 +88,10 @@
     modal.hide();
     await call('admin/properties/moderate/' + row.dataset.id, { action: 'reject', reason: reason }, row);
   });
-})();
+}          )();
 
 // [D] Quốc: trang quản lý người dùng - lọc, phân trang, khóa/mở khóa bằng AJAX.
-(function () {
+          (function _callback6(){
   const body = document.getElementById('users-body');
   if (!body) return;
 
@@ -103,7 +103,7 @@
   let currentPage = 1;
 
   const initial = new URLSearchParams(location.search);
-  ['q', 'role', 'status'].forEach(function (name) {
+  ['q', 'role', 'status'].forEach(function _callback7(name){
     if (!initial.has(name)) return;
     const field = form.elements[name];
     field.value = initial.get(name);
@@ -112,7 +112,7 @@
   currentPage = Math.max(1, parseInt(initial.get('page'), 10) || 1);
 
   function notify(message, ok) {
-    alertBox.className = 'alert alert-' + (ok ? 'success' : 'danger');
+    alertBox.className = 'alert alert-' +( ok ? 'success' : 'danger');
     alertBox.textContent = message;
   }
 
@@ -137,12 +137,12 @@
       body.append(tr);
       return;
     }
-    items.forEach(function (u) {
+    items.forEach(function _callback8(u){
       const tr = document.createElement('tr');
       tr.dataset.id = u.id;
 
       const badge = document.createElement('span');
-      badge.className = 'badge ' + (u.status === 'locked' ? 'text-bg-danger' : 'text-bg-success');
+      badge.className = 'badge ' +( u.status === 'locked' ? 'text-bg-danger' : 'text-bg-success');
       badge.textContent = u.status === 'locked' ? 'Đã khóa' : 'Hoạt động';
       const statusTd = document.createElement('td');
       statusTd.append(badge);
@@ -153,7 +153,7 @@
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.dataset.act = u.status === 'locked' ? 'unlock' : 'lock';
-        btn.className = 'btn btn-sm ' + (u.status === 'locked' ? 'btn-success' : 'btn-outline-danger');
+        btn.className = 'btn btn-sm ' +( u.status === 'locked' ? 'btn-success' : 'btn-outline-danger');
         btn.textContent = u.status === 'locked' ? 'Mở khóa' : 'Khóa';
         actionTd.append(btn);
       } else {
@@ -175,7 +175,7 @@
     if (pages <= 1) return;
     for (let i = 1; i <= pages; i++) {
       const li = document.createElement('li');
-      li.className = 'page-item' + (i === page ? ' active' : '');
+      li.className = 'page-item' +( i === page ? ' active' : '');
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'page-link';
@@ -206,16 +206,16 @@
     }
   }
 
-  form.addEventListener('submit', function (ev) { ev.preventDefault(); load(1); });
-  form.elements['role'].addEventListener('change', function () { load(1); });
-  form.elements['status'].addEventListener('change', function () { load(1); });
+  form.addEventListener('submit', function _callback9(ev){ev.preventDefault();load(1);});
+  form.elements['role'].addEventListener('change', function _callback0(){load(1);});
+  form.elements['status'].addEventListener('change', function _callback1(){load(1);});
 
-  pager.addEventListener('click', function (ev) {
+  pager.addEventListener('click', function _callback10(ev){
     const btn = ev.target.closest('button[data-page]');
     if (btn) load(parseInt(btn.dataset.page, 10));
   });
 
-  body.addEventListener('click', async function (ev) {
+  body.addEventListener('click', async function _callback11(ev){
     const btn = ev.target.closest('button[data-act]');
     if (!btn) return;
     const row = btn.closest('tr');
@@ -225,7 +225,7 @@
     btn.disabled = true;
     try {
       const res = await api('admin/users/toggle/' + row.dataset.id, { method: 'POST', body: { action: act } });
-      notify(res.message || (res.success ? 'Thành công.' : 'Có lỗi xảy ra.'), res.success);
+      notify(res.message ||( res.success ? 'Thành công.' : 'Có lỗi xảy ra.'), res.success);
       await load(currentPage);
     } catch (err) {
       notify('Không kết nối được máy chủ. Thử lại sau.', false);
@@ -234,4 +234,4 @@
   });
 
   load(currentPage);
-})();
+}          )();

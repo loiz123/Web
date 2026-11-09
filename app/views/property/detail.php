@@ -1071,7 +1071,7 @@ if (!$hasValidCoords) {
   function switchGalleryImg(url, el) {
     const mainImg = document.getElementById('mainGalleryImg');
     if (mainImg) mainImg.src = url;
-    document.querySelectorAll('.gallery-thumb').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.gallery-thumb').forEach(function _callback     (t       ){return t.classList.remove('active');});
     if (el) el.classList.add('active');
   }
 
@@ -1083,11 +1083,11 @@ if (!$hasValidCoords) {
     const input = document.getElementById('shareModalUrlInput');
     const urlToCopy = (input && input.value) ? input.value : window.location.href;
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(urlToCopy).then(function () {
+      navigator.clipboard.writeText(urlToCopy).then(function _callback2(){
         if (window.BDS && typeof window.BDS.toast === 'function') {
           BDS.toast('Đã sao chép liên kết vào bộ nhớ tạm!', 'success');
         }
-      }).catch(function () {
+      }).catch(function _callback3(){
         if (input) {
           input.select();
           document.execCommand('copy');
@@ -1128,8 +1128,8 @@ if (!$hasValidCoords) {
       fbLink.href = 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(currentUrl);
     }
     if (emailLink) {
-      const subject = 'Chia sẻ bất động sản: ' + (currentPropertyData.title || '');
-      const body = (currentPropertyData.title || '') + ' - Giá: ' + (currentPropertyData.price_formatted || '') + '\nXem chi tiết tại: ' + currentUrl;
+      const subject = 'Chia sẻ bất động sản: ' +( currentPropertyData.title || '');
+      const body = (currentPropertyData.title || '') + ' - Giá: ' +( currentPropertyData.price_formatted || '') + '\nXem chi tiết tại: ' + currentUrl;
       emailLink.href = 'mailto:?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
     }
   }
@@ -1159,7 +1159,7 @@ if (!$hasValidCoords) {
   }
 
   function selectVietQrPreset(amount, btn) {
-    document.querySelectorAll('.vietqr-preset-btn').forEach(function (b) {
+    document.querySelectorAll('.vietqr-preset-btn').forEach(function _callback4(b){
       b.classList.remove('btn-primary', 'active');
       b.classList.add('btn-outline-primary');
     });
@@ -1176,7 +1176,7 @@ if (!$hasValidCoords) {
 
   function handleVietQrCustomInput(val) {
     const num = Math.round(Number(val) || 0);
-    document.querySelectorAll('.vietqr-preset-btn').forEach(function (b) {
+    document.querySelectorAll('.vietqr-preset-btn').forEach(function _callback5(b){
       if (Number(b.dataset.amount) === num) {
         b.classList.remove('btn-outline-primary');
         b.classList.add('btn-primary', 'active');
@@ -1193,11 +1193,11 @@ if (!$hasValidCoords) {
   function copyVietQrText(textToCopy, toastMessage) {
     const msg = toastMessage || 'Đã sao chép vào bộ nhớ tạm!';
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(textToCopy).then(function () {
+      navigator.clipboard.writeText(textToCopy).then(function _callback6(){
         if (window.BDS && typeof window.BDS.toast === 'function') {
           BDS.toast(msg, 'success');
         }
-      }).catch(function () {
+      }).catch(function _callback7(){
         fallbackCopyText(textToCopy, msg);
       });
     } else {
@@ -1257,7 +1257,7 @@ if (!$hasValidCoords) {
       const raw = localStorage.getItem(key);
       let list = raw ? JSON.parse(raw) : [];
       if (!Array.isArray(list)) list = [];
-      list = list.filter(function (item) {
+      list = list.filter(function _callback8(item){
         return item && Number(item.id) !== Number(detailItem.id);
       });
       list.unshift(detailItem);
@@ -1274,7 +1274,7 @@ if (!$hasValidCoords) {
       window.BDS.confirm(
         'Bạn có chắc chắn muốn xóa đánh giá này? Hành động này không thể hoàn tác.',
         'Xác nhận xóa đánh giá',
-        function () {
+        function _callback9(){
           form.action = deleteAction;
           form.submit();
         }
@@ -1317,7 +1317,7 @@ if (!$hasValidCoords) {
             window.BDS.confirm(
               'Vui lòng đăng nhập tài khoản để lưu bất động sản yêu thích. Bạn có muốn chuyển đến trang đăng nhập ngay không?',
               'Yêu cầu đăng nhập',
-              function () {
+              function _callback0(){
                 window.location.href = '<?= e(base_url('auth/login')) ?>';
               }
             );
@@ -1396,7 +1396,7 @@ if (!$hasValidCoords) {
     }
 
     activePoiCat = catKey;
-    document.querySelectorAll('.poi-btn').forEach(b => {
+    document.querySelectorAll('.poi-btn').forEach(function _callback1(b){
       b.classList.remove('btn-navy', 'text-white');
     });
     btn.classList.add('btn-navy', 'text-white');
@@ -1422,7 +1422,7 @@ if (!$hasValidCoords) {
       if (titleEl) titleEl.innerHTML = conf.icon + ' ' + conf.label + ' gần bất động sản:';
       if (countEl) countEl.textContent = items.length + ' địa điểm';
 
-      itemsList.innerHTML = items.map(it => {
+      itemsList.innerHTML = items.map(function _callback10(it){
         const walkMin = Math.max(1, Math.round(it.distance / 75));
         return '<div class="col-md-6">' +
           '<div class="p-2 border rounded-3 bg-white h-100 d-flex align-items-center justify-content-between poi-item-card" onclick="panToPoi(' + it.lat + ', ' + it.lng + ')" style="cursor: pointer;">' +
@@ -1444,7 +1444,7 @@ if (!$hasValidCoords) {
     if (!detailMapInstance || !detailMapInstance.map) return;
     detailMapInstance.map.setView([poiLat, poiLng], 16, { animate: true });
     if (detailMapInstance.poiLayer) {
-      detailMapInstance.poiLayer.eachLayer(function (layer) {
+      detailMapInstance.poiLayer.eachLayer(function _callback11(layer){
         if (layer.getLatLng) {
           const pos = layer.getLatLng();
           if (Math.abs(pos.lat - poiLat) < 0.0001 && Math.abs(pos.lng - poiLng) < 0.0001) {
@@ -1457,7 +1457,7 @@ if (!$hasValidCoords) {
 
   function resetNearbyPoi() {
     activePoiCat = null;
-    document.querySelectorAll('.poi-btn').forEach(b => b.classList.remove('btn-navy', 'text-white'));
+    document.querySelectorAll('.poi-btn').forEach(function _callback12   (b                       ){return b.classList.remove('btn-navy','text-white');});
     const resetBtn = document.getElementById('btnResetPoi');
     if (resetBtn) resetBtn.classList.add('d-none');
     const resultsWrap = document.getElementById('poiResultsWrap');
@@ -1502,7 +1502,7 @@ if (!$hasValidCoords) {
     function calculate() {
       const homePrice = parseFloat(priceInput.value) || 0;
       const ratio = parseFloat(ratioSlider.value) || 70;
-      const loanAmount = homePrice * (ratio / 100);
+      const loanAmount = homePrice *( ratio / 100);
       const years = parseInt(termSlider.value) || 20;
       const months = years * 12;
       const annualRate = parseFloat(interestInput.value) || 8.5;
@@ -1533,7 +1533,7 @@ if (!$hasValidCoords) {
         if (labelMonthly) labelMonthly.textContent = 'Số tiền trả đều mỗi tháng:';
         if (labelInterest) labelInterest.textContent = 'Lãi ước tính tháng 1:';
         if (monthlyRate > 0) {
-          monthlyPayment = (loanAmount * monthlyRate * Math.pow(1 + monthlyRate, months)) / (Math.pow(1 + monthlyRate, months) - 1);
+          monthlyPayment = (loanAmount * monthlyRate * Math.pow(1 + monthlyRate, months)) /( Math.pow(1 + monthlyRate, months) - 1);
           totalPayment = monthlyPayment * months;
           totalInterest = totalPayment - loanAmount;
         } else {
@@ -1597,12 +1597,12 @@ if (!$hasValidCoords) {
     ratioSlider.addEventListener('input', calculate);
     termSlider.addEventListener('input', calculate);
     interestInput.addEventListener('input', calculate);
-    document.querySelectorAll('input[name="calcMethod"]').forEach(r => r.addEventListener('change', calculate));
+    document.querySelectorAll('input[name="calcMethod"]').forEach(function _callback13   (r                  ){return r.addEventListener('change',calculate);});
 
     // Nút chọn nhanh tỷ lệ vay
-    document.querySelectorAll('.quick-ratio-btn').forEach(btn => {
-      btn.addEventListener('click', function () {
-        document.querySelectorAll('.quick-ratio-btn').forEach(b => b.classList.remove('active', 'btn-secondary', 'text-white'));
+    document.querySelectorAll('.quick-ratio-btn').forEach(function _callback14(btn){
+      btn.addEventListener('click', function _callback15(){
+        document.querySelectorAll('.quick-ratio-btn').forEach(function _callback16   (b                                      ){return b.classList.remove('active','btn-secondary','text-white');});
         this.classList.add('active');
         ratioSlider.value = this.dataset.ratio;
         calculate();
@@ -1610,9 +1610,9 @@ if (!$hasValidCoords) {
     });
 
     // Nút chọn nhanh thời hạn vay
-    document.querySelectorAll('.quick-term-btn').forEach(btn => {
-      btn.addEventListener('click', function () {
-        document.querySelectorAll('.quick-term-btn').forEach(b => b.classList.remove('active', 'btn-secondary', 'text-white'));
+    document.querySelectorAll('.quick-term-btn').forEach(function _callback17(btn){
+      btn.addEventListener('click', function _callback18(){
+        document.querySelectorAll('.quick-term-btn').forEach(function _callback19   (b                                      ){return b.classList.remove('active','btn-secondary','text-white');});
         this.classList.add('active');
         termSlider.value = this.dataset.term;
         calculate();
@@ -1620,9 +1620,9 @@ if (!$hasValidCoords) {
     });
 
     // Nút chọn nhanh ngân hàng
-    document.querySelectorAll('.quick-bank-btn').forEach(btn => {
-      btn.addEventListener('click', function () {
-        document.querySelectorAll('.quick-bank-btn').forEach(b => b.classList.remove('active', 'btn-secondary', 'text-white'));
+    document.querySelectorAll('.quick-bank-btn').forEach(function _callback20(btn){
+      btn.addEventListener('click', function _callback21(){
+        document.querySelectorAll('.quick-bank-btn').forEach(function _callback22   (b                                      ){return b.classList.remove('active','btn-secondary','text-white');});
         this.classList.add('active');
         interestInput.value = this.dataset.rate;
         calculate();
@@ -1632,17 +1632,17 @@ if (!$hasValidCoords) {
     calculate();
   }
 
-  document.addEventListener('DOMContentLoaded', function () {
+  document.addEventListener('DOMContentLoaded', function _callback23(){
     // 1. Image gallery
-    document.querySelectorAll('[data-gallery-url]').forEach(function (thumbnail) {
-      thumbnail.addEventListener('click', function () {
+    document.querySelectorAll('[data-gallery-url]').forEach(function _callback24(thumbnail){
+      thumbnail.addEventListener('click', function _callback25(){
         switchGalleryImg(thumbnail.dataset.galleryUrl, thumbnail);
       });
     });
 
     const galleryModal = document.getElementById('galleryModal');
     if (galleryModal) {
-      galleryModal.addEventListener('show.bs.modal', function () {
+      galleryModal.addEventListener('show.bs.modal', function _callback26(){
         const thumbs = Array.from(document.querySelectorAll('.gallery-thumb'));
         const selected = thumbs.indexOf(document.querySelector('.gallery-thumb.active'));
         const carousel = document.getElementById('propertyGalleryCarousel');
@@ -1686,19 +1686,19 @@ if (!$hasValidCoords) {
       // Đảm bảo bản đồ vẽ lại đầy đủ gạch (chống khung xám trắng khi render)
       if (detailMapInstance && detailMapInstance.map) {
         detailMapInstance.map.invalidateSize();
-        setTimeout(function () { detailMapInstance.map.invalidateSize(); }, 150);
-        setTimeout(function () { detailMapInstance.map.invalidateSize(); }, 500);
-        setTimeout(function () { detailMapInstance.map.invalidateSize(); }, 1000);
+        setTimeout(function _callback27(){detailMapInstance.map.invalidateSize();},150);
+        setTimeout(function _callback28(){detailMapInstance.map.invalidateSize();},500);
+        setTimeout(function _callback29(){detailMapInstance.map.invalidateSize();},1000);
       }
 
       // Xử lý khi cuộn đến vùng bản đồ bằng IntersectionObserver
       const mapContainerEl = document.getElementById('propertyMap');
       if (mapContainerEl && typeof IntersectionObserver !== 'undefined') {
-        const mapObserver = new IntersectionObserver(function(entries) {
-          entries.forEach(function(entry) {
+        const mapObserver = new IntersectionObserver(function _callback30(entries){
+          entries.forEach(function _callback31(entry){
             if (entry.isIntersecting && detailMapInstance && detailMapInstance.map) {
-              setTimeout(function () { detailMapInstance.map.invalidateSize(); }, 50);
-              setTimeout(function () { detailMapInstance.map.invalidateSize(); }, 200);
+              setTimeout(function _callback32(){detailMapInstance.map.invalidateSize();},50);
+              setTimeout(function _callback33(){detailMapInstance.map.invalidateSize();},200);
             }
           });
         }, { threshold: 0.1 });
@@ -1706,8 +1706,8 @@ if (!$hasValidCoords) {
       }
 
       // Lắng nghe sự kiện click các nút lọc POI
-      document.querySelectorAll('.poi-btn').forEach(btn => {
-        btn.addEventListener('click', function () {
+      document.querySelectorAll('.poi-btn').forEach(function _callback34(btn){
+        btn.addEventListener('click', function _callback35(){
           const cat = this.dataset.poi;
           handlePoiCategoryClick(cat, this);
         });
@@ -1730,5 +1730,4 @@ if (!$hasValidCoords) {
 
     // 6. Ghi nhận & Hiển thị Lịch sử Bất động sản vừa xem
     initRecentlyViewedDetail();
-  });
-</script>
+  });</script>

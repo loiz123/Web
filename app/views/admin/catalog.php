@@ -113,7 +113,7 @@ $isWard = $tab === 'wards';
 
 <script>
 // Đổ dữ liệu vào modal khi bấm Thêm/Sửa (listener gắn lên modal nên chạy được dù Bootstrap nạp sau)
-document.getElementById('catalogModal').addEventListener('show.bs.modal', async ev => {
+document.getElementById('catalogModal').addEventListener('show.bs.modal', async function _callback(ev){
   const b = ev.relatedTarget, f = document.getElementById('catalogForm');
   const edit = b && b.dataset.mode === 'edit';
   f.elements['item_id'].value = edit ? b.dataset.id : '';
@@ -128,9 +128,8 @@ document.getElementById('catalogModal').addEventListener('show.bs.modal', async 
   <?php endif; ?>
 });
 
-document.querySelectorAll('.js-confirm-delete').forEach(form => {
-  form.addEventListener('submit', ev => {
+document.querySelectorAll('.js-confirm-delete').forEach(function _callback2(form){
+  form.addEventListener('submit', function _callback3(ev){
     if (!window.confirm('Xóa “' + form.dataset.confirmName + '”?')) ev.preventDefault();
   });
-});
-</script>
+});</script>

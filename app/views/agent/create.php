@@ -168,7 +168,7 @@ $selectedAmenities = is_array($values['amenities'] ?? null) ? $values['amenities
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="<?= e(base_url('assets/js/map.js')) ?>"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', function _callback(){
   var form = document.getElementById('agent-create-form');
   var latitudeInput = document.getElementById('latitudeInput');
   var longitudeInput = document.getElementById('longitudeInput');
@@ -187,7 +187,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
   if (form) {
-    form.addEventListener('submit', function (event) {
+    form.addEventListener('submit', function _callback2(event){
       if (latitudeInput.value === '10.776889' && longitudeInput.value === '106.700806') {
         event.preventDefault();
         mapStatus.className = 'alert alert-warning py-2 small mb-2';
@@ -196,5 +196,4 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     });
   }
-});
-</script>
+});</script>

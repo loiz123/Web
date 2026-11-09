@@ -150,12 +150,11 @@ foreach ($properties as $p) {
     limit: <?= (int)$limit ?>
   };
 
-  document.addEventListener('DOMContentLoaded', function () {
+  document.addEventListener('DOMContentLoaded', function _callback(){
     if (window.RecentlyViewed && typeof window.RecentlyViewed.render === 'function') {
       window.RecentlyViewed.render(0);
     }
-  });
-</script>
+  });</script>
 
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="<?= e(base_url('assets/js/map.js')) ?>"></script>
