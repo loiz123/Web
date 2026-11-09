@@ -52,7 +52,7 @@ if ($user) {
       </div>
       <div class="d-flex flex-column">
         <span class="brand-title">BĐS Việt</span>
-        <span class="brand-subtitle">Cổng Thông Tin Bất Động Sản Trực Tuyến</span>
+        <span class="brand-subtitle d-none d-xl-inline">Cổng Thông Tin Bất Động Sản Trực Tuyến</span>
       </div>
     </a>
 
@@ -62,53 +62,85 @@ if ($user) {
     </button>
 
     <!-- Nav Items -->
+    <?php
+      $currentUrl = (string)($_GET['url'] ?? '');
+      $userRole   = $user['role'] ?? 'guest';
+      $roleLabels = [
+          'admin'    => 'Quản trị viên',
+          'agent'    => 'Môi giới',
+          'customer' => 'Khách hàng',
+      ];
+    ?>
     <div class="collapse navbar-collapse" id="nav">
-      <ul class="navbar-nav me-auto ms-lg-3 gap-lg-1">
+      <ul class="navbar-nav me-auto ms-lg-3 gap-lg-1 align-items-lg-center">
         <li class="nav-item">
-          <a class="nav-link <?= empty($_GET['url']) ? 'active' : '' ?>" href="<?= e(base_url()) ?>">
-            <i class="bi bi-house-door me-1 text-primary"></i> Trang chủ
+          <a class="nav-link <?= $currentUrl === '' ? 'active' : '' ?>" href="<?= e(base_url()) ?>">
+            <i class="bi bi-house-door text-primary"></i>
+            <span>Trang chủ</span>
           </a>
         </li>
         <li class="nav-item">
-          <a class="nav-link <?= (str_starts_with($_GET['url'] ?? '', 'property/search')) ? 'active' : '' ?>" href="<?= e(base_url('property/search')) ?>">
-            <i class="bi bi-search me-1 text-danger"></i> Tìm kiếm
+          <a class="nav-link <?= str_starts_with($currentUrl, 'property/search') ? 'active' : '' ?>" href="<?= e(base_url('property/search')) ?>">
+            <i class="bi bi-search text-danger"></i>
+            <span>Tìm kiếm</span>
           </a>
         </li>
         <li class="nav-item">
-          <a class="nav-link <?= (str_starts_with($_GET['url'] ?? '', 'property/compare')) ? 'active' : '' ?>" href="<?= e(base_url('property/compare')) ?>">
-            <i class="bi bi-arrow-left-right me-1 text-success"></i> So sánh
+          <a class="nav-link <?= str_starts_with($currentUrl, 'property/compare') ? 'active' : '' ?>" href="<?= e(base_url('property/compare')) ?>">
+            <i class="bi bi-arrow-left-right text-success"></i>
+            <span>So sánh</span>
             <span class="badge rounded-pill bg-danger compare-nav-badge d-none ms-1" id="compareNavBadge">0</span>
           </a>
         </li>
-        <li class="nav-item">
-          <a class="nav-link <?= (str_starts_with($_GET['url'] ?? '', 'favorite')) ? 'active' : '' ?>" href="<?= e(base_url('favorite')) ?>">
-            <i class="bi bi-heart me-1 text-danger"></i> Tin đã lưu
-          </a>
-        </li>
-        <?php if (Auth::hasRole('agent', 'admin')): ?>
+
+        <?php if ($userRole === 'guest' || $userRole === 'customer'): ?>
           <li class="nav-item">
-            <a class="nav-link <?= (str_starts_with($_GET['url'] ?? '', 'agent')) ? 'active' : '' ?>" href="<?= e(base_url('agent')) ?>">
-              <i class="bi bi-collection me-1 text-warning"></i> Tin của tôi
+            <a class="nav-link <?= str_starts_with($currentUrl, 'favorite') ? 'active' : '' ?>" href="<?= e(base_url('favorite')) ?>">
+              <i class="bi bi-heart text-danger"></i>
+              <span>Tin đã lưu</span>
             </a>
           </li>
-        <?php endif; ?>
-        <?php if (Auth::hasRole('admin')): ?>
+        <?php elseif ($userRole === 'agent'): ?>
           <li class="nav-item">
-            <a class="nav-link text-primary fw-semibold <?= (str_starts_with($_GET['url'] ?? '', 'admin')) ? 'active' : '' ?>" href="<?= e(base_url('admin')) ?>">
-              <i class="bi bi-shield-check me-1"></i> Quản trị
+            <a class="nav-link <?= str_starts_with($currentUrl, 'agent') ? 'active' : '' ?>" href="<?= e(base_url('agent')) ?>">
+              <i class="bi bi-collection text-warning"></i>
+              <span>Quản lý tin</span>
             </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link <?= str_starts_with($currentUrl, 'appointment') ? 'active' : '' ?>" href="<?= e(base_url('appointment/agent')) ?>">
+              <i class="bi bi-calendar-event text-info"></i>
+              <span>Lịch hẹn</span>
+            </a>
+          </li>
+        <?php elseif ($userRole === 'admin'): ?>
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle <?= str_starts_with($currentUrl, 'admin') ? 'active' : '' ?>"
+               href="<?= e(base_url('admin')) ?>" id="adminNavDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+              <i class="bi bi-shield-check text-primary"></i>
+              <span>Bảng điều khiển</span>
+            </a>
+            <ul class="dropdown-menu shadow-sm border-0 mt-2 rounded-3" aria-labelledby="adminNavDropdown">
+              <li><a class="dropdown-item py-2 small fw-semibold" href="<?= e(base_url('admin')) ?>"><i class="bi bi-speedometer2 me-2 text-primary"></i>Tổng quan hệ thống</a></li>
+              <li><a class="dropdown-item py-2 small" href="<?= e(base_url('admin/properties')) ?>"><i class="bi bi-building-check me-2 text-success"></i>Kiểm duyệt tin đăng</a></li>
+              <li><a class="dropdown-item py-2 small" href="<?= e(base_url('admin/users')) ?>"><i class="bi bi-people me-2 text-info"></i>Quản lý người dùng</a></li>
+              <li><a class="dropdown-item py-2 small" href="<?= e(base_url('admin/catalog')) ?>"><i class="bi bi-tags me-2 text-warning"></i>Danh mục &amp; Tiện ích</a></li>
+              <li><a class="dropdown-item py-2 small" href="<?= e(base_url('admin/reports')) ?>"><i class="bi bi-flag me-2 text-danger"></i>Báo cáo vi phạm</a></li>
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item py-2 small" href="<?= e(base_url('agent')) ?>"><i class="bi bi-collection me-2 text-secondary"></i>Danh sách tin của tôi</a></li>
+            </ul>
           </li>
         <?php endif; ?>
       </ul>
 
       <!-- User Actions & Post Button -->
-      <div class="d-flex align-items-center gap-2 mt-3 mt-lg-0">
+      <div class="navbar-actions d-flex align-items-center gap-2 mt-3 mt-lg-0">
         <?php if ($user): ?>
           <!-- Biểu tượng Chuông Thông báo (In-app Notification) -->
           <div class="dropdown">
-            <button class="btn btn-light btn-sm rounded-circle position-relative border d-flex align-items-center justify-content-center"
+            <button class="btn btn-light btn-sm rounded-circle position-relative border d-flex align-items-center justify-content-center p-0"
                     type="button" id="notificationDropdownBtn" data-bs-toggle="dropdown" aria-expanded="false"
-                    style="width: 36px; height: 36px;" title="Thông báo">
+                    style="width: 38px; height: 38px;" title="Thông báo">
               <i class="bi bi-bell-fill text-secondary"></i>
               <?php if ($unreadNotifCount > 0): ?>
                 <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="notificationBadgeCount" style="font-size: 0.65rem;">
@@ -122,7 +154,7 @@ if ($user) {
                 <?php if ($unreadNotifCount > 0): ?>
                   <form method="post" action="<?= e(base_url('notification/readAll')) ?>" class="m-0">
                     <?= csrf_field() ?>
-                    <button type="submit" class="btn btn-link btn-sm p-0 text-decoration-none small fw-semibold">Đánh dấu đã đọc</button>
+                    <button type="submit" class="btn btn-link btn-sm p-0 text-decoration-none small fw-semibold" style="height: auto;">Đánh dấu đã đọc</button>
                   </form>
                 <?php endif; ?>
               </div>
@@ -154,22 +186,27 @@ if ($user) {
           </div>
 
           <div class="dropdown">
-            <button class="btn btn-light btn-sm rounded-pill dropdown-toggle d-flex align-items-center gap-2 px-3 border" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <button class="btn btn-light btn-sm rounded-pill dropdown-toggle d-flex align-items-center gap-2 px-3 border" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="height: 38px;">
               <?php if (!empty($user['avatar'])): ?>
-                <img src="<?= e(base_url($user['avatar'])) ?>" alt="<?= e($user['full_name']) ?>" class="rounded-circle object-fit-cover" style="width: 28px; height: 28px;">
+                <img src="<?= e(base_url($user['avatar'])) ?>" alt="<?= e($user['full_name']) ?>" class="rounded-circle object-fit-cover flex-shrink-0" style="width: 26px; height: 26px;">
               <?php else: ?>
-                <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 28px; height: 28px; font-size: 0.8rem;">
+                <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold flex-shrink-0" style="width: 26px; height: 26px; font-size: 0.78rem;">
                   <?= mb_substr(e($user['full_name']), 0, 1) ?>
                 </div>
               <?php endif; ?>
-              <span class="fw-semibold small text-truncate" style="max-width: 140px;"><?= e($user['full_name']) ?></span>
+              <span class="fw-semibold small text-truncate" style="max-width: 130px;"><?= e($user['full_name']) ?></span>
             </button>
-            <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 mt-2">
+            <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 mt-2 rounded-3">
               <li class="px-3 py-2 border-bottom">
-                <div class="fw-bold text-dark"><?= e($user['full_name']) ?></div>
-                <div class="small text-muted"><?= e($user['email']) ?></div>
-                <span class="badge bg-secondary-subtle text-secondary small mt-1"><?= ucfirst($user['role']) ?></span>
+                <div class="fw-bold text-dark text-nowrap"><?= e($user['full_name']) ?></div>
+                <div class="small text-muted text-truncate" style="max-width: 200px;"><?= e($user['email']) ?></div>
+                <span class="badge bg-secondary-subtle text-secondary small mt-1"><?= e($roleLabels[$userRole] ?? ucfirst($userRole)) ?></span>
               </li>
+              <?php if ($userRole === 'admin'): ?>
+                <li><a class="dropdown-item py-2 small fw-semibold text-primary" href="<?= e(base_url('admin')) ?>"><i class="bi bi-shield-check me-2"></i>Bảng điều khiển Quản trị</a></li>
+                <li><a class="dropdown-item py-2 small" href="<?= e(base_url('agent/create')) ?>"><i class="bi bi-plus-circle me-2 text-danger"></i>Đăng tin bất động sản</a></li>
+                <li><hr class="dropdown-divider"></li>
+              <?php endif; ?>
               <li><a class="dropdown-item py-2 small" href="<?= e(base_url('profile')) ?>"><i class="bi bi-person me-2 text-muted"></i>Thông tin cá nhân</a></li>
               <li><a class="dropdown-item py-2 small" href="<?= e(base_url('notification')) ?>"><i class="bi bi-bell me-2 text-muted"></i>Thông báo của tôi<?php if ($unreadNotifCount > 0): ?><span class="badge rounded-pill bg-danger ms-2"><?= (int)$unreadNotifCount ?></span><?php endif; ?></a></li>
               <li><a class="dropdown-item py-2 small" href="<?= e(base_url('appointment/my')) ?>"><i class="bi bi-calendar-check me-2 text-muted"></i>Lịch hẹn của tôi</a></li>
@@ -195,10 +232,12 @@ if ($user) {
           </a>
         <?php endif; ?>
 
-        <!-- Nút Đăng tin nổi bật -->
-        <a class="btn btn-post-property btn-sm px-3 rounded-pill" href="<?= e(base_url(Auth::check() ? 'agent/create' : 'auth/login')) ?>">
-          <i class="bi bi-plus-circle-fill me-1"></i> Đăng tin
-        </a>
+        <?php if ($userRole !== 'admin'): ?>
+          <!-- Nút Đăng tin nổi bật (hiển thị cho Khách / Môi giới; Admin đã có trong menu Quản trị để tránh tràn thanh Header) -->
+          <a class="btn btn-post-property btn-sm px-3 rounded-pill" href="<?= e(base_url(Auth::check() ? 'agent/create' : 'auth/login')) ?>">
+            <i class="bi bi-plus-circle-fill me-1"></i> Đăng tin
+          </a>
+        <?php endif; ?>
       </div>
     </div>
   </div>

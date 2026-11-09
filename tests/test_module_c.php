@@ -487,6 +487,7 @@ $notifModel->markAllAsRead($testUid);
 $db->prepare("DELETE FROM notifications WHERE id = ?")->execute([$notifId]);
 
 $mainLayoutSrc = file_get_contents(APP . '/views/layouts/main.php');
+$styleCssSrc = file_get_contents(ROOT . '/public/assets/css/style.css');
 $apptCtrlSrc = file_get_contents(APP . '/controllers/AppointmentController.php');
 $modModelSrc = file_get_contents(APP . '/models/PropertyModeration.php');
 
@@ -497,9 +498,11 @@ $t->assert(
     && is_file(APP . '/controllers/NotificationController.php')
     && is_file(APP . '/views/notification/index.php')
     && strpos($mainLayoutSrc, 'notificationDropdownBtn') !== false
+    && strpos($mainLayoutSrc, 'adminNavDropdown') !== false
+    && strpos($styleCssSrc, 'white-space: nowrap;') !== false
     && strpos($apptCtrlSrc, 'new Notification()') !== false
     && strpos($modModelSrc, 'new Notification()') !== false,
-    "7.3 [Mục 8/15] Hệ thống Thông báo In-app (Model Notification, NotificationController, chuông Navbar & tự động bắn thông báo 3 luồng)"
+    "7.3 [Mục 8/15] Hệ thống Thông báo In-app & Navbar đồng bộ 1 dòng theo Role (white-space: nowrap)"
 );
 
 // 7.4 Nén và Resize ảnh tự động (WebP) + tạo thumbnail
