@@ -24,12 +24,12 @@ $config = [
         'template'     => 'compact2',
     ],
     'smtp' => [
-        'enabled'   => false, // Mặc định false nếu chưa điền tài khoản, bật true khi điền
+        'enabled'   => false, // Mặc định false nếu chưa cấu hình; bật true trong config.local.php hoặc qua biến môi trường
         'host'      => 'smtp.gmail.com',
         'port'      => 587,
         'username'  => '',
-        'password'  => '', // App Password 16 ký tự của Gmail
-        'from_name' => 'Bất Động Sản',
+        'password'  => '', // App Password của Gmail; lưu trong config.local.php hoặc biến môi trường SMTP_PASS
+        'from_name' => 'Bất Động Sản Việt',
     ],
 ];
 
@@ -52,7 +52,7 @@ foreach (['CLOUDINARY_CLOUD_NAME' => 'cloud_name', 'CLOUDINARY_API_KEY' => 'api_
 if (($value = getenv('SMTP_ENABLED')) !== false) $config['smtp']['enabled'] = filter_var($value, FILTER_VALIDATE_BOOLEAN);
 if (($value = getenv('SMTP_HOST')) !== false) $config['smtp']['host'] = $value;
 if (($value = getenv('SMTP_PORT')) !== false) $config['smtp']['port'] = (int)$value;
-if (($value = getenv('SMTP_USER')) !== false) $config['smtp']['username'] = $value;
-if (($value = getenv('SMTP_PASS')) !== false) $config['smtp']['password'] = $value;
+if (($value = getenv('SMTP_USER')) !== false || ($value = getenv('SMTP_USERNAME')) !== false) $config['smtp']['username'] = $value;
+if (($value = getenv('SMTP_PASS')) !== false || ($value = getenv('SMTP_PASSWORD')) !== false) $config['smtp']['password'] = $value;
 if (($value = getenv('SMTP_FROM_NAME')) !== false) $config['smtp']['from_name'] = $value;
 return $config;
