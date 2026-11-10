@@ -102,6 +102,15 @@ window.BdsMap =           (function _callback(){
         }, { threshold: 0.1 });
         observer.observe(mapEl);
       }
+
+      if (typeof ResizeObserver !== 'undefined' && mapEl) {
+        let resizeTimer = null;
+        const resizeObserver = new ResizeObserver(function () {
+          if (resizeTimer) clearTimeout(resizeTimer);
+          resizeTimer = setTimeout(safeInvalidate, 60);
+        });
+        resizeObserver.observe(mapEl);
+      }
     } catch (e) {
       console.warn('Lỗi hiển thị khung bản đồ:', e);
     }
@@ -139,8 +148,12 @@ window.BdsMap =           (function _callback(){
 
     fixLeafletIconPaths();
 
-    const latInput = typeof options.latInput === 'string' ? document.querySelector(options.latInput) : options.latInput;
-    const lngInput = typeof options.lngInput === 'string' ? document.querySelector(options.lngInput) : options.lngInput;
+    const latInput = typeof options.latInput === 'string'
+      ? document.querySelector(options.latInput)
+      : (options.latInput || document.querySelector('#latitude, #latitudeInput, input[name="latitude"]'));
+    const lngInput = typeof options.lngInput === 'string'
+      ? document.querySelector(options.lngInput)
+      : (options.lngInput || document.querySelector('#longitude, #longitudeInput, input[name="longitude"]'));
     const addressInput = typeof options.addressInput === 'string' ? document.querySelector(options.addressInput) : options.addressInput;
     const detailAddressInput = typeof options.detailAddressInput === 'string'
       ? document.querySelector(options.detailAddressInput)
@@ -148,14 +161,11 @@ window.BdsMap =           (function _callback(){
     const searchBtn = typeof options.searchBtn === 'string' ? document.querySelector(options.searchBtn) : options.searchBtn;
     const statusEl = typeof options.statusEl === 'string' ? document.querySelector(options.statusEl) : options.statusEl;
 
-    // Tạo hoặc lấy vùng hiển thị gợi ý Reverse Geocoding ngay dưới bản đồ
-    let suggestionEl = document.getElementById(options.suggestionId || 'reverseGeocodeSuggestion');
-    if (!suggestionEl && mapEl.parentNode) {
-      suggestionEl = document.createElement('div');
-      suggestionEl.id = 'reverseGeocodeSuggestion';
-      suggestionEl.className = 'reverse-geocode-box d-none mt-2 mb-2';
-      suggestionEl.setAttribute('aria-live', 'polite');
-      mapEl.insertAdjacentElement('afterend', suggestionEl);
+    // Ẩn vùng gợi ý thủ công cũ nếu tồn tại trong DOM (cơ chế tự động điền đã xử lý trực tiếp)
+    const legacySuggestionEl = document.getElementById(options.suggestionId || 'reverseGeocodeSuggestion');
+    if (legacySuggestionEl) {
+      legacySuggestionEl.classList.add('d-none');
+      legacySuggestionEl.innerHTML = '';
     }
 
     let initialLat = parseFloat(latInput?.value) || options.defaultLat || DEFAULT_LAT;
@@ -184,9 +194,9 @@ window.BdsMap =           (function _callback(){
       title: 'Kéo điểm ghim hoặc bấm lên bản đồ để chọn vị trí bất động sản',
     }).addTo(map);
 
-    setCoordinates(initialLat, initialLng);
+    setCoordinates(initialLat, initialLng, null, false);
 
-    function setCoordinates(lat, lng, popupText = null) {
+    function setCoordinates(lat, lng, popupText = null, shouldOpenPopup = true) {
       const fixedLat = parseFloat(Number(lat).toFixed(7));
       const fixedLng = parseFloat(Number(lng).toFixed(7));
 
@@ -194,15 +204,18 @@ window.BdsMap =           (function _callback(){
       if (lngInput) lngInput.value = fixedLng;
 
       marker.setLatLng([fixedLat, fixedLng]);
-      const text = popupText || `<strong>Vị trí bất động sản</strong><br>Tọa độ: ${fixedLat}, ${fixedLng}`;
-      marker.bindPopup(text).openPopup();
+      const text = popupText || '<strong>Vị trí bất động sản</strong><br><span class="small text-muted">Kéo điểm ghim hoặc bấm lên bản đồ để chọn vị trí</span>';
+      marker.bindPopup(text);
+      if (shouldOpenPopup) {
+        marker.openPopup();
+      }
 
       if (typeof options.onChange === 'function') {
         options.onChange(fixedLat, fixedLng);
       }
     }
 
-    function applySuggestedAddress(suggestedText, isAuto = false) {
+    function applySuggestedAddress(suggestedText) {
       if (!suggestedText) return;
       const targetField = detailAddressInput || document.querySelector('#address, #address-detail, input[name="address_detail"]') || addressInput;
       if (targetField) {
@@ -216,9 +229,6 @@ window.BdsMap =           (function _callback(){
         addressInput.dataset.suppressSearchInput = '1';
         addressInput.value = suggestedText;
         setTimeout(() => { delete addressInput.dataset.suppressSearchInput; }, 80);
-      }
-      if (!isAuto && window.BDS && typeof window.BDS.toast === 'function') {
-        window.BDS.toast('Đã áp dụng địa chỉ gợi ý vào ô Địa chỉ.', 'success', 'Định vị địa chỉ');
       }
     }
 
@@ -264,17 +274,7 @@ window.BdsMap =           (function _callback(){
 
       if (statusEl) {
         statusEl.className = 'alert alert-info py-2 small mb-2 d-flex align-items-center gap-2';
-        statusEl.innerHTML = `<span class="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true"></span><span>Đang định vị địa chỉ tại tọa độ <strong>${fixedLat}, ${fixedLng}</strong>...</span>`;
-      }
-
-      if (suggestionEl) {
-        suggestionEl.classList.remove('d-none');
-        suggestionEl.innerHTML = `
-          <div class="p-2 px-3 rounded-3 border bg-white shadow-xs d-flex align-items-center gap-2 small text-secondary">
-            <span class="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true"></span>
-            <span>Đang định vị địa chỉ...</span>
-          </div>
-        `;
+        statusEl.innerHTML = '<span class="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true"></span><span>Đang xác định địa chỉ tại vị trí đã chọn...</span>';
       }
 
       try {
@@ -298,72 +298,32 @@ window.BdsMap =           (function _callback(){
         const addressObj = payload?.address || payload?.data?.address || null;
 
         if (payload && payload.success && displayName) {
-          setCoordinates(lat, lng, `<strong>Vị trí đã chọn</strong><br><span class="small">${escapeHtml(displayName)}</span>`);
+          setCoordinates(lat, lng, `<strong>Vị trí đã chọn</strong><br><span class="small">${escapeHtml(displayName)}</span>`, true);
 
-          // Tự động phân tích địa chỉ ngược -> chọn Tỉnh/Quận/Phường và điền số nhà + tên đường vào #address-detail
+          // Tự động phân tích địa chỉ ngược -> chọn Tỉnh/Phường và điền số nhà + tên đường vào #address-detail
           const targetField = detailAddressInput || document.querySelector('#address, #address-detail, input[name="address_detail"]');
-          let autoFilled = false;
           if (window.BdsAddressParser && typeof window.BdsAddressParser.handleReverseGeocode === 'function') {
             await syncSelectedAddressToForm(displayName, addressObj, { updateMapSearch: true, isAuto: true });
-            autoFilled = true;
           } else if (targetField && !targetField.value.trim()) {
-            applySuggestedAddress(displayName, true);
-            autoFilled = true;
+            applySuggestedAddress(displayName);
           }
 
           if (statusEl) {
             statusEl.className = 'alert alert-success py-2 small mb-2';
-            statusEl.innerHTML = `<i class="bi bi-geo-alt-fill text-danger me-1"></i>Đã xác định tọa độ: <strong>${fixedLat}, ${fixedLng}</strong>`;
-          }
-
-          if (suggestionEl) {
-            suggestionEl.classList.remove('d-none');
-            suggestionEl.innerHTML = `
-              <div class="p-3 rounded-3 border border-primary-subtle bg-primary-subtle bg-opacity-10 d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2">
-                <div class="small">
-                  <div class="fw-semibold text-dark d-flex align-items-center gap-1 mb-1">
-                    <i class="bi bi-pin-map-fill text-primary"></i>
-                    <span>Địa chỉ gợi ý từ vị trí đã ghim:</span>
-                    ${autoFilled ? '<span class="badge bg-success-subtle text-success border border-success-subtle ms-1">Đã tự động điền</span>' : ''}
-                  </div>
-                  <div class="text-secondary" id="reverseSuggestedText">${escapeHtml(displayName)}</div>
-                </div>
-                <button type="button" class="btn btn-sm btn-primary fw-semibold flex-shrink-0 bds-btn-touch px-3" id="btnApplyReverseAddress">
-                  <i class="bi bi-check2-circle me-1"></i>Áp dụng vào ô Địa chỉ
-                </button>
-              </div>
-            `;
-
-            const applyBtn = suggestionEl.querySelector('#btnApplyReverseAddress');
-            if (applyBtn) {
-              applyBtn.addEventListener('click', async function _callback1() {
-                await syncSelectedAddressToForm(displayName, addressObj, { updateMapSearch: true, isAuto: false });
-                if (window.BDS && typeof window.BDS.toast === 'function') {
-                  window.BDS.toast('Đã đồng bộ Tỉnh/Quận/Phường và địa chỉ chi tiết.', 'success', 'Định vị địa chỉ');
-                }
-                applyBtn.classList.remove('btn-primary');
-                applyBtn.classList.add('btn-success');
-                applyBtn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Đã áp dụng địa chỉ';
-              });
-            }
+            statusEl.innerHTML = `<i class="bi bi-geo-alt-fill text-danger me-1"></i>Đã định vị địa chỉ: <strong>${escapeHtml(displayName)}</strong>`;
           }
         } else {
+          setCoordinates(lat, lng, '<strong>Vị trí đã chọn</strong><br><span class="small text-muted">Đã ghim vị trí trên bản đồ</span>', false);
           if (statusEl) {
             statusEl.className = 'alert alert-info py-2 small mb-2';
-            statusEl.innerHTML = `Đã lưu tọa độ: <strong>${fixedLat}, ${fixedLng}</strong>. Vui lòng nhập thêm địa chỉ chi tiết vào ô bên trên.`;
-          }
-          if (suggestionEl) {
-            suggestionEl.classList.add('d-none');
+            statusEl.innerHTML = '<i class="bi bi-geo-alt-fill text-primary me-1"></i>Đã lưu vị trí đã ghim trên bản đồ. Vui lòng nhập thêm địa chỉ chi tiết vào ô bên trên.';
           }
         }
       } catch (err) {
         if (err && err.name === 'AbortError') return;
         if (statusEl) {
           statusEl.className = 'alert alert-info py-2 small mb-2';
-          statusEl.innerHTML = `Đã cập nhật vị trí: <strong>${fixedLat}, ${fixedLng}</strong>`;
-        }
-        if (suggestionEl) {
-          suggestionEl.classList.add('d-none');
+          statusEl.innerHTML = '<i class="bi bi-geo-alt-fill text-primary me-1"></i>Đã cập nhật vị trí trên bản đồ.';
         }
       }
     }
@@ -371,13 +331,13 @@ window.BdsMap =           (function _callback(){
     // Sự kiện kéo marker
     marker.on('dragend', function _callback10(e){
       const pos = e.target.getLatLng();
-      setCoordinates(pos.lat, pos.lng);
+      setCoordinates(pos.lat, pos.lng, null, false);
       reverseGeocode(pos.lat, pos.lng);
     });
 
     // Sự kiện click lên bản đồ để dời marker
     map.on('click', function _callback11(e){
-      setCoordinates(e.latlng.lat, e.latlng.lng);
+      setCoordinates(e.latlng.lat, e.latlng.lng, null, false);
       reverseGeocode(e.latlng.lat, e.latlng.lng);
     });
 
@@ -477,40 +437,6 @@ window.BdsMap =           (function _callback(){
         statusEl.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i>Đã chọn: <strong>${escapeHtml(displayName)}</strong>` +
           (resolvedParts.length ? ` <span class="text-muted">(${escapeHtml(resolvedParts.join(', '))})</span>` : '') +
           '. Có thể kéo điểm ghim để điều chỉnh.';
-      }
-
-      if (suggestionEl && displayName) {
-        suggestionEl.classList.remove('d-none');
-        suggestionEl.innerHTML = `
-          <div class="p-3 rounded-3 border border-primary-subtle bg-primary-subtle bg-opacity-10 d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2">
-            <div class="small">
-              <div class="fw-semibold text-dark d-flex align-items-center gap-1 mb-1">
-                <i class="bi bi-pin-map-fill text-primary"></i>
-                <span>Địa chỉ đã chọn:</span>
-                ${synced && synced.province ? '<span class="badge bg-success-subtle text-success border border-success-subtle ms-1">Đã tự động điền</span>' : ''}
-              </div>
-              <div class="text-secondary">${escapeHtml(displayName)}</div>
-            </div>
-            <button type="button" class="btn btn-sm btn-primary fw-semibold flex-shrink-0 bds-btn-touch px-3" id="btnApplyReverseAddress">
-              <i class="bi bi-check2-circle me-1"></i>Áp dụng vào ô Địa chỉ
-            </button>
-          </div>
-        `;
-        suggestionEl.querySelector('#btnApplyReverseAddress')?.addEventListener('click', async function _callback12() {
-          const btn = this;
-          await syncSelectedAddressToForm(displayName, addressObj, {
-            fillInput: true,
-            houseNumberHint: houseNumberHint,
-            directIds: directIds,
-            updateMapSearch: true,
-            isAuto: false,
-          });
-          if (window.BDS && typeof window.BDS.toast === 'function') {
-            window.BDS.toast('Đã đồng bộ Tỉnh/Quận/Phường và địa chỉ chi tiết.', 'success', 'Định vị địa chỉ');
-          }
-          btn.classList.replace('btn-primary', 'btn-success');
-          btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Đã áp dụng địa chỉ';
-        });
       }
     }
 
@@ -812,7 +738,7 @@ window.BdsMap =           (function _callback(){
           setCoordinates(foundLat, foundLng, `<strong>${escapeHtml(first.display_name || q)}</strong>`);
           if (statusEl) {
             statusEl.className = 'alert alert-success py-2 small mb-2';
-            statusEl.innerHTML = `<i class="bi bi-geo-alt-fill text-danger me-1"></i>Đã tự động định vị trên bản đồ: <strong>${foundLat.toFixed(6)}, ${foundLng.toFixed(6)}</strong>`;
+            statusEl.innerHTML = `<i class="bi bi-geo-alt-fill text-danger me-1"></i>Đã tự động định vị trên bản đồ: <strong>${escapeHtml(first.display_name || q)}</strong>`;
           }
           return first;
         }

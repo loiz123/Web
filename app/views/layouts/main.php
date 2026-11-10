@@ -38,7 +38,7 @@ if ($user) {
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
 
   <!-- Main Custom CSS -->
-  <link href="<?= e(base_url('assets/css/style.css')) ?>" rel="stylesheet">
+  <link href="<?= e(base_url('assets/css/style.css?v=20261110d')) ?>" rel="stylesheet">
 </head>
 <body class="d-flex flex-column min-vh-100">
 

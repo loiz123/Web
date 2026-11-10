@@ -649,6 +649,13 @@ body {
   z-index: 1;
 }
 
+#agentMapPicker {
+  min-height: 460px;
+  height: 460px;
+  width: 100%;
+  border-radius: 8px;
+}
+
 .leaflet-popup-content {
   margin: 10px 12px;
   line-height: 1.4;

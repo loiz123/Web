@@ -123,23 +123,11 @@ $existingImages = $existingImages ?? [];
           <button type="button" class="btn btn-outline-primary" id="btnSearchMapAddress">🔍 Tìm vị trí</button>
         </div>
         <div id="mapStatus" class="alert alert-info py-2 small mb-2">
-          💡 Bấm trực tiếp lên bản đồ hoặc kéo biểu tượng điểm ghim để cập nhật tọa độ chính xác.
+          💡 Bấm trực tiếp lên bản đồ hoặc kéo biểu tượng điểm ghim để cập nhật vị trí chính xác cho bất động sản.
         </div>
-        <div id="agentMapPicker" style="height: 320px; width: 100%; border-radius: 6px;" class="border mb-2"></div>
-        <div class="row g-2">
-          <div class="col-6">
-            <div class="input-group input-group-sm">
-              <span class="input-group-text">Vĩ độ (Lat)</span>
-              <input type="text" id="latitudeInput" name="latitude" class="form-control bg-white" required value="<?= e($listing['latitude'] ?? '') ?>" placeholder="10.776889">
-            </div>
-          </div>
-          <div class="col-6">
-            <div class="input-group input-group-sm">
-              <span class="input-group-text">Kinh độ (Lng)</span>
-              <input type="text" id="longitudeInput" name="longitude" class="form-control bg-white" required value="<?= e($listing['longitude'] ?? '') ?>" placeholder="106.700806">
-            </div>
-          </div>
-        </div>
+        <div id="agentMapPicker" style="min-height: 460px; height: 460px; width: 100%; border-radius: 8px;" class="border"></div>
+        <input type="hidden" id="latitude" name="latitude" value="<?= e($listing['latitude'] ?? '') ?>">
+        <input type="hidden" id="longitude" name="longitude" value="<?= e($listing['longitude'] ?? '') ?>">
       </div>
     </div>
   </div>
@@ -197,13 +185,13 @@ $existingImages = $existingImages ?? [];
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="<?= e(base_url('assets/js/map.js?v=20261110c')) ?>"></script>
-<script src="<?= e(base_url('assets/js/address-parser.js?v=20261110c')) ?>"></script>
+<script src="<?= e(base_url('assets/js/map.js?v=20261110d')) ?>"></script>
+<script src="<?= e(base_url('assets/js/address-parser.js?v=20261110d')) ?>"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function _callback(){
   var form = document.getElementById('agent-edit-form');
-  var latitudeInput = document.getElementById('latitudeInput');
-  var longitudeInput = document.getElementById('longitudeInput');
+  var latitudeInput = document.getElementById('latitude');
+  var longitudeInput = document.getElementById('longitude');
   var mapStatus = document.getElementById('mapStatus');
   var hadCoordinates = <?= !empty($listing['latitude']) && !empty($listing['longitude']) ? 'true' : 'false' ?>;
   var defaultLat = <?= !empty($listing['latitude']) ? (float)$listing['latitude'] : '10.776889' ?>;
@@ -214,8 +202,8 @@ document.addEventListener('DOMContentLoaded', function _callback(){
     if (window.BdsMap && typeof window.BdsMap.initPicker === 'function') {
       var picker = window.BdsMap.initPicker({
         mapId: 'agentMapPicker',
-        latInput: '#latitudeInput',
-        lngInput: '#longitudeInput',
+        latInput: '#latitude',
+        lngInput: '#longitude',
         addressInput: '#mapSearchAddress',
         searchBtn: '#btnSearchMapAddress',
         statusEl: '#mapStatus',
@@ -267,31 +255,34 @@ document.addEventListener('DOMContentLoaded', function _callback(){
 
       var marker = L.marker([curLat, curLng], {
         draggable: true,
-        title: 'Kéo điểm ghim hoặc bấm lên bản đồ để chọn tọa độ'
+        title: 'Kéo điểm ghim hoặc bấm lên bản đồ để chọn vị trí'
       }).addTo(mapInstance);
 
-      function updateCoordsFallback(lat, lng) {
+      function updateCoordsFallback(lat, lng, showSuccess) {
         var fLat = parseFloat(Number(lat).toFixed(7));
         var fLng = parseFloat(Number(lng).toFixed(7));
         if (latitudeInput) latitudeInput.value = fLat;
         if (longitudeInput) longitudeInput.value = fLng;
         marker.setLatLng([fLat, fLng]);
-        marker.bindPopup('<strong>Vị trí đã chọn</strong><br>Tọa độ: ' + fLat + ', ' + fLng).openPopup();
-        if (mapStatus) {
-          mapStatus.className = 'alert alert-success py-2 small mb-2';
-          mapStatus.textContent = 'Đã chọn tọa độ: ' + fLat + ', ' + fLng;
+        marker.bindPopup('<strong>Vị trí đã chọn</strong><br><span class="small text-muted">Kéo điểm ghim để điều chỉnh chính xác</span>');
+        if (showSuccess) {
+          marker.openPopup();
+          if (mapStatus) {
+            mapStatus.className = 'alert alert-success py-2 small mb-2';
+            mapStatus.textContent = 'Đã cập nhật vị trí đã chọn trên bản đồ.';
+          }
         }
       }
 
-      updateCoordsFallback(curLat, curLng);
+      updateCoordsFallback(curLat, curLng, false);
 
       marker.on('dragend', function(e) {
         var pos = e.target.getLatLng();
-        updateCoordsFallback(pos.lat, pos.lng);
+        updateCoordsFallback(pos.lat, pos.lng, true);
       });
 
       mapInstance.on('click', function(e) {
-        updateCoordsFallback(e.latlng.lat, e.latlng.lng);
+        updateCoordsFallback(e.latlng.lat, e.latlng.lng, true);
       });
     } catch (fallbackErr) {
       console.error('Không thể khởi tạo bản đồ dự phòng:', fallbackErr);
@@ -312,16 +303,24 @@ document.addEventListener('DOMContentLoaded', function _callback(){
     setTimeout(triggerInvalidate, 500);
     setTimeout(triggerInvalidate, 1000);
     window.addEventListener('resize', triggerInvalidate);
-    window.addEventListener('load', triggerInvalidate);
+    if (document.readyState === 'complete') {
+      setTimeout(triggerInvalidate, 50);
+    } else {
+      window.addEventListener('load', triggerInvalidate);
+    }
   }
 
   if (form && !hadCoordinates) {
     form.addEventListener('submit', function _callback2(event){
-      if (latitudeInput.value === '10.776889' && longitudeInput.value === '106.700806') {
+      var latVal = latitudeInput ? String(latitudeInput.value || '').trim() : '';
+      var lngVal = longitudeInput ? String(longitudeInput.value || '').trim() : '';
+      if (!latVal || !lngVal || (latVal === '10.776889' && lngVal === '106.700806')) {
         event.preventDefault();
-        mapStatus.className = 'alert alert-warning py-2 small mb-2';
-        mapStatus.textContent = 'Vui lòng bấm lên bản đồ hoặc kéo điểm ghim để chọn tọa độ.';
-        mapStatus.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (mapStatus) {
+          mapStatus.className = 'alert alert-warning py-2 small mb-2';
+          mapStatus.textContent = 'Vui lòng bấm lên bản đồ hoặc kéo điểm ghim để chọn vị trí bất động sản.';
+          mapStatus.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
       }
     });
   }
