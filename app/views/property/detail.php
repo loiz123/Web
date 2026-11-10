@@ -90,12 +90,12 @@ if (!$hasValidCoords) {
 
         <!-- Nút Tạm ẩn / Hiện lại tin -->
         <?php if ($property['status'] !== 'hidden'): ?>
-          <button type="button" class="btn btn-sm btn-outline-warning btn-admin-status" id="btnAdminHide" data-id="<?= (int)$property['id'] ?>" data-status="hidden" data-url="<?= e(base_url('admin/properties/changeStatus/' . (int)$property['id'])) ?>">
-            <i class="bi bi-eye-slash"></i> Tạm ẩn
+          <button type="button" class="btn btn-sm btn-outline-warning text-dark btn-admin-status" id="btnAdminHide" data-id="<?= (int)$property['id'] ?>" data-status="hidden" data-url="<?= e(base_url('admin/properties/changeStatus/' . (int)$property['id'])) ?>" title="Tạm ẩn tin đăng này khỏi trang tìm kiếm">
+            <i class="bi bi-eye-slash text-warning-emphasis me-1"></i>Tạm ẩn
           </button>
         <?php else: ?>
-          <button type="button" class="btn btn-sm btn-outline-info btn-admin-status" id="btnAdminShow" data-id="<?= (int)$property['id'] ?>" data-status="approved" data-url="<?= e(base_url('admin/properties/changeStatus/' . (int)$property['id'])) ?>">
-            <i class="bi bi-eye"></i> Hiện lại tin
+          <button type="button" class="btn btn-sm btn-outline-info text-dark btn-admin-status" id="btnAdminShow" data-id="<?= (int)$property['id'] ?>" data-status="approved" data-url="<?= e(base_url('admin/properties/changeStatus/' . (int)$property['id'])) ?>" title="Hiện tin đăng này trên trang tìm kiếm">
+            <i class="bi bi-eye text-info-emphasis me-1"></i>Hiện tin
           </button>
         <?php endif; ?>
 
