@@ -97,6 +97,11 @@ class User extends Model
         $this->query('DELETE FROM password_resets WHERE email = ?', [$email]);
     }
 
+    public function deletePasswordResetToken(string $token): void
+    {
+        $this->query('DELETE FROM password_resets WHERE token = ?', [$token]);
+    }
+
     // ---------- Kiểm tra dữ liệu dùng chung cho đăng ký và hồ sơ ----------
 
     /** Chuẩn hóa số điện thoại: bỏ khoảng trắng, dấu chấm, gạch. */

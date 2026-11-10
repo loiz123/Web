@@ -10,3 +10,35 @@
 6. Sau khi có URL Render, sao chép `vercel.example.json` thành `vercel.json` ở thư mục gốc và thay host mẫu bằng URL Render thực tế. Triển khai dự án Vercel, rồi kiểm tra đăng nhập, session, tìm kiếm, tải ảnh và các thao tác POST qua domain Vercel.
 
 Gói Render Free không lưu được file trên filesystem qua lần khởi động lại, ngủ hoặc triển khai lại; hãy cấu hình Cloudinary hoặc dùng dịch vụ trả phí có persistent disk trước khi dùng ảnh thật. Session trên filesystem có thể mất khi dịch vụ khởi động lại.
+
+## Gửi mail quên mật khẩu qua HTTPS (Resend)
+
+Render Free [chặn cổng SMTP 25/465/587](https://render.com/docs/free). Ứng dụng hỗ trợ [Resend API](https://resend.com/docs/api-reference/emails/send-email) qua HTTPS/cổng 443.
+
+1. Tạo tài khoản tại Resend và tạo API key có quyền gửi email tại https://resend.com/api-keys.
+2. Trên **Render → backend PHP → Environment**, đặt:
+
+   ```text
+   MAIL_TRANSPORT=resend
+   RESEND_API_KEY=<API key của bạn>
+   MAIL_FROM_EMAIL=onboarding@resend.dev
+   MAIL_FROM_NAME=BDS Viet
+   ```
+
+3. Lưu cấu hình và triển khai lại backend. Khi dùng `onboarding@resend.dev`, [Resend chỉ cho gửi tới email chủ tài khoản Resend](https://resend.com/docs/knowledge-base/403-error-resend-dev-domain). Đăng ký tài khoản ứng dụng bằng chính email đó rồi thử quên mật khẩu. Muốn gửi cho người dùng bất kỳ, xác minh domain tại https://resend.com/domains và đổi `MAIL_FROM_EMAIL` sang địa chỉ thuộc domain đã xác minh.
+4. Local XAMPP dùng cùng API key: thêm vào `config/config.local.php`, giữ nguyên phần cấu hình database:
+
+   ```php
+   'mail' => [
+       'transport' => 'resend',
+       'resend_api_key' => '<API key của bạn>',
+       'from_email' => 'onboarding@resend.dev',
+       'from_name' => 'BDS Viet',
+   ],
+   ```
+
+   File này được Git bỏ qua. Không commit API key. PHP cần extension cURL và CA certificates hợp lệ; ứng dụng xác minh chứng chỉ HTTPS.
+
+Kiểm tra cấu hình bằng `php scripts/check_mail.php`. Lệnh chỉ gửi thư kiểm tra khi thêm `--to=email-cua-ban@example.com`. Sau đó thử yêu cầu quên mật khẩu, mở link, đặt mật khẩu mới rồi đăng nhập lại. API nhận thư chưa bảo đảm thư vào Inbox; kiểm tra cả thư rác và trạng thái gửi trong Resend.
+
+Khi chưa cấu hình, trang quên mật khẩu báo dịch vụ chưa sẵn sàng và không tạo token. Nếu nhà cung cấp từ chối gửi, token mới bị thu hồi và lỗi được ghi vào server log. Nhật ký mail không ghi link/token đặt lại mật khẩu. Nếu dùng hosting cho phép SMTP, có thể chọn `MAIL_TRANSPORT=smtp` cùng các biến `SMTP_ENABLED`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` sẵn có.

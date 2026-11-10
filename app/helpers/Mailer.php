@@ -1,14 +1,15 @@
 <?php
-// Mailer thuần PHP OOP hỗ trợ gửi email HTML qua giao thức SMTP (STARTTLS port 587 / SSL port 465, AUTH LOGIN)
-// Kèm cơ chế ghi log dự phòng vào storage/logs/mail.log khi môi trường chưa cấu hình SMTP hoặc ngoại tuyến.
+// Gửi email bằng Resend HTTPS API hoặc SMTP; log không chứa link đặt lại mật khẩu.
 class Mailer
 {
     private array $smtpConfig;
+    private array $mailConfig;
     private string $lastError = '';
 
-    public function __construct(?array $smtpConfig = null)
+    public function __construct(?array $smtpConfig = null, ?array $mailConfig = null)
     {
         $this->smtpConfig = $smtpConfig ?? (array)config('smtp', []);
+        $this->mailConfig = $mailConfig ?? (array)config('mail', []);
     }
 
     public function getLastError(): string
@@ -18,6 +19,11 @@ class Mailer
 
     public function isEnabled(): bool
     {
+        if ($this->transport() === 'resend') {
+            return trim((string)($this->mailConfig['resend_api_key'] ?? '')) !== ''
+                && (bool)filter_var($this->mailConfig['from_email'] ?? '', FILTER_VALIDATE_EMAIL);
+        }
+        if ($this->transport() !== 'smtp') return false;
         return !empty($this->smtpConfig['enabled'])
             && !empty($this->smtpConfig['host'])
             && !empty($this->smtpConfig['username'])
@@ -25,7 +31,7 @@ class Mailer
     }
 
     /**
-     * Gửi email HTML qua SMTP. Nếu smtp.enabled = false hoặc gửi thất bại thì ghi log vào storage/logs/mail.log.
+     * true nghĩa là nhà cung cấp đã nhận thư, chưa bảo đảm thư vào Inbox.
      */
     public function send(string $toEmail, string $subject, string $htmlBody, string $toName = '', array $meta = []): bool
     {
@@ -33,22 +39,28 @@ class Mailer
         $toEmail = trim($toEmail);
 
         if (!$this->isEnabled()) {
-            $this->lastError = 'SMTP chưa được kích hoạt (smtp.enabled = false hoặc thiếu thông tin tài khoản).';
-            $this->writeMailLog($toEmail, $subject, $htmlBody, 'FALLBACK_LOCAL', $this->lastError, $meta);
+            $this->lastError = 'Dịch vụ gửi email chưa đủ cấu hình Resend hoặc SMTP.';
+            $this->writeMailLog($toEmail, $subject, $htmlBody, 'NOT_CONFIGURED', $this->lastError, $meta);
+            return false;
+        }
+        if (!filter_var($toEmail, FILTER_VALIDATE_EMAIL)) {
+            $this->lastError = 'Địa chỉ email nhận không hợp lệ.';
             return false;
         }
 
         try {
-            $sent = $this->sendViaSmtpSocket($toEmail, $toName, $subject, $htmlBody);
+            $sent = $this->transport() === 'resend'
+                ? $this->sendViaResend($toEmail, $subject, $htmlBody)
+                : $this->sendViaSmtpSocket($toEmail, $toName, $subject, $htmlBody);
             if ($sent) {
-                $this->writeMailLog($toEmail, $subject, $htmlBody, 'SENT_SMTP', 'OK', $meta);
+                $this->writeMailLog($toEmail, $subject, $htmlBody, 'ACCEPTED_' . strtoupper($this->transport()), 'OK', $meta);
                 return true;
             }
         } catch (Throwable $e) {
             $this->lastError = $e->getMessage();
         }
 
-        $this->writeMailLog($toEmail, $subject, $htmlBody, 'SMTP_ERROR', $this->lastError, $meta);
+        $this->writeMailLog($toEmail, $subject, $htmlBody, 'DELIVERY_ERROR', $this->lastError, $meta);
         return false;
     }
 
@@ -59,7 +71,57 @@ class Mailer
     {
         $subject = '[' . config('app_name', 'BĐS Việt') . '] Yêu cầu đặt lại mật khẩu tài khoản';
         $html = self::buildPasswordResetHtml($fullName, $resetLink, $ttlMinutes);
-        return $this->send($toEmail, $subject, $html, $fullName, ['reset_link' => $resetLink]);
+        return $this->send($toEmail, $subject, $html, $fullName, ['type' => 'password_reset']);
+    }
+
+    private function transport(): string
+    {
+        $transport = strtolower(trim((string)($this->mailConfig['transport'] ?? 'auto')));
+        return $transport === 'auto'
+            ? (!empty($this->mailConfig['resend_api_key']) ? 'resend' : 'smtp')
+            : $transport;
+    }
+
+    private function sendViaResend(string $toEmail, string $subject, string $htmlBody): bool
+    {
+        $fromEmail = trim((string)$this->mailConfig['from_email']);
+        $fromName = trim((string)($this->mailConfig['from_name'] ?? config('app_name', 'BĐS Việt')));
+        $response = $this->resendRequest([
+            'from' => $fromName !== '' ? $fromName . ' <' . $fromEmail . '>' : $fromEmail,
+            'to' => [$toEmail],
+            'subject' => $subject,
+            'html' => $htmlBody,
+        ]);
+        if ($response['status'] >= 200 && $response['status'] < 300 && !empty($response['data']['id'])) return true;
+        $this->lastError = 'Resend không chấp nhận thư (HTTP ' . $response['status'] . '). Kiểm tra API key, domain gửi và giới hạn người nhận trong Resend.';
+        return false;
+    }
+
+    /** Ranh giới HTTP riêng để kiểm thử phản hồi mà không gửi mail thật. */
+    protected function resendRequest(array $payload): array
+    {
+        if (!function_exists('curl_init')) throw new RuntimeException('PHP cần bật extension cURL để gửi email qua HTTPS.');
+        $curl = curl_init('https://api.resend.com/emails');
+        curl_setopt_array($curl, [
+            CURLOPT_POST => true,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_TIMEOUT => max(1, (int)($this->mailConfig['timeout'] ?? 15)),
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
+            CURLOPT_HTTPHEADER => [
+                'Authorization: Bearer ' . trim((string)$this->mailConfig['resend_api_key']),
+                'Content-Type: application/json',
+            ],
+            CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+        ]);
+        try {
+            $body = curl_exec($curl);
+            if ($body === false) throw new RuntimeException('Không kết nối được Resend qua HTTPS (cURL ' . curl_errno($curl) . ').');
+            return ['status' => (int)curl_getinfo($curl, CURLINFO_RESPONSE_CODE), 'data' => json_decode($body, true)];
+        } finally {
+            curl_close($curl);
+        }
     }
 
     /**
@@ -256,6 +318,8 @@ HTML;
      */
     private function writeMailLog(string $toEmail, string $subject, string $htmlBody, string $status, string $detail = '', array $meta = []): void
     {
+        // Không lưu token/link hoặc toàn bộ nội dung thư vào nhật ký.
+        unset($meta['reset_link'], $meta['token']);
         $logDir = defined('ROOT') ? (ROOT . '/storage/logs') : (__DIR__ . '/../../storage/logs');
         if (!is_dir($logDir)) {
             @mkdir($logDir, 0775, true);

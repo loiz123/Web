@@ -88,29 +88,31 @@ class AuthController extends Controller
                 flash('danger', 'Vui lòng nhập địa chỉ email hợp lệ.');
                 $_SESSION['old'] = ['email' => $email];
             } else {
-                $users = new User();
-                $user = $users->findByEmail($email);
-                if (!$user) {
-                    unset($_SESSION['old']);
-                    flash('success', 'Một liên kết đặt lại mật khẩu đã được gửi tới email của bạn (nếu tài khoản tồn tại trong hệ thống). Vui lòng kiểm tra hộp thư đến hoặc hòm thư rác.');
-                } elseif ($user['status'] === 'locked') {
-                    flash('danger', 'Tài khoản này hiện đang bị khóa. Vui lòng liên hệ bộ phận hỗ trợ.');
+                $mailer = new Mailer();
+                if (!$mailer->isEnabled()) {
+                    // Cùng thông báo cho mọi email, trước khi tra cứu tài khoản.
+                    flash('warning', 'Chức năng gửi email hiện chưa sẵn sàng. Vui lòng thử lại sau hoặc liên hệ hỗ trợ.');
+                    $_SESSION['old'] = ['email' => $email];
                 } else {
-                    $token = $users->createPasswordResetToken($email);
-                    $fullResetUrl = full_url('auth/reset?token=' . urlencode($token));
-
+                    $users = new User();
+                    $user = $users->findByEmail($email);
+                    if ($user && $user['status'] === 'active') {
+                        $token = $users->createPasswordResetToken($email);
+                        $fullResetUrl = full_url('auth/reset?token=' . urlencode($token));
+                        $sent = $mailer->sendPasswordResetEmail(
+                            $email,
+                            (string)($user['full_name'] ?? 'Quý khách'),
+                            $fullResetUrl,
+                            30
+                        );
+                        if (!$sent) {
+                            $users->deletePasswordResetToken($token);
+                            error_log('Password reset delivery failed: ' . $mailer->getLastError());
+                        }
+                    }
                     unset($_SESSION['old']);
-                    $mailer = new Mailer();
-                    $sent = $mailer->sendPasswordResetEmail(
-                        $email,
-                        (string)($user['full_name'] ?? 'Quý khách'),
-                        $fullResetUrl,
-                        30
-                    );
-
-                    // Chuẩn OWASP chống User Enumeration & phục vụ demo: Luôn hiển thị thông báo thành công
-                    // Nếu môi trường chưa cấu hình SMTP hoặc lỗi gửi, liên kết vẫn được ghi vào storage/logs/mail.log
-                    flash('success', 'Một liên kết đặt lại mật khẩu đã được gửi tới email của bạn (nếu tài khoản tồn tại trong hệ thống). Vui lòng kiểm tra hộp thư đến hoặc hòm thư rác.');
+                    // Không tiết lộ tài khoản có tồn tại hoặc khẳng định thư đã vào Inbox.
+                    flash('success', 'Yêu cầu đã được tiếp nhận. Nếu email thuộc tài khoản đang hoạt động và dịch vụ gửi thư khả dụng, bạn sẽ nhận được liên kết đặt lại mật khẩu. Vui lòng kiểm tra cả thư rác; nếu chưa nhận được, hãy thử lại sau hoặc liên hệ hỗ trợ.');
                 }
             }
         }

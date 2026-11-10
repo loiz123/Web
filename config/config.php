@@ -23,6 +23,13 @@ $config = [
         'account_name' => 'HA NGOC THIEN',
         'template'     => 'compact2',
     ],
+    'mail' => [
+        'transport' => 'auto', // Ưu tiên HTTPS khi có Resend API key; còn lại dùng SMTP.
+        'from_email' => '',
+        'from_name' => 'BĐS Việt',
+        'resend_api_key' => '',
+        'timeout' => 15,
+    ],
     'smtp' => [
         'enabled'   => false, // Mặc định false nếu chưa cấu hình; bật true trong config.local.php hoặc qua biến môi trường
         'host'      => 'smtp.gmail.com',
@@ -55,4 +62,7 @@ if (($value = getenv('SMTP_PORT')) !== false) $config['smtp']['port'] = (int)$va
 if (($value = getenv('SMTP_USER')) !== false || ($value = getenv('SMTP_USERNAME')) !== false) $config['smtp']['username'] = $value;
 if (($value = getenv('SMTP_PASS')) !== false || ($value = getenv('SMTP_PASSWORD')) !== false) $config['smtp']['password'] = $value;
 if (($value = getenv('SMTP_FROM_NAME')) !== false) $config['smtp']['from_name'] = $value;
+foreach (['MAIL_TRANSPORT' => 'transport', 'MAIL_FROM_EMAIL' => 'from_email', 'MAIL_FROM_NAME' => 'from_name', 'RESEND_API_KEY' => 'resend_api_key'] as $env => $key) {
+    if (($value = getenv($env)) !== false) $config['mail'][$key] = $value;
+}
 return $config;
