@@ -793,93 +793,95 @@
     // Mô hình 2 cấp (Tỉnh/Thành -> Phường/Xã): nạp trực tiếp danh sách phường theo tỉnh
     if (isTwoTier) {
       provinceSelect.dataset.autoPopulating = '1';
-      provinceSelect.value = String(matchedProvince.id);
-      provinceSelect.dataset.selected = String(matchedProvince.id);
+      try {
+        provinceSelect.value = String(matchedProvince.id);
+        provinceSelect.dataset.selected = String(matchedProvince.id);
 
-      const twoTierWards = await fetchAdminList('wards', matchedProvince.id);
-      if (currentSeq !== parseSequence) {
-        delete provinceSelect.dataset.autoPopulating;
-        return null;
-      }
-
-      let twoTierWard = null;
-      if (directIds && directIds.ward_id) {
-        const targetW2 = twoTierWards.find(function (w) { return String(w.id) === String(directIds.ward_id); });
-        if (targetW2) {
-          twoTierWard = { id: String(targetW2.id), name: targetW2.name, segmentIndex: -1 };
-        }
-      }
-      if (!twoTierWard) {
-        twoTierWard = matchWard(text, segments, twoTierWards, matchedProvince, null, addressObj);
-      }
-
-      // Dự phòng: đối soát qua API nội bộ khi chưa khớp được phường
-      if (!twoTierWard) {
-        const wardHint2 = addressObj
-          ? (addressObj.ward || addressObj.suburb || addressObj.quarter || addressObj.neighbourhood || addressObj.village || addressObj.hamlet || addressObj.city_district || addressObj.district || addressObj.county || addressObj.town || '')
-          : '';
-        const resolved2 = resolvedFallback || await resolveAdminViaApi(
-          matchedProvince.id,
-          matchedProvince.name,
-          '',
-          wardHint2,
-          text
-        );
+        const twoTierWards = await fetchAdminList('wards', matchedProvince.id);
         if (currentSeq !== parseSequence) {
-          delete provinceSelect.dataset.autoPopulating;
           return null;
         }
-        if (resolved2 && resolved2.ward) {
-          const foundW2 = twoTierWards.find(function (w) { return String(w.id) === String(resolved2.ward.id); });
-          twoTierWard = foundW2
-            ? { id: String(foundW2.id), name: foundW2.name, segmentIndex: -1 }
-            : { id: String(resolved2.ward.id), name: resolved2.ward.name, segmentIndex: -1 };
+
+        let twoTierWard = null;
+        if (directIds && directIds.ward_id) {
+          const targetW2 = twoTierWards.find(function (w) { return String(w.id) === String(directIds.ward_id); });
+          if (targetW2) {
+            twoTierWard = { id: String(targetW2.id), name: targetW2.name, segmentIndex: -1 };
+          }
         }
-      }
+        if (!twoTierWard) {
+          twoTierWard = matchWard(text, segments, twoTierWards, matchedProvince, null, addressObj);
+        }
 
-      populateSelectOptions(
-        wardSelect,
-        twoTierWards,
-        'Chọn phường/xã',
-        twoTierWard ? twoTierWard.id : ''
-      );
-      wardSelect.dataset.selected = twoTierWard ? String(twoTierWard.id) : '';
-      if (twoTierWard) {
-        wardSelect.value = String(twoTierWard.id);
-        wardSelect.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-      provinceSelect.dispatchEvent(new Event('change', { bubbles: true }));
-      delete provinceSelect.dataset.autoPopulating;
+        // Dự phòng: đối soát qua API nội bộ khi chưa khớp được phường
+        if (!twoTierWard) {
+          const wardHint2 = addressObj
+            ? (addressObj.ward || addressObj.suburb || addressObj.quarter || addressObj.neighbourhood || addressObj.village || addressObj.hamlet || addressObj.city_district || addressObj.district || addressObj.county || addressObj.town || '')
+            : '';
+          const resolved2 = resolvedFallback || await resolveAdminViaApi(
+            matchedProvince.id,
+            matchedProvince.name,
+            '',
+            wardHint2,
+            text
+          );
+          if (currentSeq !== parseSequence) {
+            return null;
+          }
+          if (resolved2 && resolved2.ward) {
+            const foundW2 = twoTierWards.find(function (w) { return String(w.id) === String(resolved2.ward.id); });
+            twoTierWard = foundW2
+              ? { id: String(foundW2.id), name: foundW2.name, segmentIndex: -1 }
+              : { id: String(resolved2.ward.id), name: resolved2.ward.name, segmentIndex: -1 };
+          }
+        }
 
-      // f) Nếu có ô #address-detail (hoặc addressInput): Bóc tách số nhà + tên đường (loại bỏ phần tên phường và tỉnh đã nhận diện) điền vào #address-detail
-      if (addressInput && opts.fillDetail !== false && !opts.isTyping) {
-        const extracted = extractStreetAddress(text, addressObj, {
+        populateSelectOptions(
+          wardSelect,
+          twoTierWards,
+          'Chọn phường/xã',
+          twoTierWard ? twoTierWard.id : ''
+        );
+        wardSelect.dataset.selected = twoTierWard ? String(twoTierWard.id) : '';
+        if (twoTierWard) {
+          wardSelect.value = String(twoTierWard.id);
+          wardSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        // f) Nếu có ô #address-detail (hoặc addressInput): Bóc tách số nhà + tên đường (loại bỏ phần tên phường và tỉnh đã nhận diện) điền vào #address-detail
+        if (addressInput && opts.fillDetail !== false && !opts.isTyping) {
+          const extracted = extractStreetAddress(text, addressObj, {
+            province: matchedProvince,
+            district: null,
+            ward: twoTierWard
+          }, {
+            houseNumberHint: opts.houseNumberHint || ''
+          });
+          if (extracted && addressInput.value !== extracted) {
+            addressInput.dataset.suppressAutoParse = '1';
+            addressInput.value = extracted;
+            setTimeout(function () {
+              delete addressInput.dataset.suppressAutoParse;
+            }, 80);
+          }
+        }
+
+        updateFeedbackUI(addressInput, matchedProvince, null, twoTierWard);
+
+        if (!opts.skipGeocode && text.length >= 5) {
+          await syncToMapPicker(text, matchedProvince, null, twoTierWard);
+        }
+
+        return {
           province: matchedProvince,
           district: null,
           ward: twoTierWard
-        }, {
-          houseNumberHint: opts.houseNumberHint || ''
-        });
-        if (extracted && addressInput.value !== extracted) {
-          addressInput.dataset.suppressAutoParse = '1';
-          addressInput.value = extracted;
-          setTimeout(function () {
-            delete addressInput.dataset.suppressAutoParse;
-          }, 80);
-        }
+        };
+      } finally {
+        setTimeout(() => {
+          delete provinceSelect.dataset.autoPopulating;
+        }, 300);
       }
-
-      updateFeedbackUI(addressInput, matchedProvince, null, twoTierWard);
-
-      if (!opts.skipGeocode && text.length >= 5) {
-        await syncToMapPicker(text, matchedProvince, null, twoTierWard);
-      }
-
-      return {
-        province: matchedProvince,
-        district: null,
-        ward: twoTierWard
-      };
     }
 
     // Gán giá trị cho #province và tải danh sách Quận/Huyện qua Ajax
