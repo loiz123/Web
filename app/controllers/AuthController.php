@@ -97,12 +97,7 @@ class AuthController extends Controller
                     flash('danger', 'Tài khoản này hiện đang bị khóa. Vui lòng liên hệ bộ phận hỗ trợ.');
                 } else {
                     $token = $users->createPasswordResetToken($email);
-                    $relativeResetPath = base_url('auth/reset?token=' . urlencode($token));
-                    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-                    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-                    $fullResetUrl = preg_match('#^https?://#i', $relativeResetPath)
-                        ? $relativeResetPath
-                        : ($scheme . '://' . $host . $relativeResetPath);
+                    $fullResetUrl = full_url('auth/reset?token=' . urlencode($token));
 
                     unset($_SESSION['old']);
                     $mailer = new Mailer();

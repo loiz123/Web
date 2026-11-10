@@ -604,11 +604,7 @@ if (!$hasValidCoords) {
 </div>
 
 <?php
-  $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-      || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
-  $scheme = $isHttps ? 'https' : 'http';
-  $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-  $shareFullUrl = $scheme . '://' . $host . base_url('property/detail/' . (int)$property['id']);
+  $shareFullUrl = full_url('property/detail/' . (int)$property['id']);
   $shareMailSubject = 'Chia sẻ bất động sản: ' . ($property['title'] ?? '');
   $shareMailBody = ($property['title'] ?? '') . ' - Giá: ' . format_price($property['price']) . ' - Xem chi tiết tại: ' . $shareFullUrl;
   $vietQrConfig = config('vietqr', []);

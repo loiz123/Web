@@ -28,6 +28,52 @@ if (!function_exists('url')) {
     }
 }
 
+function request_scheme(): string
+{
+    if (!empty($_SERVER['HTTP_X_FORWARDED_PROTO'])) {
+        $proto = strtolower(trim(explode(',', (string)$_SERVER['HTTP_X_FORWARDED_PROTO'])[0]));
+        if ($proto === 'https' || $proto === 'http') {
+            return $proto;
+        }
+    }
+    if (!empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off') {
+        return 'https';
+    }
+    if (!empty($_SERVER['HTTP_X_FORWARDED_SSL']) && in_array(strtolower(trim((string)$_SERVER['HTTP_X_FORWARDED_SSL'])), ['on', '1', 'true'], true)) {
+        return 'https';
+    }
+    if ((int)($_SERVER['SERVER_PORT'] ?? 0) === 443) {
+        return 'https';
+    }
+    return 'http';
+}
+
+function request_host(): string
+{
+    $candidates = [];
+    if (!empty($_SERVER['HTTP_X_FORWARDED_HOST'])) {
+        $candidates[] = trim(explode(',', (string)$_SERVER['HTTP_X_FORWARDED_HOST'])[0]);
+    }
+    if (!empty($_SERVER['HTTP_HOST'])) {
+        $candidates[] = trim((string)$_SERVER['HTTP_HOST']);
+    }
+    foreach ($candidates as $host) {
+        if ($host !== '' && preg_match('/^[a-zA-Z0-9.\-]+(?::\d+)?$/', $host)) {
+            return $host;
+        }
+    }
+    return 'localhost';
+}
+
+function full_url(string $path = ''): string
+{
+    $target = base_url($path);
+    if (preg_match('#^https?://#i', $target)) {
+        return $target;
+    }
+    return request_scheme() . '://' . request_host() . '/' . ltrim($target, '/');
+}
+
 function e($value): string { return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8'); }
 
 /** Encode data embedded in a <script> block without allowing </script> breakout. */
