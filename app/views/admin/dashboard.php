@@ -50,15 +50,6 @@ $statusLabels = [
             </span>
           </a>
         <?php endforeach; ?>
-        <a href="<?= e(base_url('admin/properties?tab=approved')) ?>"
-           class="list-group-item list-group-item-action d-flex justify-content-between align-items-center py-2 px-3 bg-success-subtle fw-bold dashboard-status-shortcut"
-           title="Xem danh sách tin đã duyệt đang hiển thị">
-          <span class="text-success-emphasis">Tổng tin đã duyệt (đang hiển thị)</span>
-          <span class="d-flex align-items-center gap-1">
-            <strong class="text-success"><?= (int)($byStatus['approved'] ?? 0) ?></strong>
-            <i class="bi bi-chevron-right text-muted small"></i>
-          </span>
-        </a>
       </div>
     </div>
   </div>
@@ -66,40 +57,105 @@ $statusLabels = [
     <div class="card shadow-sm border-0">
       <div class="card-header bg-white py-3 fw-semibold border-bottom d-flex justify-content-between align-items-center">
         <span><i class="bi bi-geo-alt text-danger me-2"></i>Tin đăng theo Tỉnh / Thành phố</span>
-        <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">Tin đã duyệt</span>
       </div>
       <?php $provinceList = $byProvince ?? $byDistrict ?? []; ?>
       <?php if (!$provinceList): ?>
         <div class="card-body text-muted py-4 text-center">Chưa có tin đăng nào.</div>
       <?php else: ?>
-        <div class="table-responsive">
-          <table class="table table-hover align-middle mb-0">
-            <thead class="table-light">
+        <div class="px-3 py-2 bg-light border-bottom">
+          <div class="input-group input-group-sm">
+            <span class="input-group-text bg-white border-end-0 text-muted">
+              <i class="bi bi-search"></i>
+            </span>
+            <input type="search"
+                   id="provinceSearchInput"
+                   class="form-control border-start-0 ps-0"
+                   placeholder="Tìm nhanh tỉnh / thành phố..."
+                   aria-label="Tìm nhanh tỉnh / thành phố">
+          </div>
+        </div>
+        <div class="table-responsive" style="max-height: 240px; overflow-y: auto;">
+          <table class="table table-hover align-middle mb-0" id="provinceStatsTable">
+            <thead class="table-light" style="position: sticky; top: 0; z-index: 1;">
               <tr>
                 <th class="ps-3">Tỉnh / Thành phố</th>
-                <th class="text-end pe-3">Số tin đã duyệt</th>
+                <th class="text-end pe-3">Số lượng</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody id="provinceTableBody">
               <?php $totalProvinceApproved = 0; ?>
               <?php foreach ($provinceList as $p): ?>
                 <?php $totalProvinceApproved += (int)$p['approved']; ?>
-                <tr>
-                  <td class="ps-3 fw-medium text-dark"><?= e($p['province']) ?></td>
+                <tr class="province-row" data-province="<?= e(mb_strtolower((string)$p['province'], 'UTF-8')) ?>">
+                  <td class="ps-3 fw-medium text-dark province-name"><?= e($p['province']) ?></td>
                   <td class="text-end pe-3 text-success fw-semibold"><?= (int)$p['approved'] ?></td>
                 </tr>
               <?php endforeach; ?>
-              <tr class="table-light fw-bold">
-                <td class="ps-3 text-dark">Tổng cộng (Đã duyệt)</td>
-                <td class="text-end pe-3 text-success"><?= (int)$totalProvinceApproved ?></td>
+              <tr id="provinceEmptyRow" class="d-none">
+                <td colspan="2" class="text-center text-muted py-3">Không tìm thấy tỉnh/thành phố nào</td>
               </tr>
             </tbody>
+            <tfoot class="table-light fw-bold" style="position: sticky; bottom: 0; z-index: 1;">
+              <tr>
+                <td class="ps-3 text-dark">Tổng cộng</td>
+                <td class="text-end pe-3 text-success"><?= (int)$totalProvinceApproved ?></td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       <?php endif; ?>
     </div>
   </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var searchInput = document.getElementById('provinceSearchInput');
+  var tableBody = document.getElementById('provinceTableBody');
+  var emptyRow = document.getElementById('provinceEmptyRow');
+  if (!searchInput || !tableBody) return;
+
+  function normalizeText(str) {
+    return (str || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd')
+      .trim();
+  }
+
+  var rows = Array.prototype.slice.call(tableBody.querySelectorAll('tr.province-row'));
+
+  searchInput.addEventListener('input', function () {
+    var rawQuery = searchInput.value.trim().toLowerCase();
+    var normQuery = normalizeText(rawQuery);
+    var visibleCount = 0;
+
+    rows.forEach(function (row) {
+      var nameCell = row.querySelector('.province-name');
+      var text = nameCell ? nameCell.textContent : '';
+      var lowerText = text.toLowerCase();
+      var normText = normalizeText(text);
+
+      var isMatch = !rawQuery || lowerText.indexOf(rawQuery) !== -1 || normText.indexOf(normQuery) !== -1;
+      if (isMatch) {
+        row.classList.remove('d-none');
+        visibleCount++;
+      } else {
+        row.classList.add('d-none');
+      }
+    });
+
+    if (emptyRow) {
+      if (visibleCount === 0) {
+        emptyRow.classList.remove('d-none');
+      } else {
+        emptyRow.classList.add('d-none');
+      }
+    }
+  });
+});
+</script>
 
 <div class="list-group shadow-sm border-0">
   <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center py-3" href="<?= e(base_url('admin/users')) ?>">
