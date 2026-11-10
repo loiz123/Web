@@ -34,7 +34,7 @@ class Ward extends CatalogModel
 
     public function find(int $id): ?array
     {
-        return $this->query('SELECT id, name, province_id FROM wards WHERE id = ?', [$id])->fetch() ?: null;
+        return $this->query('SELECT id, name, province_id, district_id FROM wards WHERE id = ?', [$id])->fetch() ?: null;
     }
 
     public function create(array $data): int

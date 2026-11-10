@@ -59,6 +59,7 @@ CREATE TABLE properties (
   type_id        INT UNSIGNED NOT NULL,
   ward_id        INT UNSIGNED NOT NULL,
   title          VARCHAR(200) NOT NULL,
+  slug           VARCHAR(255) NULL,
   description    TEXT,
   listing_type   ENUM('sale','rent') NOT NULL,
   price          DECIMAL(18,2) NOT NULL,

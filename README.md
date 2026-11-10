@@ -6,6 +6,8 @@
 3. Copy `config/config.local.example.php` thành `config/config.local.php`, sửa user/pass DB. (File này không commit.)
 4. Mở `http://localhost/batdongsan/public/`.
 
+Với cơ sở dữ liệu đã tạo trước khi có cột `properties.slug`, chọn database hiện có và chạy `database/migrations/20261110_add_property_slug.sql` một lần. Không import lại `schema.sql` vào database đang có dữ liệu vì file đó xóa và tạo lại bảng.
+
 Tài khoản demo (mật khẩu `Admin@123`): `admin@demo.local`, `agent@demo.local`, `customer@demo.local`.
 
 ## Deploy free hosting

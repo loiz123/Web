@@ -223,7 +223,7 @@ class AgentController extends Controller
         }
 
         if ($provinceId && $wardId) {
-            $wardRow = (new Ward())->findById((int)$wardId);
+            $wardRow = (new Ward())->find((int)$wardId);
             if (!$wardRow) {
                 $errors[] = 'Phường/Xã đã chọn không hợp lệ.';
             }
@@ -530,7 +530,7 @@ class AgentController extends Controller
         $wardId = (int)($listing['ward_id'] ?? 0);
 
         if ($wardId > 0 && !$provinceId) {
-            $wardRow = (new Ward())->findById($wardId);
+            $wardRow = (new Ward())->find($wardId);
             if ($wardRow) {
                 $provinceId = (int)($wardRow['province_id'] ?? 0);
                 if (!$provinceId && !empty($wardRow['district_id'])) {
