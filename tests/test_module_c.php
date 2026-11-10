@@ -584,7 +584,7 @@ echo "\nSUITE 8: ĐỊA GIỚI HÀNH CHÍNH 63 TỈNH/THÀNH & BÓC TÁCH ĐỊA
 
 require_once APP . '/models/Location.php';
 
-// 8.1 Kiểm tra số lượng tỉnh/thành, 3.308 phường/xã chuẩn từ Wikipedia (0 Thị trấn, 63/63 tỉnh) và file seed SQL offline
+// 8.1 Kiểm tra số lượng tỉnh/thành, 3.308 phường/xã chuẩn từ Wikipedia (0 Thị trấn, 34 tỉnh/thành trực tiếp theo cột Tỉnh Wikipedia) và file seed SQL offline
 $provinceCount  = (int)$db->query("SELECT COUNT(*) FROM provinces")->fetchColumn();
 $districtCount  = (int)$db->query("SELECT COUNT(*) FROM districts")->fetchColumn();
 $wardCount      = (int)$db->query("SELECT COUNT(*) FROM wards")->fetchColumn();
@@ -601,15 +601,15 @@ $t->assert(
     && $phuongCount === 709
     && $xaCount === 2599
     && $thiTranCount === 0
-    && $coveredProvs === 63
+    && $coveredProvs === 34
     && $dupWardCount === 0
     && is_file($seedSqlPath)
     && filesize($seedSqlPath) > 50000,
-    "8.1 CSDL Địa giới hành chính Việt Nam nạp chuẩn {$wardCount} đơn vị ({$phuongCount} Phường + {$xaCount} Xã, 0 Thị trấn, 0 trùng lặp) trên {$coveredProvs}/{$provinceCount} Tỉnh/Thành kèm file seed SQL offline",
+    "8.1 CSDL Địa giới hành chính Việt Nam nạp chuẩn {$wardCount} đơn vị ({$phuongCount} Phường + {$xaCount} Xã, 0 Thị trấn, 0 trùng lặp) trên {$coveredProvs} Tỉnh/Thành trực tiếp theo cột Tỉnh Wikipedia kèm file seed SQL offline",
     "Provinces={$provinceCount}, Covered={$coveredProvs}, Wards={$wardCount} (Phường={$phuongCount}, Xã={$xaCount}, Thị trấn={$thiTranCount}, Dups={$dupWardCount})"
 );
 
-// 8.2 Kiểm tra phân cấp 2 cấp Tỉnh/Thành -> Phường/Xã qua Location Model (không lẫn giữa các tỉnh sau sáp nhập)
+// 8.2 Kiểm tra phân cấp 2 cấp Tỉnh/Thành -> Phường/Xã gán chuẩn 100% theo cột Tỉnh Wikipedia
 $locModel     = new Location();
 $allProvinces = $locModel->provinces();
 $hcmWards     = $locModel->wardsByProvince(1);
@@ -617,30 +617,35 @@ $hnWards      = $locModel->wardsByProvince(2);
 $dnWards      = $locModel->wardsByProvince(3);
 $bdWards      = $locModel->wardsByProvince(12);
 $glWards      = $locModel->wardsByProvince(20);
+$tnWards      = $locModel->wardsByProvince(55);
+$laWards      = $locModel->wardsByProvince(32);
+$bduWards     = $locModel->wardsByProvince(9);
 $hcmWardNames = array_column($hcmWards, 'name');
 $hnWardNames  = array_column($hnWards, 'name');
-$bdWardNames  = array_column($bdWards, 'name');
 $glWardNames  = array_column($glWards, 'name');
+$tnWardNames  = array_column($tnWards, 'name');
 
 $t->assert(
     count($allProvinces) === 63
-    && count($hcmWards) === 102
+    && count($hcmWards) === 167
     && count($hnWards) === 126
-    && count($dnWards) === 15
-    && count($bdWards) === 58
-    && count($glWards) === 77
+    && count($dnWards) === 93
+    && count($bdWards) === 0
+    && count($glWards) === 135
+    && count($tnWards) === 96
+    && count($laWards) === 0
+    && count($bduWards) === 0
     && in_array('Phường An Đông', $hcmWardNames, true)
+    && in_array('Xã Phước Hòa', $hcmWardNames, true)
     && !in_array('Phường An Đông', $hnWardNames, true)
     && in_array('Phường Ba Đình', $hnWardNames, true)
     && !in_array('Phường Ba Đình', $hcmWardNames, true)
-    && in_array('Phường Quy Nhơn', $bdWardNames, true)
-    && in_array('Phường Bồng Sơn', $bdWardNames, true)
-    && in_array('Xã Vĩnh Quang', $bdWardNames, true)
-    && !in_array('Phường Quy Nhơn', $glWardNames, true)
-    && !in_array('Phường Bồng Sơn', $glWardNames, true)
-    && !in_array('Xã Vĩnh Quang', $glWardNames, true)
+    && in_array('Xã Đức Huệ', $tnWardNames, true)
+    && in_array('Phường Quy Nhơn', $glWardNames, true)
+    && in_array('Phường Bồng Sơn', $glWardNames, true)
+    && in_array('Xã Vĩnh Quang', $glWardNames, true)
     && in_array('Xã Biển Hồ', $glWardNames, true),
-    "8.2 Phân cấp 2 cấp Tỉnh/Thành -> Phường/Xã hoạt động chính xác, không lẫn giữa các tỉnh (HCM: " . count($hcmWards) . ", HN: " . count($hnWards) . ", ĐN: " . count($dnWards) . ", Bình Định: " . count($bdWards) . ", Gia Lai: " . count($glWards) . ")"
+    "8.2 Phân cấp 2 cấp Tỉnh/Thành -> Phường/Xã gán chuẩn 100% theo cột Tỉnh Wikipedia (HCM: " . count($hcmWards) . ", HN: " . count($hnWards) . ", ĐN: " . count($dnWards) . ", Gia Lai: " . count($glWards) . ", Tây Ninh: " . count($tnWards) . ", Bình Định: " . count($bdWards) . ")"
 );
 
 // 8.3 Kiểm tra tính toàn vẹn của 18 tin đăng hiện có & giữ nguyên ward_id 1..18 với danh sách 3.308 phường/xã
@@ -696,6 +701,8 @@ $resolvedMergedWard = $locModel->resolveFromAddress('Phường Bình Lợi Trung
 $resolvedNoDistrict = $locModel->resolveFromAddress('Phường Thảo Điền', 'Thành phố Hồ Chí Minh', 1);
 $resolvedBienHo     = $locModel->resolveFromAddress('Xã Biển Hồ', 'Tỉnh Gia Lai', 20);
 $resolvedVinhQuang  = $locModel->resolveFromAddress('Xã Vĩnh Quang', 'Tỉnh Bình Định', 12);
+$resolvedDucHue     = $locModel->resolveFromAddress('Xã Đức Huệ', 'Tỉnh Tây Ninh', 55);
+$resolvedPhuocHoa   = $locModel->resolveFromAddress('Xã Phước Hòa', 'Thành phố Hồ Chí Minh', 1);
 $resolvedDongTien   = $locModel->resolveFromAddress('Xã Đồng Tiến', 'Tỉnh Thanh Hóa', 49);
 $quangNgaiWardNames = array_column($wardModel->findByProvinceId(44), 'name');
 
@@ -713,10 +720,15 @@ $t->assert(
     && ($resolvedNoDistrict['ward']['name'] ?? '') === 'Phường An Khánh'
     && ($resolvedBienHo['ward']['name'] ?? '') === 'Xã Biển Hồ'
     && ($resolvedVinhQuang['ward']['name'] ?? '') === 'Xã Vĩnh Quang'
+    && (int)($resolvedVinhQuang['province_id'] ?? 0) === 20
+    && ($resolvedDucHue['ward']['name'] ?? '') === 'Xã Đức Huệ'
+    && (int)($resolvedDucHue['province_id'] ?? 0) === 55
+    && ($resolvedPhuocHoa['ward']['name'] ?? '') === 'Xã Phước Hòa'
+    && (int)($resolvedPhuocHoa['province_id'] ?? 0) === 1
     && ($resolvedDongTien['ward']['name'] ?? '') === 'Xã Đồng Tiến'
     && in_array('Xã Ba Tô', $quangNgaiWardNames, true)
     && in_array('Xã Ba Tơ', $quangNgaiWardNames, true),
-    "8.5 Live Autocomplete (#mapSearchAddress), Fallback đa tầng không ép Quận 1, API hành chính nội bộ & đồng bộ ngược Tỉnh/Phường/Xã (kể cả cặp dấu Ba Tô/Ba Tơ) hoạt động chính xác"
+    "8.5 Live Autocomplete (#mapSearchAddress), Fallback đa tầng không ép Quận 1, API hành chính nội bộ & đồng bộ ngược Tỉnh/Phường/Xã (kể cả Xã Đức Huệ -> Tây Ninh, Xã Phước Hòa -> TP.HCM, Ba Tô/Ba Tơ) hoạt động chính xác"
 );
 
 // 8.6 Kiểm tra UX Writing Guard trên các thành phần giao diện tìm kiếm địa chỉ & đăng tin

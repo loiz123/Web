@@ -4,7 +4,7 @@
  * Hỗ trợ các tham số:
  *   --dry-run      : Chỉ kiểm tra và hiển thị các lệnh SQL sẽ chạy, không thay đổi DB
  *   --schema       : Đồng bộ cấu trúc bảng, cột, view, index còn thiếu
- *   --locations    : Đồng bộ dữ liệu địa giới hành chính (63 tỉnh, 696 quận/huyện, phường/xã)
+ *   --locations    : Đồng bộ dữ liệu địa giới hành chính 2 cấp (3.308 phường/xã trên 34 tỉnh/thành theo Wikipedia)
  *   --sample-data  : Đồng bộ thêm 5 tin đăng mẫu (IDs 14..18 có tọa độ Leaflet Map)
  *   --sync-titles  : Đồng bộ cập nhật tiêu đề & địa chỉ chuẩn SEO (thay tên quận bằng tên phường)
  *   --all          : Thực hiện toàn bộ các bước trên
@@ -26,7 +26,7 @@ if (isset($options['help']) || empty($options)) {
     echo "Các tùy chọn:\n";
     echo "  --dry-run      Chạy thử nghiệm (kiểm tra hiện trạng, không ghi vào DB)\n";
     echo "  --schema       Đồng bộ cấu trúc bảng (thêm cột expired_at, bảng notifications, password_resets, view property_reports, index)\n";
-    echo "  --locations    Đồng bộ 63 tỉnh thành & quận huyện chuẩn toàn quốc\n";
+    echo "  --locations    Đồng bộ 3.308 phường/xã từ Wikipedia (709 Phường + 2.599 Xã trên 34 tỉnh/thành)\n";
     echo "  --sample-data  Bổ sung 5 bất động sản mẫu (IDs 14..18) có tọa độ bản đồ\n";
     echo "  --sync-titles  Đồng bộ cập nhật tiêu đề & địa chỉ bài đăng (xóa chữ quận, thay bằng phường)\n";
     echo "  --all          Đồng bộ toàn bộ (schema + locations + sample-data + sync-titles)\n";
@@ -238,10 +238,10 @@ if ($doSchema) {
 }
 
 // -------------------------------------------------------------
-// PHA 2: ĐỒNG BỘ ĐỊA GIỚI HÀNH CHÍNH (3.308 PHƯỜNG/XÃ CHUẨN WIKIPEDIA - 63 TỈNH/THÀNH)
+// PHA 2: ĐỒNG BỘ ĐỊA GIỚI HÀNH CHÍNH (3.308 PHƯỜNG/XÃ CHUẨN WIKIPEDIA - 34 TỈNH/THÀNH TRỰC TIẾP)
 // -------------------------------------------------------------
 if ($doLocations) {
-    echo "\n--- 2. ĐỒNG BỘ 3.308 PHƯỜNG/XÃ CHUẨN WIKIPEDIA (709 PHƯỜNG + 2.599 XÃ TRÊN 63 TỈNH/THÀNH) ---\n";
+    echo "\n--- 2. ĐỒNG BỘ 3.308 PHƯỜNG/XÃ CHUẨN WIKIPEDIA (709 PHƯỜNG + 2.599 XÃ TRÊN 34 TỈNH/THÀNH) ---\n";
     $wikiWardsSqlPath = __DIR__ . '/../database/seeds/wikipedia_wards_2tier.sql';
     if (!file_exists($wikiWardsSqlPath)) {
         echo "  [LỖI] Không tìm thấy file: $wikiWardsSqlPath\n";
@@ -259,7 +259,7 @@ if ($doLocations) {
             }
             $pdo->exec("ALTER TABLE `wards` MODIFY COLUMN `district_id` INT UNSIGNED NULL DEFAULT NULL");
 
-            $sqlContent = file_get_contents($wikiWardsSqlPath);
+            $sqlContent = str_replace(["\r\n", "\r"], "\n", file_get_contents($wikiWardsSqlPath));
             $pdo->exec("SET NAMES utf8mb4; SET FOREIGN_KEY_CHECKS = 0;");
 
             $statements = array_filter(array_map('trim', explode(";\n", $sqlContent)));
@@ -285,10 +285,10 @@ if ($doLocations) {
             $hcmCount    = (int)$pdo->query("SELECT COUNT(*) FROM wards WHERE province_id = 1")->fetchColumn();
             $hnCount     = (int)$pdo->query("SELECT COUNT(*) FROM wards WHERE province_id = 2")->fetchColumn();
             $dnCount     = (int)$pdo->query("SELECT COUNT(*) FROM wards WHERE province_id = 3")->fetchColumn();
-            $bdCount     = (int)$pdo->query("SELECT COUNT(*) FROM wards WHERE province_id = 12")->fetchColumn();
+            $tnCount     = (int)$pdo->query("SELECT COUNT(*) FROM wards WHERE province_id = 55")->fetchColumn();
             $glCount     = (int)$pdo->query("SELECT COUNT(*) FROM wards WHERE province_id = 20")->fetchColumn();
             echo "  Kết quả sau nạp: $pCount tỉnh/thành ($covCount/63 có dữ liệu), $wCount wards (Phường: $phuongCount, Xã: $xaCount, Thị trấn: $ttCount).\n";
-            echo "  Chi tiết mẫu: TP.HCM=$hcmCount, Hà Nội=$hnCount, Đà Nẵng=$dnCount, Bình Định=$bdCount, Gia Lai=$glCount.\n";
+            echo "  Chi tiết mẫu: TP.HCM=$hcmCount, Hà Nội=$hnCount, Đà Nẵng=$dnCount, Tây Ninh=$tnCount, Gia Lai=$glCount.\n";
         }
     }
 }
@@ -306,7 +306,8 @@ if ($doSampleData) {
         if ($isDryRun) {
             echo "  [DRY-RUN] Sẽ chạy script $sampleSqlPath trên FreeDB.\n";
         } else {
-            $sqlContent = file_get_contents($sampleSqlPath);
+            $sqlContent = str_replace(["\r\n", "\r"], "\n", file_get_contents($sampleSqlPath));
+            $sqlContent = preg_replace('/^\s*USE\s+[^;]+;\s*$/mi', '', $sqlContent) ?? $sqlContent;
             $pdo->exec("SET NAMES utf8mb4;");
             $statements = array_filter(array_map('trim', explode(";\n", $sqlContent)));
             $count = 0;
@@ -335,7 +336,7 @@ if ($doSyncTitles) {
         echo "  File nguồn: $updateSqlPath\n";
         if ($isDryRun) {
             echo "  [DRY-RUN] Sẽ thực thi các câu lệnh UPDATE từ $updateSqlPath trên FreeDB.\n";
-            $sqlContent = file_get_contents($updateSqlPath);
+            $sqlContent = str_replace(["\r\n", "\r"], "\n", file_get_contents($updateSqlPath));
             $statements = array_filter(array_map('trim', explode(";\n", $sqlContent)));
             foreach ($statements as $stmt) {
                 if (!empty($stmt)) {
@@ -346,7 +347,7 @@ if ($doSyncTitles) {
             if (!columnExists($pdo, 'properties', 'slug')) {
                 $pdo->exec("ALTER TABLE `properties` ADD COLUMN `slug` VARCHAR(255) NULL DEFAULT NULL AFTER `title`");
             }
-            $sqlContent = file_get_contents($updateSqlPath);
+            $sqlContent = str_replace(["\r\n", "\r"], "\n", file_get_contents($updateSqlPath));
             $pdo->exec("SET NAMES utf8mb4;");
             $statements = array_filter(array_map('trim', explode(";\n", $sqlContent)));
             $count = 0;

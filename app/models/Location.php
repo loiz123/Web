@@ -170,8 +170,48 @@ class Location extends Model
     }
 
     /**
+     * Nhóm các tỉnh/thành cũ thuộc cùng một đơn vị sáp nhập 2025 để đối soát linh hoạt
+     * khi đầu vào giữ tên tỉnh cũ nhưng dữ liệu wards gán 100% theo cột Tỉnh Wikipedia.
+     */
+    private function provinceMergerClusters(): array
+    {
+        $groups = [
+            [1, 9, 8],     // TP.HCM, Bình Dương, Bà Rịa - Vũng Tàu
+            [3, 43],       // Đà Nẵng, Quảng Nam
+            [4, 27, 47],   // Cần Thơ, Hậu Giang, Sóc Trăng
+            [6, 26],       // Hải Phòng, Hải Dương
+            [7, 29],       // An Giang, Kiên Giang
+            [16, 14],      // Bắc Ninh, Bắc Giang
+            [19, 13],      // Cà Mau, Bạc Liêu
+            [60, 41],      // Đắk Lắk, Phú Yên
+            [62, 10],      // Đồng Nai, Bình Phước
+            [63, 52],      // Đồng Tháp, Tiền Giang
+            [20, 12],      // Gia Lai, Bình Định
+            [25, 50],      // Hưng Yên, Thái Bình
+            [28, 39],      // Khánh Hòa, Ninh Thuận
+            [33, 58],      // Lào Cai, Yên Bái
+            [34, 11, 61],  // Lâm Đồng, Bình Thuận, Đắk Nông
+            [38, 23, 36],  // Ninh Bình, Hà Nam, Nam Định
+            [40, 21, 57],  // Phú Thọ, Hòa Bình, Vĩnh Phúc
+            [44, 30],      // Quảng Ngãi, Kon Tum
+            [46, 42],      // Quảng Trị, Quảng Bình
+            [55, 32],      // Tây Ninh, Long An
+            [51, 15],      // Thái Nguyên, Bắc Kạn
+            [54, 22],      // Tuyên Quang, Hà Giang
+            [56, 17, 53],  // Vĩnh Long, Bến Tre, Trà Vinh
+        ];
+        $map = [];
+        foreach ($groups as $g) {
+            foreach ($g as $pid) {
+                $map[$pid] = $g;
+            }
+        }
+        return $map;
+    }
+
+    /**
      * Ánh xạ các tên phường cũ (trước sáp nhập 2025) sang đúng tên Phường mới
-     * trong danh sách 3.308 phường/xã chuẩn Wikipedia (709 Phường + 2.599 Xã trên 63 tỉnh/thành).
+     * trong danh sách 3.308 phường/xã chuẩn Wikipedia (709 Phường + 2.599 Xã theo cột Tỉnh Wikipedia).
      */
     private function mergedWardAliases(): array
     {
@@ -548,16 +588,28 @@ class Location extends Model
         }
 
         $pid = $matchedProvince['id'];
+        $provinceNamesById = [];
+        foreach ($provinces as $p) {
+            $provinceNamesById[(int)$p['id']] = $p['name'];
+        }
 
-        // Lấy tất cả Phường/Xã trực tiếp theo Tỉnh/Thành (kèm thông tin quận nếu có để tương thích ngược)
-        $allWards = $this->query(
-            'SELECT w.id AS ward_id, w.name AS ward_name, w.province_id, w.district_id, d.name AS district_name
-             FROM wards w
-             LEFT JOIN districts d ON d.id = w.district_id
-             WHERE w.province_id = ?
-               AND w.name NOT REGEXP "^(Phường|Xã|Thị trấn)[[:space:]]+[0-9]+"',
-            [$pid]
-        )->fetchAll();
+        // Lấy danh sách Phường/Xã trực tiếp theo Tỉnh/Thành trước; nếu rỗng hoặc không khớp, mở rộng sang các tỉnh cùng cụm sáp nhập
+        $fetchWardsForPids = function (array $pids): array {
+            $pids = array_values(array_unique(array_filter(array_map('intval', $pids))));
+            if (empty($pids)) {
+                return [];
+            }
+            $placeholders = implode(',', array_fill(0, count($pids), '?'));
+            return $this->query(
+                "SELECT w.id AS ward_id, w.name AS ward_name, w.province_id, w.district_id, d.name AS district_name
+                 FROM wards w
+                 LEFT JOIN districts d ON d.id = w.district_id
+                 WHERE w.province_id IN ({$placeholders})",
+                $pids
+            )->fetchAll();
+        };
+
+        $primaryWards = $fetchWardsForPids([$pid]);
 
         // 1. Tạo danh sách ứng viên Phường/Xã từ wardName và các phân đoạn trong displayName
         $wardCandidates = [];
@@ -582,77 +634,108 @@ class Location extends Model
         $matchedWard = null;
         $matchedDistrict = null;
 
-        // 2. Tra cứu trực tiếp trong danh sách phường/xã của tỉnh (ưu tiên khớp chính xác cả tiền tố Phường/Xã trước, sau đó mới khớp lõi tên)
-        foreach ($wardCandidates as $cand) {
-            $cNorm = $this->normalizeRomanSuffix($this->normalizeVietnamese((string)$cand));
-            $cCore = $this->stripPrefix($cNorm, 'ward');
-            if ($cCore === '') {
-                continue;
+        $matchWardInPool = function (array $wardPool) use ($wardCandidates, &$matchedWard, &$matchedDistrict): void {
+            if (empty($wardPool)) {
+                return;
             }
-            foreach ($allWards as $w) {
-                $wNorm = $this->normalizeRomanSuffix($this->normalizeVietnamese($w['ward_name']));
-                if ($cNorm === $wNorm) {
-                    $matchedWard = ['id' => (int)$w['ward_id'], 'name' => $w['ward_name']];
-                    if (!empty($w['district_id'])) {
-                        $matchedDistrict = ['id' => (int)$w['district_id'], 'name' => $w['district_name']];
+            // Khớp chính xác cả tiền tố Phường/Xã trước, sau đó mới khớp lõi tên
+            foreach ($wardCandidates as $cand) {
+                $cNorm = $this->normalizeRomanSuffix($this->normalizeVietnamese((string)$cand));
+                $cCore = $this->stripPrefix($cNorm, 'ward');
+                if ($cCore === '') {
+                    continue;
+                }
+                foreach ($wardPool as $w) {
+                    $wNorm = $this->normalizeRomanSuffix($this->normalizeVietnamese($w['ward_name']));
+                    if ($cNorm === $wNorm) {
+                        $matchedWard = ['id' => (int)$w['ward_id'], 'name' => $w['ward_name'], 'province_id' => (int)$w['province_id']];
+                        if (!empty($w['district_id'])) {
+                            $matchedDistrict = ['id' => (int)$w['district_id'], 'name' => $w['district_name']];
+                        }
+                        return;
                     }
-                    break 2;
+                }
+                foreach ($wardPool as $w) {
+                    $wNorm = $this->normalizeRomanSuffix($this->normalizeVietnamese($w['ward_name']));
+                    $wCore = $this->stripPrefix($wNorm, 'ward');
+                    if ($cCore === $wCore) {
+                        $matchedWard = ['id' => (int)$w['ward_id'], 'name' => $w['ward_name'], 'province_id' => (int)$w['province_id']];
+                        if (!empty($w['district_id'])) {
+                            $matchedDistrict = ['id' => (int)$w['district_id'], 'name' => $w['district_name']];
+                        }
+                        return;
+                    }
                 }
             }
-            foreach ($allWards as $w) {
-                $wNorm = $this->normalizeRomanSuffix($this->normalizeVietnamese($w['ward_name']));
-                $wCore = $this->stripPrefix($wNorm, 'ward');
-                if ($cCore === $wCore) {
-                    $matchedWard = ['id' => (int)$w['ward_id'], 'name' => $w['ward_name']];
-                    if (!empty($w['district_id'])) {
-                        $matchedDistrict = ['id' => (int)$w['district_id'], 'name' => $w['district_name']];
-                    }
-                    break 2;
-                }
-            }
-        }
-
-        // 3. Nếu chưa khớp chính xác, tìm theo tiền tố (VD: "Thảo Điền" -> "Phường Thảo Điền", hoặc "Phước Long" -> "Phường Phước Long A")
-        if ($matchedWard === null) {
+            // Khớp theo tiền tố (VD: "Thảo Điền" -> "Phường Thảo Điền", hoặc "Phước Long" -> "Phường Phước Long A")
             foreach ($wardCandidates as $cand) {
                 $cNorm = $this->normalizeRomanSuffix($this->normalizeVietnamese((string)$cand));
                 $cCore = $this->stripPrefix($cNorm, 'ward');
                 if (strlen($cCore) < 3) {
                     continue;
                 }
-                foreach ($allWards as $w) {
+                foreach ($wardPool as $w) {
                     $wNorm = $this->normalizeRomanSuffix($this->normalizeVietnamese($w['ward_name']));
                     $wCore = $this->stripPrefix($wNorm, 'ward');
                     if (str_starts_with($wCore, $cCore . ' ') || str_starts_with($cCore, $wCore . ' ')) {
-                        $matchedWard = ['id' => (int)$w['ward_id'], 'name' => $w['ward_name']];
+                        $matchedWard = ['id' => (int)$w['ward_id'], 'name' => $w['ward_name'], 'province_id' => (int)$w['province_id']];
                         if (!empty($w['district_id'])) {
                             $matchedDistrict = ['id' => (int)$w['district_id'], 'name' => $w['district_name']];
                         }
-                        break 2;
+                        return;
+                    }
+                }
+            }
+        };
+
+        // 2. Tra cứu trực tiếp trong tỉnh đã khớp
+        $matchWardInPool($primaryWards);
+
+        // 3. Nếu chưa khớp (ví dụ tên tỉnh cũ như Bình Định/Long An/Bình Dương trước sáp nhập 2025), mở rộng sang tỉnh cùng cụm
+        if ($matchedWard === null) {
+            $clusterPids = array_values(array_diff($this->provinceMergerClusters()[$pid] ?? [], [$pid]));
+            if (!empty($clusterPids)) {
+                $clusterWards = $fetchWardsForPids($clusterPids);
+                $matchWardInPool($clusterWards);
+            }
+        }
+
+        // 4. Nếu vẫn chưa khớp, kiểm tra alias lịch sử sáp nhập trên cụm tỉnh
+        if ($matchedWard === null) {
+            $searchAliases = $this->mergedWardAliases();
+            $candidatePids = array_unique(array_merge([$pid], $this->provinceMergerClusters()[$pid] ?? []));
+            $aliasPool = $primaryWards;
+            if (count($candidatePids) > 1) {
+                $aliasPool = $fetchWardsForPids($candidatePids);
+            }
+            foreach ($candidatePids as $aPid) {
+                $aliasTable = $searchAliases[$aPid] ?? [];
+                foreach ($wardCandidates as $cand) {
+                    $cNorm = $this->normalizeVietnamese((string)$cand);
+                    if (isset($aliasTable[$cNorm])) {
+                        [, $targetWardName] = $aliasTable[$cNorm];
+                        $tWardNorm = $this->normalizeVietnamese($targetWardName);
+                        foreach ($aliasPool as $w) {
+                            if ($this->normalizeVietnamese($w['ward_name']) === $tWardNorm) {
+                                $matchedWard = ['id' => (int)$w['ward_id'], 'name' => $w['ward_name'], 'province_id' => (int)$w['province_id']];
+                                if (!empty($w['district_id'])) {
+                                    $matchedDistrict = ['id' => (int)$w['district_id'], 'name' => $w['district_name']];
+                                }
+                                break 3;
+                            }
+                        }
                     }
                 }
             }
         }
 
-        // 4. Nếu vẫn chưa khớp, kiểm tra alias lịch sử sáp nhập
-        if ($matchedWard === null) {
-            $aliasTable = $this->mergedWardAliases()[$pid] ?? [];
-            foreach ($wardCandidates as $cand) {
-                $cNorm = $this->normalizeVietnamese((string)$cand);
-                if (isset($aliasTable[$cNorm])) {
-                    [$targetDistName, $targetWardName] = $aliasTable[$cNorm];
-                    $tWardNorm = $this->normalizeVietnamese($targetWardName);
-                    foreach ($allWards as $w) {
-                        if ($this->normalizeVietnamese($w['ward_name']) === $tWardNorm) {
-                            $matchedWard = ['id' => (int)$w['ward_id'], 'name' => $w['ward_name']];
-                            if (!empty($w['district_id'])) {
-                                $matchedDistrict = ['id' => (int)$w['district_id'], 'name' => $w['district_name']];
-                            }
-                            break 2;
-                        }
-                    }
-                }
+        // Đồng bộ lại matchedProvince nếu ward được tìm thấy nằm ở tỉnh mới theo cột Tỉnh Wikipedia
+        if ($matchedWard !== null && !empty($matchedWard['province_id'])) {
+            $realPid = (int)$matchedWard['province_id'];
+            if (isset($provinceNamesById[$realPid])) {
+                $matchedProvince = ['id' => $realPid, 'name' => $provinceNamesById[$realPid]];
             }
+            unset($matchedWard['province_id']);
         }
 
         // 5. Nếu chưa có district mà caller truyền districtName, đối soát để giữ tương thích ngược
