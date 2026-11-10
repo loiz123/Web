@@ -49,4 +49,10 @@ if (($value = getenv('IMAGE_STORAGE')) !== false) $config['image_storage'] = $va
 foreach (['CLOUDINARY_CLOUD_NAME' => 'cloud_name', 'CLOUDINARY_API_KEY' => 'api_key', 'CLOUDINARY_API_SECRET' => 'api_secret'] as $env => $key) {
     if (($value = getenv($env)) !== false) $config['cloudinary'][$key] = $value;
 }
+if (($value = getenv('SMTP_ENABLED')) !== false) $config['smtp']['enabled'] = filter_var($value, FILTER_VALIDATE_BOOLEAN);
+if (($value = getenv('SMTP_HOST')) !== false) $config['smtp']['host'] = $value;
+if (($value = getenv('SMTP_PORT')) !== false) $config['smtp']['port'] = (int)$value;
+if (($value = getenv('SMTP_USER')) !== false) $config['smtp']['username'] = $value;
+if (($value = getenv('SMTP_PASS')) !== false) $config['smtp']['password'] = $value;
+if (($value = getenv('SMTP_FROM_NAME')) !== false) $config['smtp']['from_name'] = $value;
 return $config;

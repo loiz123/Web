@@ -162,6 +162,13 @@ window.BdsMap =           (function _callback(){
     let initialLng = parseFloat(lngInput?.value) || options.defaultLng || DEFAULT_LNG;
     let initialZoom = options.defaultZoom || DEFAULT_ZOOM;
 
+    if (mapEl._leaflet_id) {
+      try {
+        delete mapEl._leaflet_id;
+        mapEl.innerHTML = '';
+      } catch (e) {}
+    }
+
     const map = L.map(mapId, {
       center: [initialLat, initialLng],
       zoom: initialZoom,

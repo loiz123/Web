@@ -113,11 +113,9 @@ class AuthController extends Controller
                         30
                     );
 
-                    if ($sent) {
-                        flash('success', 'Một liên kết đặt lại mật khẩu đã được gửi tới email của bạn (nếu tài khoản tồn tại trong hệ thống). Vui lòng kiểm tra hộp thư đến hoặc hòm thư rác.');
-                    } else {
-                        flash('danger', 'Không thể gửi email lúc này. Vui lòng liên hệ quản trị viên hoặc kiểm tra cấu hình hòm thư.');
-                    }
+                    // Chuẩn OWASP chống User Enumeration & phục vụ demo: Luôn hiển thị thông báo thành công
+                    // Nếu môi trường chưa cấu hình SMTP hoặc lỗi gửi, liên kết vẫn được ghi vào storage/logs/mail.log
+                    flash('success', 'Một liên kết đặt lại mật khẩu đã được gửi tới email của bạn (nếu tài khoản tồn tại trong hệ thống). Vui lòng kiểm tra hộp thư đến hoặc hòm thư rác.');
                 }
             }
         }

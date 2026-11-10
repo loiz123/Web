@@ -197,8 +197,8 @@ $existingImages = $existingImages ?? [];
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="<?= e(base_url('assets/js/map.js')) ?>"></script>
-<script src="<?= e(base_url('assets/js/address-parser.js')) ?>"></script>
+<script src="<?= e(base_url('assets/js/map.js?v=20261110b')) ?>"></script>
+<script src="<?= e(base_url('assets/js/address-parser.js?v=20261110b')) ?>"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function _callback(){
   var form = document.getElementById('agent-edit-form');
@@ -206,19 +206,115 @@ document.addEventListener('DOMContentLoaded', function _callback(){
   var longitudeInput = document.getElementById('longitudeInput');
   var mapStatus = document.getElementById('mapStatus');
   var hadCoordinates = <?= !empty($listing['latitude']) && !empty($listing['longitude']) ? 'true' : 'false' ?>;
-  if (window.BdsMap) {
-    window.BdsMap.initPicker({
-      mapId: 'agentMapPicker',
-      latInput: '#latitudeInput',
-      lngInput: '#longitudeInput',
-      addressInput: '#mapSearchAddress',
-      searchBtn: '#btnSearchMapAddress',
-      statusEl: '#mapStatus',
-      defaultLat: <?= !empty($listing['latitude']) ? (float)$listing['latitude'] : '10.776889' ?>,
-      defaultLng: <?= !empty($listing['longitude']) ? (float)$listing['longitude'] : '106.700806' ?>,
-      defaultZoom: 15
-    });
+  var defaultLat = <?= !empty($listing['latitude']) ? (float)$listing['latitude'] : '10.776889' ?>;
+  var defaultLng = <?= !empty($listing['longitude']) ? (float)$listing['longitude'] : '106.700806' ?>;
+  var mapInstance = null;
+
+  try {
+    if (window.BdsMap && typeof window.BdsMap.initPicker === 'function') {
+      var picker = window.BdsMap.initPicker({
+        mapId: 'agentMapPicker',
+        latInput: '#latitudeInput',
+        lngInput: '#longitudeInput',
+        addressInput: '#mapSearchAddress',
+        searchBtn: '#btnSearchMapAddress',
+        statusEl: '#mapStatus',
+        defaultLat: defaultLat,
+        defaultLng: defaultLng,
+        defaultZoom: 15
+      });
+      if (picker && picker.map) {
+        mapInstance = picker.map;
+      }
+    }
+  } catch (err) {
+    console.warn('Lỗi khi khởi tạo BdsMap.initPicker, kích hoạt chế độ dự phòng:', err);
   }
+
+  // Fallback an toàn: Khởi tạo trực tiếp nếu BdsMap chưa sẵn sàng nhưng Leaflet (L) đã tải
+  if (!mapInstance && typeof L !== 'undefined' && document.getElementById('agentMapPicker')) {
+    try {
+      var mapContainer = document.getElementById('agentMapPicker');
+      if (mapContainer._leaflet_id) {
+        delete mapContainer._leaflet_id;
+        mapContainer.innerHTML = '';
+      }
+
+      if (L.Icon && L.Icon.Default) {
+        try {
+          delete L.Icon.Default.prototype._getIconUrl;
+          L.Icon.Default.mergeOptions({
+            iconRetinaUrl: 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+            iconUrl: 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/images/marker-icon.png',
+            shadowUrl: 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/images/marker-shadow.png'
+          });
+        } catch (iconErr) {}
+      }
+
+      var curLat = parseFloat(latitudeInput ? latitudeInput.value : '') || defaultLat;
+      var curLng = parseFloat(longitudeInput ? longitudeInput.value : '') || defaultLng;
+
+      mapInstance = L.map('agentMapPicker', {
+        center: [curLat, curLng],
+        zoom: 15,
+        scrollWheelZoom: true
+      });
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; Dữ liệu bản đồ nền'
+      }).addTo(mapInstance);
+
+      var marker = L.marker([curLat, curLng], {
+        draggable: true,
+        title: 'Kéo điểm ghim hoặc bấm lên bản đồ để chọn tọa độ'
+      }).addTo(mapInstance);
+
+      function updateCoordsFallback(lat, lng) {
+        var fLat = parseFloat(Number(lat).toFixed(7));
+        var fLng = parseFloat(Number(lng).toFixed(7));
+        if (latitudeInput) latitudeInput.value = fLat;
+        if (longitudeInput) longitudeInput.value = fLng;
+        marker.setLatLng([fLat, fLng]);
+        marker.bindPopup('<strong>Vị trí đã chọn</strong><br>Tọa độ: ' + fLat + ', ' + fLng).openPopup();
+        if (mapStatus) {
+          mapStatus.className = 'alert alert-success py-2 small mb-2';
+          mapStatus.textContent = 'Đã chọn tọa độ: ' + fLat + ', ' + fLng;
+        }
+      }
+
+      updateCoordsFallback(curLat, curLng);
+
+      marker.on('dragend', function(e) {
+        var pos = e.target.getLatLng();
+        updateCoordsFallback(pos.lat, pos.lng);
+      });
+
+      mapInstance.on('click', function(e) {
+        updateCoordsFallback(e.latlng.lat, e.latlng.lng);
+      });
+    } catch (fallbackErr) {
+      console.error('Không thể khởi tạo bản đồ dự phòng:', fallbackErr);
+    }
+  }
+
+  // Gọi map.invalidateSize() sau khi load và các mốc thời gian (150ms, 500ms, 1000ms) để chống màn hình xám/trắng
+  if (mapInstance) {
+    var triggerInvalidate = function() {
+      try {
+        if (mapInstance && typeof mapInstance.invalidateSize === 'function') {
+          mapInstance.invalidateSize();
+        }
+      } catch (e) {}
+    };
+    triggerInvalidate();
+    setTimeout(triggerInvalidate, 150);
+    setTimeout(triggerInvalidate, 500);
+    setTimeout(triggerInvalidate, 1000);
+    window.addEventListener('resize', triggerInvalidate);
+    window.addEventListener('load', triggerInvalidate);
+  }
+
   if (form && !hadCoordinates) {
     form.addEventListener('submit', function _callback2(event){
       if (latitudeInput.value === '10.776889' && longitudeInput.value === '106.700806') {
