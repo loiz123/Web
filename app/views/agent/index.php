@@ -61,7 +61,7 @@ $statusLabels = [
                   </div>
                   <span class="badge text-bg-secondary align-self-start" data-status-badge><?= e($statusLabels[$listing['status']] ?? $listing['status']) ?></span>
                 </div>
-                <p class="fw-semibold text-primary mb-3"><?= e(format_price($listing['price'])) ?></p>
+                <p class="fw-semibold text-primary mb-3 text-nowrap" style="white-space: nowrap !important; font-variant-numeric: tabular-nums;"><?= e(format_price($listing['price'])) ?></p>
                 <?php if ($listing['status'] === 'rejected' && !empty($listing['reject_reason'])): ?>
                   <div class="alert alert-warning py-2 mb-3" data-reject-reason>
                     <strong>Lý do từ chối:</strong> <?= e($listing['reject_reason']) ?>

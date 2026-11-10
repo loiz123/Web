@@ -13,14 +13,15 @@ class AdminStats extends Model
         } catch (\Throwable $e) {
             $r = [
                 'users_total' => (int)$this->query('SELECT COUNT(*) FROM users')->fetchColumn(),
-                'properties_total' => (int)$this->query('SELECT COUNT(*) FROM properties')->fetchColumn(),
+                'properties_total' => (int)$this->query("SELECT COUNT(*) FROM properties WHERE status = 'approved'")->fetchColumn(),
                 'pending_total' => (int)$this->query("SELECT COUNT(*) FROM properties WHERE status = 'pending'")->fetchColumn(),
                 'reports_total' => (int)$this->query("SELECT COUNT(*) FROM reports WHERE status IN ('open', 'pending')")->fetchColumn(),
             ];
         }
+        $approvedCount = (int)$this->query("SELECT COUNT(*) FROM properties WHERE status = 'approved'")->fetchColumn();
         return [
             'Người dùng' => (int)($r['users_total'] ?? 0),
-            'Tin đăng' => (int)($r['properties_total'] ?? 0),
+            'Tin đã duyệt' => $approvedCount,
             'Tin chờ duyệt' => (int)($r['pending_total'] ?? 0),
             'Báo cáo mới' => (int)($r['reports_total'] ?? 0),
         ];
@@ -51,14 +52,15 @@ class AdminStats extends Model
             "SELECT pv.id AS province_id,
                     pv.name AS province_name,
                     COUNT(pr.id) AS total,
-                    COALESCE(SUM(CASE WHEN pr.status = 'approved' THEN 1 ELSE 0 END), 0) AS approved,
-                    COALESCE(SUM(CASE WHEN pr.status = 'pending' THEN 1 ELSE 0 END), 0) AS pending,
-                    COALESCE(SUM(CASE WHEN pr.status = 'hidden' THEN 1 ELSE 0 END), 0) AS hidden
+                    COUNT(pr.id) AS approved,
+                    0 AS pending,
+                    0 AS hidden
              FROM properties pr
              JOIN wards w ON w.id = pr.ward_id
              JOIN provinces pv ON pv.id = w.province_id
+             WHERE pr.status = 'approved'
              GROUP BY pv.id, pv.name
-             ORDER BY total DESC, pv.name ASC"
+             ORDER BY approved DESC, pv.name ASC"
         )->fetchAll();
 
         $result = [];

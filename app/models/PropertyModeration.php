@@ -140,7 +140,7 @@ class PropertyModeration extends Model
             );
         } elseif ($action === 'reject') {
             $stmt = $this->query(
-                "UPDATE properties SET status = 'rejected', reject_reason = ? WHERE id = ? AND status = 'pending'",
+                "UPDATE properties SET status = 'rejected', reject_reason = ? WHERE id = ? AND status IN ('pending', 'approved')",
                 [$reason, $id]
             );
         } else {

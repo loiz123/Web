@@ -70,7 +70,7 @@
     const id = row.dataset.id;
     const act = btn.dataset.act;
 
-    if (tab === 'pending' || (tab === 'all' && (act === 'approve' || act === 'reject' || act === 'delete'))) {
+    if (tab === 'pending' || tab === 'approved' || (tab === 'all' && (act === 'approve' || act === 'reject' || act === 'delete'))) {
       if (act === 'reject') {
         rejectRow = row;
         reasonEl.value = '';

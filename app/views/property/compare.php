@@ -151,8 +151,8 @@
               <td class="fw-semibold text-muted bg-light">Mức giá niêm yết</td>
               <?php foreach ($properties as $prop): ?>
                 <?php $isBestPrice = ((float)$prop['price'] === (float)$minPrice && $colCount > 1); ?>
-                <td class="text-center <?= $isBestPrice ? 'bg-success-subtle' : '' ?>">
-                  <div class="fs-5 fw-bold text-danger"><?= e(format_price($prop['price'])) ?></div>
+                <td class="text-center text-nowrap <?= $isBestPrice ? 'bg-success-subtle' : '' ?>">
+                  <div class="fs-5 fw-bold text-danger text-nowrap" style="white-space: nowrap !important; font-variant-numeric: tabular-nums;"><?= e(format_price($prop['price'])) ?></div>
                   <?php if ($isBestPrice): ?>
                     <span class="badge bg-success small"><i class="bi bi-star-fill me-1"></i>Giá tốt nhất</span>
                   <?php endif; ?>

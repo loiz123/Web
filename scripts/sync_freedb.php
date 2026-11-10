@@ -7,6 +7,7 @@
  *   --locations    : Đồng bộ dữ liệu địa giới hành chính 2 cấp (3.308 phường/xã trên 34 tỉnh/thành theo Wikipedia)
  *   --sample-data  : Đồng bộ thêm 5 tin đăng mẫu (IDs 14..18 có tọa độ Leaflet Map)
  *   --sync-titles  : Đồng bộ cập nhật tiêu đề & địa chỉ chuẩn SEO (thay tên quận bằng tên phường)
+ *   --procedures   : Đồng bộ toàn bộ 81 Stored Procedures từ database/procedures/*.sql
  *   --all          : Thực hiện toàn bộ các bước trên
  */
 
@@ -16,7 +17,7 @@ $db   = 'freedb_3R21fnCY';
 $user = 'u_xyDBBF';
 $pass = 'VIQFQDHFadSj';
 
-$options = getopt('', ['dry-run', 'schema', 'locations', 'sample-data', 'sync-titles', 'all', 'help']);
+$options = getopt('', ['dry-run', 'schema', 'locations', 'sample-data', 'sync-titles', 'procedures', 'all', 'help']);
 
 if (isset($options['help']) || empty($options)) {
     echo "========================================================================\n";
@@ -29,7 +30,8 @@ if (isset($options['help']) || empty($options)) {
     echo "  --locations    Đồng bộ 3.308 phường/xã từ Wikipedia (709 Phường + 2.599 Xã trên 34 tỉnh/thành)\n";
     echo "  --sample-data  Bổ sung 5 bất động sản mẫu (IDs 14..18) có tọa độ bản đồ\n";
     echo "  --sync-titles  Đồng bộ cập nhật tiêu đề & địa chỉ bài đăng (xóa chữ quận, thay bằng phường)\n";
-    echo "  --all          Đồng bộ toàn bộ (schema + locations + sample-data + sync-titles)\n";
+    echo "  --procedures   Đồng bộ toàn bộ 81 Stored Procedures từ database/procedures/*.sql\n";
+    echo "  --all          Đồng bộ toàn bộ (schema + locations + sample-data + sync-titles + procedures)\n";
     echo "========================================================================\n";
     exit(0);
 }
@@ -39,11 +41,13 @@ $doSchema = isset($options['schema']) || isset($options['all']);
 $doLocations = isset($options['locations']) || isset($options['all']);
 $doSampleData = isset($options['sample-data']) || isset($options['all']);
 $doSyncTitles = isset($options['sync-titles']) || isset($options['all']);
+$doProcedures = isset($options['procedures']) || isset($options['all']);
 
 echo "=== KẾT NỐI FREEDB ($host:$port / $db) ===\n";
 try {
     $dsn = "mysql:host=$host;port=$port;dbname=$db;charset=utf8mb4";
     $pdo = new PDO($dsn, $user, $pass, [
+        PDO::ATTR_TIMEOUT => 6,
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4"
@@ -359,6 +363,92 @@ if ($doSyncTitles) {
             }
             echo "  [OK] Đã thực thi $count câu lệnh UPDATE tiêu đề/địa chỉ lên FreeDB thành công!\n";
         }
+    }
+}
+
+// -------------------------------------------------------------
+// PHA 5: ĐỒNG BỘ 81 STORED PROCEDURES (database/procedures/*.sql)
+// -------------------------------------------------------------
+if ($doProcedures) {
+    echo "\n--- 5. ĐỒNG BỘ STORED PROCEDURES TỪ database/procedures/*.sql ---\n";
+    $procDir = __DIR__ . '/../database/procedures';
+    $procFiles = glob($procDir . '/*.sql') ?: [];
+    sort($procFiles);
+
+    if (empty($procFiles)) {
+        echo "  [CẢNH BÁO] Không tìm thấy file SQL nào trong: $procDir\n";
+    } else {
+        echo "  Tìm thấy " . count($procFiles) . " file SQL trong database/procedures/.\n";
+
+        if (!function_exists('parseProcedureSqlStatements')) {
+            function parseProcedureSqlStatements(string $sql): array {
+                $sql = preg_replace('/^\xEF\xBB\xBF/', '', $sql) ?? $sql;
+                $sql = str_replace(["\r\n", "\r"], "\n", $sql);
+                $lines = explode("\n", $sql);
+                $delimiter = ';';
+                $buffer = '';
+                $statements = [];
+                $flush = static function () use (&$buffer, &$statements): void {
+                    $stmt = trim($buffer);
+                    if ($stmt !== '') {
+                        $statements[] = $stmt;
+                    }
+                    $buffer = '';
+                };
+
+                foreach ($lines as $line) {
+                    $trimmed = trim($line);
+                    if (preg_match('/^DELIMITER\s+(\S+)$/i', $trimmed, $matches)) {
+                        $flush();
+                        $delimiter = $matches[1];
+                        continue;
+                    }
+                    if ($buffer === '' && ($trimmed === '' || str_starts_with($trimmed, '--'))) {
+                        continue;
+                    }
+                    $buffer .= $line . "\n";
+                    $rtrimmed = rtrim($buffer);
+                    if ($delimiter !== '' && str_ends_with($rtrimmed, $delimiter)) {
+                        $buffer = substr($rtrimmed, 0, -strlen($delimiter));
+                        $flush();
+                    }
+                }
+                $flush();
+                return $statements;
+            }
+        }
+
+        $totalCreated = 0;
+        foreach ($procFiles as $pFile) {
+            $baseName = basename($pFile);
+            $content = file_get_contents($pFile);
+            $stmts = parseProcedureSqlStatements($content);
+            $fileProcs = 0;
+
+            if ($isDryRun) {
+                foreach ($stmts as $s) {
+                    if (preg_match('/^\s*CREATE\s+PROCEDURE\b/i', $s)) {
+                        $fileProcs++;
+                    }
+                }
+                echo sprintf("  [DRY-RUN] %-30s: %2d statements, %2d procedures cần nạp\n", $baseName, count($stmts), $fileProcs);
+                $totalCreated += $fileProcs;
+            } else {
+                foreach ($stmts as $s) {
+                    try {
+                        $pdo->exec($s);
+                        if (preg_match('/^\s*CREATE\s+PROCEDURE\b/i', $s)) {
+                            $fileProcs++;
+                            $totalCreated++;
+                        }
+                    } catch (Throwable $pe) {
+                        echo "  [LỖI] $baseName: " . $pe->getMessage() . "\n";
+                    }
+                }
+                echo sprintf("  [OK] %-30s: %2d statements, %2d procedures nạp thành công\n", $baseName, count($stmts), $fileProcs);
+            }
+        }
+        echo "  Tổng cộng: " . ($isDryRun ? "Dự kiến nạp " : "Đã nạp thành công ") . "$totalCreated procedures lên FreeDB.\n";
     }
 }
 

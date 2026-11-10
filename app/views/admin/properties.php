@@ -114,30 +114,32 @@ $statusBadges = [
       <?php if ($tab !== 'reports'): ?>
       <thead class="table-light">
         <tr>
-          <th class="ps-3">#</th>
-          <th>Tiêu đề</th>
-          <th>Môi giới</th>
-          <th>Loại</th>
-          <th class="text-end">Giá</th>
+          <th class="ps-3 text-nowrap" style="width: 56px;">STT</th>
+          <th style="min-width: 220px; max-width: 360px;">Tiêu đề</th>
+          <th class="text-nowrap">Môi giới</th>
+          <th class="text-nowrap">Loại</th>
+          <th class="text-end text-nowrap admin-price-col col-price-nowrap" style="white-space: nowrap !important; min-width: 170px; width: 170px;">Giá</th>
           <?php if ($tab === 'all'): ?>
-            <th class="text-center">Trạng thái</th>
+            <th class="text-center text-nowrap">Trạng thái</th>
           <?php endif; ?>
-          <th class="text-center">Xác thực</th>
-          <th>Ngày đăng</th>
-          <th class="text-end pe-3">Thao tác</th>
+          <th class="text-center text-nowrap">Xác thực</th>
+          <th class="text-nowrap">Ngày đăng</th>
+          <th class="text-end text-nowrap pe-3">Thao tác</th>
         </tr>
       </thead>
       <tbody>
-        <?php foreach ($items as $p): ?>
+        <?php foreach ($items as $idx => $p): ?>
         <?php
           $rowStatus = $p['status'] ?? ($tab !== 'all' ? $tab : 'pending');
+          $stt = ($page - 1) * $perPage + (int)$idx + 1;
         ?>
-        <tr data-id="<?= (int)$p['id'] ?>">
-          <td class="ps-3 text-muted">#<?= (int)$p['id'] ?></td>
-          <td>
+        <tr data-id="<?= (int)$p['id'] ?>" data-status="<?= e($rowStatus) ?>">
+          <td class="ps-3 text-muted text-nowrap fw-medium"><?= $stt ?></td>
+          <td style="min-width: 220px; max-width: 360px;">
             <a href="<?= e(base_url('property/detail/' . (int)$p['id'])) ?>" target="_blank" rel="noopener" class="fw-semibold text-decoration-none">
               <?= e($p['title']) ?>
             </a>
+            <span class="text-muted small ms-1 text-nowrap">(#<?= (int)$p['id'] ?>)</span>
             <?php if ($tab !== 'all'): ?>
               <?php if ($rowStatus === 'hidden'): ?>
                 <span class="badge bg-secondary-subtle text-secondary-emphasis ms-1">Đang ẩn</span>
@@ -150,15 +152,17 @@ $statusBadges = [
               <?php endif; ?>
             <?php endif; ?>
           </td>
-          <td><?= e($p['agent_name']) ?></td>
-          <td>
+          <td class="text-nowrap"><?= e($p['agent_name']) ?></td>
+          <td class="text-nowrap">
             <span class="badge <?= $p['listing_type'] === 'rent' ? 'bg-info-subtle text-info-emphasis' : 'bg-primary-subtle text-primary-emphasis' ?>">
               <?= $p['listing_type'] === 'rent' ? 'Cho thuê' : 'Bán' ?>
             </span>
           </td>
-          <td class="text-end fw-semibold"><?= e(number_format((float)$p['price'], 0, ',', '.')) ?> đ</td>
+          <td class="text-end fw-semibold text-nowrap admin-price-col col-price-nowrap" style="white-space: nowrap !important; min-width: 170px; width: 170px; font-variant-numeric: tabular-nums;">
+            <span class="d-inline-block text-nowrap" style="white-space: nowrap !important; font-variant-numeric: tabular-nums;"><?= e(number_format((float)$p['price'], 0, ',', '.')) ?>&nbsp;đ</span>
+          </td>
           <?php if ($tab === 'all'): ?>
-            <td class="text-center">
+            <td class="text-center text-nowrap">
               <?php if (isset($statusBadges[$rowStatus])): ?>
                 <span class="badge border <?= $statusBadges[$rowStatus][1] ?>"><?= $statusBadges[$rowStatus][0] ?></span>
               <?php else: ?>
@@ -371,11 +375,16 @@ document.addEventListener('DOMContentLoaded', function () {
           return;
         }
         const row = btn.closest('tr');
+        const rowOldStatus = row ? (row.dataset.status || currentTab) : currentTab;
         if (row) row.remove();
         updateTotalAfterRemove();
         adjustTabBadge(currentTab, -1);
-        if (currentTab !== 'all' && status === 'deleted') {
-          adjustTabBadge('all', -1);
+        if (status === 'deleted') {
+          if (currentTab !== 'all') {
+            adjustTabBadge('all', -1);
+          } else if (rowOldStatus && rowOldStatus !== 'all') {
+            adjustTabBadge(rowOldStatus, -1);
+          }
         }
         if (status === 'hidden') {
           adjustTabBadge('hidden', 1);
