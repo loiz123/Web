@@ -939,7 +939,7 @@
           }, {
             houseNumberHint: opts.houseNumberHint || ''
           });
-          if (extracted && addressInput.value !== extracted) {
+          if (addressInput.value !== extracted) {
             addressInput.dataset.suppressAutoParse = '1';
             addressInput.value = extracted;
             setTimeout(function () {
@@ -1104,32 +1104,19 @@
   function extractStreetAddress(displayName, addressObj, matchedResult, options) {
     const opts = options || {};
     const hint = String(opts.houseNumberHint || '').trim();
+    const address = addressObj && typeof addressObj === 'object' ? addressObj : {};
+    const adminNames = new Set();
+    ['province', 'district', 'ward'].forEach(function (level) {
+      const item = matchedResult && matchedResult[level];
+      if (item && item.name) adminNames.add(normalizeUnaccented(item.name));
+    });
+    ['city', 'state', 'province', 'county', 'city_district', 'district', 'municipality', 'ward', 'commune', 'country', 'postcode'].forEach(function (key) {
+      if (address[key]) adminNames.add(normalizeUnaccented(address[key]));
+    });
 
-    if (addressObj && typeof addressObj === 'object') {
-      const road = String(addressObj.road || addressObj.pedestrian || addressObj.residential || addressObj.street || '').trim();
-      let houseNo = String(addressObj.house_number || hint || '').trim();
-      if (!houseNo && displayName) {
-        const m = String(displayName).match(/^(\d+[A-Za-z]?(?:\/\d+[A-Za-z]?)*)\s*[, -]/);
-        if (m) {
-          houseNo = m[1];
-        }
-      }
-      const streetParts = [];
-      if (houseNo) streetParts.push(houseNo);
-      if (road) streetParts.push(road);
-
-      if (streetParts.length > 0) {
-        return streetParts.join(' ');
-      }
-    }
-
-    if (!displayName) return hint;
-    // Loại bỏ các phân đoạn hành chính, khu phố, mã bưu chính để giữ lại phần số nhà/tên đường
-    const rawSegments = splitAddressSegments(displayName);
-    const cleaned = rawSegments.filter(function (seg) {
+    function isLocalSegment(seg) {
       const sNorm = normalizeUnaccented(seg);
-      if (!sNorm) return false;
-      if (/^(khu pho|kp|to dan pho|to|ap|thon|xom)\b/.test(sNorm)) return false;
+      if (!sNorm || adminNames.has(sNorm)) return false;
       if (matchedResult && matchedResult.province) {
         const provCore = stripAdminPrefix(matchedResult.province.name, 'province');
         const segProvCore = stripAdminPrefix(seg, 'province');
@@ -1145,35 +1132,20 @@
       }
       if (/^(phuong|p|xa|x|thi tran|tt|quan|q|huyen|h|thi xa|tx|thanh pho|tp|tinh)\b/.test(sNorm)) return false;
       return true;
-    });
-
-    if (cleaned.length > 0) {
-      let firstLine = cleaned[0];
-      if (cleaned.length === 1 && matchedResult) {
-        if (matchedResult.province && matchedResult.province.name) {
-          firstLine = firstLine.replace(new RegExp('(?:,\\s*)?' + escapeRegex(matchedResult.province.name), 'gi'), '').trim();
-          const pCore = stripAccentedPrefix(matchedResult.province.name, 'province');
-          if (pCore) {
-            firstLine = firstLine.replace(new RegExp('(?:,\\s*)?' + escapeRegex(pCore), 'gi'), '').trim();
-          }
-        }
-        if (matchedResult.ward && matchedResult.ward.name) {
-          firstLine = firstLine.replace(new RegExp('(?:,\\s*)?' + escapeRegex(matchedResult.ward.name), 'gi'), '').trim();
-          const wCore = stripAccentedPrefix(matchedResult.ward.name, 'ward');
-          if (wCore) {
-            firstLine = firstLine.replace(new RegExp('(?:,\\s*)?' + escapeRegex(wCore), 'gi'), '').trim();
-          }
-        }
-        firstLine = firstLine.replace(/,\s*$/, '').trim();
-        cleaned[0] = firstLine;
-      }
-      if (hint && !/^\d/.test(firstLine)) {
-        return hint + ' ' + firstLine;
-      }
-      return cleaned.slice(0, 2).join(', ');
     }
 
-    return hint;
+    // Khu phố/ấp/thôn là phần địa chỉ chi tiết khi bản đồ không có tên đường.
+    // Dữ liệu road cũng có thể chứa cả phường/tỉnh nên phải tách trước khi điền.
+    const road = String(address.road || address.pedestrian || address.residential || address.street || '').trim();
+    const roadParts = splitAddressSegments(road).filter(isLocalSegment);
+    const localParts = roadParts.length ? roadParts : splitAddressSegments(displayName).filter(isLocalSegment);
+    let detail = localParts.join(', ');
+    const houseNo = String(address.house_number || hint || '').trim();
+    if (houseNo && detail !== houseNo && !detail.startsWith(houseNo + ' ') && !detail.startsWith(houseNo + ',')) {
+      detail = [houseNo, detail].filter(Boolean).join(' ');
+    }
+    // Nominatim thường trả số nhà và tên đường thành hai phân đoạn riêng.
+    return detail.replace(/^(\d+[A-Za-z]?(?:[\/\-]\d+[A-Za-z]?)*)\s*,\s*/, '$1 ');
   }
 
   /**
@@ -1195,7 +1167,7 @@
       const formattedAddress = extractStreetAddress(displayName, addressObj, matched, {
         houseNumberHint: opts.houseNumberHint || ''
       });
-      if (formattedAddress && addressInput.value !== formattedAddress) {
+      if (addressInput.value !== formattedAddress) {
         addressInput.dataset.suppressAutoParse = '1';
         addressInput.value = formattedAddress;
         setTimeout(function () {
@@ -1269,6 +1241,7 @@
     init: initAddressParser,
     parseAndPopulate: parseAndPopulate,
     handleReverseGeocode: handleReverseGeocode,
+    extractStreetAddress: extractStreetAddress,
     normalizeUnaccented: normalizeUnaccented
   };
 })(window, document);

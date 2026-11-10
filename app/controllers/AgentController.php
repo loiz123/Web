@@ -430,13 +430,22 @@ class AgentController extends Controller
             if ($key !== 'amenities' && !is_string($value)) $input[$key] = '';
         }
 
+        // Kiểm tra ảnh trước các truy vấn xác thực thông tin tin đăng.
+        // Không có ảnh thì trả lại form ngay, giữ nguyên các trường đã nhập.
+        $errors = [];
+        $images = $this->uploadedImages($errors);
+        if (!$images) {
+            foreach ($errors as $error) flash('danger', $error);
+            $this->showCreateForm($input);
+            return;
+        }
+
         $validated = $this->validateListingInput($input, false);
         $errors = $validated['errors'];
         $propertyData = $validated['data'];
         $propertyData['user_id'] = Auth::id();
         $amenityIds = $validated['amenity_ids'];
 
-        $images = $this->uploadedImages($errors);
         $coverIndex = filter_var($input['cover_image'] ?? 0, FILTER_VALIDATE_INT);
         if ($coverIndex === false || $coverIndex < 0 || $coverIndex >= count($images)) {
             $errors[] = 'Vui lòng chọn ảnh bìa hợp lệ.';
@@ -592,7 +601,7 @@ class AgentController extends Controller
         $count = count($nonEmptyIndices);
         if ($count < 1) {
             if ($requireAtLeastOne) {
-                $errors[] = 'Tải lên từ 1 đến 10 ảnh.';
+                $errors[] = 'Vui lòng tải lên ít nhất một ảnh.';
             }
             return $images;
         }
