@@ -13,8 +13,15 @@ BEGIN SELECT status,COUNT(*) AS total FROM properties GROUP BY status; END$$
 DROP PROCEDURE IF EXISTS sp_dashboard_by_district$$
 CREATE PROCEDURE sp_dashboard_by_district()
 BEGIN
- SELECT COALESCE(d.id,w.id) AS id,COALESCE(d.name,w.name) AS district_name,pv.name AS province_name,COUNT(pr.id) AS total,SUM(pr.status='approved') AS approved
- FROM properties pr JOIN wards w ON w.id=pr.ward_id LEFT JOIN districts d ON d.id=w.district_id
- JOIN provinces pv ON pv.id=w.province_id GROUP BY d.id,CASE WHEN d.id IS NULL THEN w.id ELSE 0 END,COALESCE(d.name,w.name),pv.name ORDER BY total DESC,district_name;
+ SELECT pv.id AS id,pv.name AS district_name,pv.name AS province_name,COUNT(pr.id) AS total,COALESCE(SUM(pr.status='approved'),0) AS approved
+ FROM properties pr JOIN wards w ON w.id=pr.ward_id
+ JOIN provinces pv ON pv.id=w.province_id GROUP BY pv.id,pv.name ORDER BY total DESC,pv.name ASC;
+END$$
+DROP PROCEDURE IF EXISTS sp_dashboard_by_province$$
+CREATE PROCEDURE sp_dashboard_by_province()
+BEGIN
+ SELECT pv.id AS province_id,pv.name AS province_name,COUNT(pr.id) AS total,COALESCE(SUM(pr.status='approved'),0) AS approved
+ FROM properties pr JOIN wards w ON w.id=pr.ward_id
+ JOIN provinces pv ON pv.id=w.province_id GROUP BY pv.id,pv.name ORDER BY total DESC,pv.name ASC;
 END$$
 DELIMITER ;

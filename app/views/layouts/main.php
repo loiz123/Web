@@ -128,7 +128,7 @@ if ($user) {
             </a>
             <ul class="dropdown-menu shadow-sm border-0 mt-2 rounded-3" aria-labelledby="adminNavDropdown">
               <li><a class="dropdown-item py-2 small fw-semibold" href="<?= e(base_url('admin')) ?>"><i class="bi bi-speedometer2 me-2 text-primary"></i>Tổng quan hệ thống</a></li>
-              <li><a class="dropdown-item py-2 small" href="<?= e(base_url('admin/properties')) ?>"><i class="bi bi-building-check me-2 text-success"></i>Kiểm duyệt tin đăng</a></li>
+              <li><a class="dropdown-item py-2 small" href="<?= e(base_url('admin/properties')) ?>"><i class="bi bi-building-check me-2 text-success"></i>Quản lý tin đăng</a></li>
               <li><a class="dropdown-item py-2 small" href="<?= e(base_url('admin/users')) ?>"><i class="bi bi-people me-2 text-info"></i>Quản lý người dùng</a></li>
               <li><a class="dropdown-item py-2 small" href="<?= e(base_url('admin/catalog')) ?>"><i class="bi bi-tags me-2 text-warning"></i>Danh mục &amp; Tiện ích</a></li>
               <li><a class="dropdown-item py-2 small" href="<?= e(base_url('admin/reports')) ?>"><i class="bi bi-flag me-2 text-danger"></i>Báo cáo vi phạm</a></li>

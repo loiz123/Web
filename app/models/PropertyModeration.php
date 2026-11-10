@@ -9,21 +9,65 @@ class PropertyModeration extends Model
         $page = max(1, $page);
         $perPage = max(1, min(50, $perPage));
         $offset = ($page - 1) * $perPage;
+
+        if ($status === 'all') {
+            $total = (int)$this->query('SELECT COUNT(*) FROM properties')->fetchColumn();
+            $items = $this->query(
+                'SELECT p.id, p.title, p.listing_type, p.price, p.area, p.address_detail, p.status, p.reject_reason, p.is_verified, p.created_at, u.full_name AS agent_name
+                 FROM properties p
+                 JOIN users u ON u.id = p.user_id
+                 ORDER BY p.created_at DESC, p.id DESC
+                 LIMIT ' . (int)$perPage . ' OFFSET ' . (int)$offset
+            )->fetchAll();
+
+            return ['items' => $items, 'total' => $total, 'page' => $page];
+        }
+
         if (!in_array($status, ['pending', 'approved', 'rejected', 'hidden', 'closed'], true)) {
             $status = 'pending';
         }
 
-        $total = (int)($this->call('sp_moderation_count', [$status])[0]['total'] ?? 0);
-        $items = $this->call('sp_moderation_list', [$status, $perPage, $offset]);
+        if (config('use_routines')) {
+            try {
+                $total = (int)($this->call('sp_moderation_count', [$status])[0]['total'] ?? 0);
+                $items = $this->call('sp_moderation_list', [$status, $perPage, $offset]);
+                return ['items' => $items, 'total' => $total, 'page' => $page];
+            } catch (PDOException $e) {
+                $code = (int)($e->errorInfo[1] ?? 0);
+                if ($code !== 1305) {
+                    throw $e;
+                }
+            }
+        }
+
+        $total = (int)$this->query('SELECT COUNT(*) FROM properties WHERE status = ?', [$status])->fetchColumn();
+        $items = $this->query(
+            'SELECT p.id, p.title, p.listing_type, p.price, p.area, p.address_detail, p.status, p.reject_reason, p.is_verified, p.created_at, u.full_name AS agent_name
+             FROM properties p
+             JOIN users u ON u.id = p.user_id
+             WHERE p.status = ?
+             ORDER BY p.created_at DESC, p.id DESC
+             LIMIT ' . (int)$perPage . ' OFFSET ' . (int)$offset,
+            [$status]
+        )->fetchAll();
 
         return ['items' => $items, 'total' => $total, 'page' => $page];
     }
 
-    /** Số tin theo trạng thái (cho dashboard). */
+    /** Số tin theo trạng thái (cho dashboard & các tab quản lý tin). */
     public function countByStatus(): array
     {
-        $result = [];
-        foreach ($this->call('sp_dashboard_by_status') as $row) $result[$row['status']] = $row['total'];
+        $result = ['pending' => 0, 'approved' => 0, 'rejected' => 0, 'hidden' => 0, 'closed' => 0];
+        try {
+            $rows = $this->call('sp_dashboard_by_status');
+        } catch (\Throwable $e) {
+            $rows = $this->query('SELECT status, COUNT(*) AS total FROM properties GROUP BY status')->fetchAll();
+        }
+        foreach ($rows as $row) {
+            if (isset($row['status'])) {
+                $result[$row['status']] = (int)$row['total'];
+            }
+        }
         return $result;
     }
 
@@ -38,10 +82,10 @@ class PropertyModeration extends Model
             return ['ok' => false, 'message' => 'Vui lòng nhập lý do từ chối.'];
         }
 
-        $prop = $this->query('SELECT id, user_id, title FROM properties WHERE id = ? LIMIT 1', [$id])->fetch();
+        $prop = $this->query('SELECT id, user_id, title, status FROM properties WHERE id = ? LIMIT 1', [$id])->fetch();
         $result = null;
 
-        if (config('use_routines')) {
+        if (config('use_routines') && (!$prop || ($prop['status'] ?? '') === 'pending' || $action === 'delete')) {
             try {
                 $res = $this->call('sp_moderation_apply', [$id, $action, $reason])[0] ?? [];
                 if ((int)($res['affected'] ?? 0) > 0) {
@@ -91,7 +135,7 @@ class PropertyModeration extends Model
 
         if ($action === 'approve') {
             $stmt = $this->query(
-                "UPDATE properties SET status = 'approved', reject_reason = NULL, expired_at = DATE_ADD(NOW(), INTERVAL 30 DAY) WHERE id = ? AND status = 'pending'",
+                "UPDATE properties SET status = 'approved', reject_reason = NULL, expired_at = COALESCE(expired_at, DATE_ADD(NOW(), INTERVAL 30 DAY)) WHERE id = ? AND status IN ('pending', 'hidden', 'rejected', 'closed')",
                 [$id]
             );
         } elseif ($action === 'reject') {

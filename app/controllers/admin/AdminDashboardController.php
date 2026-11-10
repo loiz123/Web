@@ -1,17 +1,22 @@
 <?php
-// URL: /admin
+// URL: /admin hoặc /admin/dashboard
 class AdminDashboardController extends Controller
 {
-    public function __construct() { $this->requireRole('admin'); }
+    public function __construct()
+    {
+        $this->requireRole('admin');
+    }
 
     public function index(): void
     {
         $summary = new AdminStats();
+        $byProvince = $summary->propertiesByProvince();
         $this->view('admin/dashboard', [
-            'title'      => 'Quản trị',
+            'title'      => 'Bảng điều khiển quản trị',
             'stats'      => $summary->counts(),
             'byStatus'   => $summary->propertiesByStatus(),
-            'byDistrict' => $summary->propertiesByDistrict(),
+            'byProvince' => $byProvince,
+            'byDistrict' => $byProvince,
         ]);
     }
 }

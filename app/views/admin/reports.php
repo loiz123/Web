@@ -27,7 +27,7 @@ $statusMap = [
   </div>
   <div class="d-flex gap-2">
     <a class="btn btn-sm btn-outline-primary" href="<?= e(base_url('admin/properties')) ?>">
-      <i class="bi bi-card-checklist me-1"></i>Duyệt tin đăng
+      <i class="bi bi-card-checklist me-1"></i>Quản lý tin đăng
     </a>
     <a class="btn btn-sm btn-outline-secondary" href="<?= e(base_url('admin')) ?>">
       <i class="bi bi-speedometer2 me-1"></i>Bảng điều khiển

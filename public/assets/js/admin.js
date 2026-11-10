@@ -16,7 +16,20 @@
     alertBox.textContent = message;
   }
 
-  function removeRow(row) {
+  function adjustBadge(tabKey, delta) {
+    const badge = document.querySelector('[data-tab-badge="' + tabKey + '"]');
+    if (!badge) return;
+    const current = parseInt(badge.dataset.count || badge.textContent.replace(/[^\d]/g, ''), 10) || 0;
+    const next = Math.max(0, current + delta);
+    badge.dataset.count = String(next);
+    badge.textContent = '(' + next + ')';
+  }
+
+  function removeRow(row, actionType) {
+    if (tab === 'all' && actionType && actionType !== 'delete') {
+      window.location.reload();
+      return;
+    }
     row.remove();
     const totalEl = document.getElementById('mod-total');
     if (totalEl) {
@@ -24,18 +37,23 @@
       totalEl.dataset.total = total;
       totalEl.textContent = 'Tổng: ' + total + ' mục.';
     }
+    adjustBadge(tab, -1);
+    if (tab !== 'all' && actionType === 'delete') adjustBadge('all', -1);
+    if (actionType === 'approve') adjustBadge('approved', 1);
+    if (actionType === 'reject') adjustBadge('rejected', 1);
+    if (actionType === 'resolve-hide') adjustBadge('hidden', 1);
     if (!table.querySelector('tbody tr')) {
       notify('Đã xử lý hết các mục trên trang này. Tải lại để xem trang tiếp theo.', true);
     }
   }
 
-  async function call(path, body, row) {
+  async function call(path, body, row, actionType) {
     row.querySelectorAll('button').forEach(function _callback2(b  ){return(b.disabled=true);});
     try {
       const res = await api(path, { method: 'POST', body });
       notify(res.message ||( res.success ? 'Thành công.' : 'Có lỗi xảy ra.'), res.success);
       if (res.success) {
-        removeRow(row);
+        removeRow(row, actionType || (body && body.action) || '');
         return true;
       }
     } catch (err) {
@@ -52,7 +70,7 @@
     const id = row.dataset.id;
     const act = btn.dataset.act;
 
-    if (tab === 'pending') {
+    if (tab === 'pending' || (tab === 'all' && (act === 'approve' || act === 'reject' || act === 'delete'))) {
       if (act === 'reject') {
         rejectRow = row;
         reasonEl.value = '';
@@ -60,10 +78,10 @@
         modal.show();
       } else if (act === 'delete') {
         if (confirm('Xóa vĩnh viễn tin #' + id + '? Không thể hoàn tác.')) {
-          call('admin/properties/moderate/' + id, { action: 'delete' }, row);
+          call('admin/properties/moderate/' + id, { action: 'delete' }, row, 'delete');
         }
       } else if (act === 'approve') {
-        call('admin/properties/moderate/' + id, { action: 'approve' }, row);
+        call('admin/properties/moderate/' + id, { action: 'approve' }, row, 'approve');
       }
     } else {
       if (act === 'dismiss') {

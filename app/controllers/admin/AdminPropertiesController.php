@@ -18,8 +18,8 @@ class AdminPropertiesController extends Controller
 
     public function index(): void
     {
-        $allowedTabs = ['pending', 'approved', 'reports', 'hidden', 'rejected'];
-        $rawTab = $_GET['tab'] ?? 'pending';
+        $allowedTabs = ['pending', 'approved', 'hidden', 'rejected', 'closed', 'all', 'reports'];
+        $rawTab = (string)($_GET['tab'] ?? 'pending');
         $tab = in_array($rawTab, $allowedTabs, true) ? $rawTab : 'pending';
         $page = max(1, (int)($_GET['page'] ?? 1));
 
@@ -27,11 +27,27 @@ class AdminPropertiesController extends Controller
             ? $this->reports->paginate('open', $page, self::PER_PAGE)
             : $this->moderation->paginate($tab, $page, self::PER_PAGE);
 
+        $statusCounts = $this->moderation->countByStatus();
+        $openReportsTotal = ($tab === 'reports')
+            ? (int)($result['total'] ?? 0)
+            : (int)($this->reports->paginate('open', 1, 1)['total'] ?? 0);
+
+        $tabCounts = [
+            'all'      => (int)array_sum($statusCounts),
+            'pending'  => (int)($statusCounts['pending'] ?? 0),
+            'approved' => (int)($statusCounts['approved'] ?? 0),
+            'hidden'   => (int)($statusCounts['hidden'] ?? 0),
+            'rejected' => (int)($statusCounts['rejected'] ?? 0),
+            'closed'   => (int)($statusCounts['closed'] ?? 0),
+            'reports'  => $openReportsTotal,
+        ];
+
         $this->view('admin/properties', [
-            'title'   => 'Duyệt tin đăng',
-            'tab'     => $tab,
-            'result'  => $result,
-            'perPage' => self::PER_PAGE,
+            'title'     => 'Quản lý tin đăng',
+            'tab'       => $tab,
+            'result'    => $result,
+            'perPage'   => self::PER_PAGE,
+            'tabCounts' => $tabCounts,
         ]);
     }
 
