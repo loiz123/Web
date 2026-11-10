@@ -1,5 +1,5 @@
 -- ===========================================================
--- CẬP NHẬT TIÊU ĐỀ, SLUG VÀ ĐỊA CHỈ 18 BẤT ĐỘNG SẢN CHUẨN 2 CẤP (709 PHƯỜNG WIKIPEDIA)
+-- CẬP NHẬT TIÊU ĐỀ, SLUG VÀ ĐỊA CHỈ 18 BẤT ĐỘNG SẢN CHUẨN 2 CẤP (3.308 PHƯỜNG/XÃ WIKIPEDIA)
 -- ===========================================================
 
 UPDATE `properties` SET `title` = 'Căn hộ 2PN view sông Phường An Khánh (Thảo Điền)', `slug` = 'can-ho-2pn-view-song-phuong-an-khanh-thao-dien', `address_detail` = '12 Xuân Thủy', `ward_id` = 14 WHERE `id` = 1;

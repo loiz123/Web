@@ -238,19 +238,19 @@ if ($doSchema) {
 }
 
 // -------------------------------------------------------------
-// PHA 2: ĐỒNG BỘ ĐỊA GIỚI HÀNH CHÍNH (709 PHƯỜNG CHUẨN WIKIPEDIA - MÔ HÌNH 2 CẤP)
+// PHA 2: ĐỒNG BỘ ĐỊA GIỚI HÀNH CHÍNH (3.308 PHƯỜNG/XÃ CHUẨN WIKIPEDIA - 63 TỈNH/THÀNH)
 // -------------------------------------------------------------
 if ($doLocations) {
-    echo "\n--- 2. ĐỒNG BỘ 709 PHƯỜNG CHUẨN WIKIPEDIA (MÔ HÌNH 2 CẤP) ---\n";
+    echo "\n--- 2. ĐỒNG BỘ 3.308 PHƯỜNG/XÃ CHUẨN WIKIPEDIA (709 PHƯỜNG + 2.599 XÃ TRÊN 63 TỈNH/THÀNH) ---\n";
     $wikiWardsSqlPath = __DIR__ . '/../database/seeds/wikipedia_wards_2tier.sql';
     if (!file_exists($wikiWardsSqlPath)) {
         echo "  [LỖI] Không tìm thấy file: $wikiWardsSqlPath\n";
     } else {
         echo "  File nguồn: $wikiWardsSqlPath (" . round(filesize($wikiWardsSqlPath) / 1024, 1) . " KB)\n";
         if ($isDryRun) {
-            echo "  [DRY-RUN] Sẽ nạp dữ liệu 709 phường từ $wikiWardsSqlPath vào FreeDB.\n";
+            echo "  [DRY-RUN] Sẽ nạp dữ liệu 3.308 phường/xã từ $wikiWardsSqlPath vào FreeDB.\n";
         } else {
-            echo "  Đang đọc và thực thi script SQL 709 phường Wikipedia...\n";
+            echo "  Đang đọc và thực thi script SQL 3.308 phường/xã Wikipedia...\n";
             if (!columnExists($pdo, 'wards', 'province_id')) {
                 $pdo->exec("ALTER TABLE `wards` ADD COLUMN `province_id` INT UNSIGNED NOT NULL DEFAULT 1 AFTER `id`");
             }
@@ -276,12 +276,19 @@ if ($doLocations) {
             echo "  [OK] Đã nạp thành công $count câu lệnh SQL trong {$elapsed}s!\n";
 
             // Kiểm tra số lượng sau khi nạp
-            $pCount = $pdo->query("SELECT COUNT(*) FROM provinces")->fetchColumn();
-            $wCount = $pdo->query("SELECT COUNT(*) FROM wards")->fetchColumn();
-            $hcmCount = $pdo->query("SELECT COUNT(*) FROM wards WHERE province_id = 1")->fetchColumn();
-            $hnCount  = $pdo->query("SELECT COUNT(*) FROM wards WHERE province_id = 2")->fetchColumn();
-            $dnCount  = $pdo->query("SELECT COUNT(*) FROM wards WHERE province_id = 3")->fetchColumn();
-            echo "  Kết quả sau nạp: $pCount tỉnh/thành, $wCount phường chuẩn Wikipedia (TP.HCM: $hcmCount, Hà Nội: $hnCount, Đà Nẵng: $dnCount).\n";
+            $pCount      = (int)$pdo->query("SELECT COUNT(*) FROM provinces")->fetchColumn();
+            $wCount      = (int)$pdo->query("SELECT COUNT(*) FROM wards")->fetchColumn();
+            $phuongCount = (int)$pdo->query("SELECT COUNT(*) FROM wards WHERE name LIKE 'Phường %'")->fetchColumn();
+            $xaCount     = (int)$pdo->query("SELECT COUNT(*) FROM wards WHERE name LIKE 'Xã %'")->fetchColumn();
+            $ttCount     = (int)$pdo->query("SELECT COUNT(*) FROM wards WHERE name LIKE 'Thị trấn %'")->fetchColumn();
+            $covCount    = (int)$pdo->query("SELECT COUNT(DISTINCT province_id) FROM wards")->fetchColumn();
+            $hcmCount    = (int)$pdo->query("SELECT COUNT(*) FROM wards WHERE province_id = 1")->fetchColumn();
+            $hnCount     = (int)$pdo->query("SELECT COUNT(*) FROM wards WHERE province_id = 2")->fetchColumn();
+            $dnCount     = (int)$pdo->query("SELECT COUNT(*) FROM wards WHERE province_id = 3")->fetchColumn();
+            $bdCount     = (int)$pdo->query("SELECT COUNT(*) FROM wards WHERE province_id = 12")->fetchColumn();
+            $glCount     = (int)$pdo->query("SELECT COUNT(*) FROM wards WHERE province_id = 20")->fetchColumn();
+            echo "  Kết quả sau nạp: $pCount tỉnh/thành ($covCount/63 có dữ liệu), $wCount wards (Phường: $phuongCount, Xã: $xaCount, Thị trấn: $ttCount).\n";
+            echo "  Chi tiết mẫu: TP.HCM=$hcmCount, Hà Nội=$hnCount, Đà Nẵng=$dnCount, Bình Định=$bdCount, Gia Lai=$glCount.\n";
         }
     }
 }
@@ -336,6 +343,9 @@ if ($doSyncTitles) {
                 }
             }
         } else {
+            if (!columnExists($pdo, 'properties', 'slug')) {
+                $pdo->exec("ALTER TABLE `properties` ADD COLUMN `slug` VARCHAR(255) NULL DEFAULT NULL AFTER `title`");
+            }
             $sqlContent = file_get_contents($updateSqlPath);
             $pdo->exec("SET NAMES utf8mb4;");
             $statements = array_filter(array_map('trim', explode(";\n", $sqlContent)));

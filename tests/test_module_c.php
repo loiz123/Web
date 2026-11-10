@@ -584,43 +584,66 @@ echo "\nSUITE 8: ĐỊA GIỚI HÀNH CHÍNH 63 TỈNH/THÀNH & BÓC TÁCH ĐỊA
 
 require_once APP . '/models/Location.php';
 
-// 8.1 Kiểm tra số lượng tỉnh/thành, 709 phường chuẩn từ Wikipedia và file seed SQL offline
-$provinceCount = (int)$db->query("SELECT COUNT(*) FROM provinces")->fetchColumn();
-$districtCount = (int)$db->query("SELECT COUNT(*) FROM districts")->fetchColumn();
-$wardCount     = (int)$db->query("SELECT COUNT(*) FROM wards")->fetchColumn();
-$seedSqlPath   = ROOT . '/database/seeds/wikipedia_wards_2tier.sql';
+// 8.1 Kiểm tra số lượng tỉnh/thành, 3.308 phường/xã chuẩn từ Wikipedia (0 Thị trấn, 63/63 tỉnh) và file seed SQL offline
+$provinceCount  = (int)$db->query("SELECT COUNT(*) FROM provinces")->fetchColumn();
+$districtCount  = (int)$db->query("SELECT COUNT(*) FROM districts")->fetchColumn();
+$wardCount      = (int)$db->query("SELECT COUNT(*) FROM wards")->fetchColumn();
+$phuongCount    = (int)$db->query("SELECT COUNT(*) FROM wards WHERE name LIKE 'Phường %'")->fetchColumn();
+$xaCount        = (int)$db->query("SELECT COUNT(*) FROM wards WHERE name LIKE 'Xã %'")->fetchColumn();
+$thiTranCount   = (int)$db->query("SELECT COUNT(*) FROM wards WHERE name LIKE 'Thị trấn %'")->fetchColumn();
+$coveredProvs   = (int)$db->query("SELECT COUNT(DISTINCT province_id) FROM wards")->fetchColumn();
+$dupWardCount   = (int)$db->query("SELECT COUNT(*) FROM (SELECT province_id, BINARY name FROM wards GROUP BY province_id, BINARY name HAVING COUNT(*) > 1) d")->fetchColumn();
+$seedSqlPath    = ROOT . '/database/seeds/wikipedia_wards_2tier.sql';
 
 $t->assert(
     $provinceCount >= 63
-    && $wardCount === 709
+    && $wardCount === 3308
+    && $phuongCount === 709
+    && $xaCount === 2599
+    && $thiTranCount === 0
+    && $coveredProvs === 63
+    && $dupWardCount === 0
     && is_file($seedSqlPath)
-    && filesize($seedSqlPath) > 15000,
-    "8.1 CSDL Địa giới hành chính Việt Nam nạp chuẩn {$wardCount} Phường từ Wikipedia (mô hình 2 cấp) trên {$provinceCount} Tỉnh/Thành kèm file seed SQL offline",
-    "Provinces={$provinceCount}, Districts={$districtCount}, Wards={$wardCount}"
+    && filesize($seedSqlPath) > 50000,
+    "8.1 CSDL Địa giới hành chính Việt Nam nạp chuẩn {$wardCount} đơn vị ({$phuongCount} Phường + {$xaCount} Xã, 0 Thị trấn, 0 trùng lặp) trên {$coveredProvs}/{$provinceCount} Tỉnh/Thành kèm file seed SQL offline",
+    "Provinces={$provinceCount}, Covered={$coveredProvs}, Wards={$wardCount} (Phường={$phuongCount}, Xã={$xaCount}, Thị trấn={$thiTranCount}, Dups={$dupWardCount})"
 );
 
-// 8.2 Kiểm tra phân cấp 2 cấp Tỉnh/Thành -> Phường qua Location Model (không lẫn phường giữa các tỉnh)
+// 8.2 Kiểm tra phân cấp 2 cấp Tỉnh/Thành -> Phường/Xã qua Location Model (không lẫn giữa các tỉnh sau sáp nhập)
 $locModel     = new Location();
 $allProvinces = $locModel->provinces();
 $hcmWards     = $locModel->wardsByProvince(1);
 $hnWards      = $locModel->wardsByProvince(2);
 $dnWards      = $locModel->wardsByProvince(3);
+$bdWards      = $locModel->wardsByProvince(12);
+$glWards      = $locModel->wardsByProvince(20);
 $hcmWardNames = array_column($hcmWards, 'name');
 $hnWardNames  = array_column($hnWards, 'name');
+$bdWardNames  = array_column($bdWards, 'name');
+$glWardNames  = array_column($glWards, 'name');
 
 $t->assert(
     count($allProvinces) === 63
-    && count($hcmWards) === 113
-    && count($hnWards) === 51
-    && count($dnWards) === 23
+    && count($hcmWards) === 102
+    && count($hnWards) === 126
+    && count($dnWards) === 15
+    && count($bdWards) === 58
+    && count($glWards) === 77
     && in_array('Phường An Đông', $hcmWardNames, true)
     && !in_array('Phường An Đông', $hnWardNames, true)
     && in_array('Phường Ba Đình', $hnWardNames, true)
-    && !in_array('Phường Ba Đình', $hcmWardNames, true),
-    "8.2 Phân cấp 2 cấp Tỉnh/Thành -> Phường hoạt động chính xác, không lẫn phường (HCM: " . count($hcmWards) . " phường, HN: " . count($hnWards) . " phường, ĐN: " . count($dnWards) . " phường)"
+    && !in_array('Phường Ba Đình', $hcmWardNames, true)
+    && in_array('Phường Quy Nhơn', $bdWardNames, true)
+    && in_array('Phường Bồng Sơn', $bdWardNames, true)
+    && in_array('Xã Vĩnh Quang', $bdWardNames, true)
+    && !in_array('Phường Quy Nhơn', $glWardNames, true)
+    && !in_array('Phường Bồng Sơn', $glWardNames, true)
+    && !in_array('Xã Vĩnh Quang', $glWardNames, true)
+    && in_array('Xã Biển Hồ', $glWardNames, true),
+    "8.2 Phân cấp 2 cấp Tỉnh/Thành -> Phường/Xã hoạt động chính xác, không lẫn giữa các tỉnh (HCM: " . count($hcmWards) . ", HN: " . count($hnWards) . ", ĐN: " . count($dnWards) . ", Bình Định: " . count($bdWards) . ", Gia Lai: " . count($glWards) . ")"
 );
 
-// 8.3 Kiểm tra tính toàn vẹn của 18 tin đăng hiện có với danh sách 709 phường Wikipedia
+// 8.3 Kiểm tra tính toàn vẹn của 18 tin đăng hiện có & giữ nguyên ward_id 1..18 với danh sách 3.308 phường/xã
 $fixedProvinces = $db->query("SELECT id, name FROM provinces WHERE id IN (1,2,3) ORDER BY id")->fetchAll(PDO::FETCH_KEY_PAIR);
 $validPropertiesCount = (int)$db->query("
     SELECT COUNT(*)
@@ -629,14 +652,16 @@ $validPropertiesCount = (int)$db->query("
     INNER JOIN provinces pr ON pr.id = w.province_id
 ")->fetchColumn();
 $totalPropertiesCount = (int)$db->query("SELECT COUNT(*) FROM properties")->fetchColumn();
+$preservedIds1To18 = (int)$db->query("SELECT COUNT(*) FROM wards WHERE id BETWEEN 1 AND 18")->fetchColumn();
 
 $t->assert(
     $totalPropertiesCount >= 18
     && $validPropertiesCount === $totalPropertiesCount
+    && $preservedIds1To18 === 18
     && ($fixedProvinces[1] ?? '') === 'TP. Hồ Chí Minh'
     && ($fixedProvinces[2] ?? '') === 'Hà Nội'
     && ($fixedProvinces[3] ?? '') === 'Đà Nẵng',
-    "8.3 Bảo toàn 100% liên kết khóa ngoại ward_id -> province_id của {$validPropertiesCount}/{$totalPropertiesCount} tin đăng hiện có theo mô hình 2 cấp"
+    "8.3 Bảo toàn 100% liên kết khóa ngoại ward_id -> province_id của {$validPropertiesCount}/{$totalPropertiesCount} tin đăng và đủ {$preservedIds1To18}/18 ward_id (1..18)"
 );
 
 // 8.4 Kiểm tra cơ chế Bóc tách địa chỉ thông minh (Smart Address Parser) & Đồng bộ 2 chiều bản đồ Leaflet
@@ -661,12 +686,18 @@ $t->assert(
 );
 
 // 8.5 Kiểm tra Live Autocomplete trên bản đồ, Fallback đa tầng (không ép Quận 1) và API Hành chính nội bộ
+require_once APP . '/models/Ward.php';
 $geoCtrlSrc = file_get_contents(APP . '/controllers/GeocodeController.php');
 $apiCtrlSrc = file_get_contents(APP . '/controllers/ApiController.php');
 $locModel = new Location();
+$wardModel = new Ward();
 $adminSearchGoVap = $locModel->searchAdministrative('Bình Thạnh', 5);
 $resolvedMergedWard = $locModel->resolveFromAddress('Phường Bình Lợi Trung', 'Thành phố Hồ Chí Minh', 1);
 $resolvedNoDistrict = $locModel->resolveFromAddress('Phường Thảo Điền', 'Thành phố Hồ Chí Minh', 1);
+$resolvedBienHo     = $locModel->resolveFromAddress('Xã Biển Hồ', 'Tỉnh Gia Lai', 20);
+$resolvedVinhQuang  = $locModel->resolveFromAddress('Xã Vĩnh Quang', 'Tỉnh Bình Định', 12);
+$resolvedDongTien   = $locModel->resolveFromAddress('Xã Đồng Tiến', 'Tỉnh Thanh Hóa', 49);
+$quangNgaiWardNames = array_column($wardModel->findByProvinceId(44), 'name');
 
 $t->assert(
     strpos($mapJsSrc, "addEventListener('input'") !== false
@@ -679,8 +710,13 @@ $t->assert(
     && strpos($apiCtrlSrc, 'function locations(') !== false
     && !empty($adminSearchGoVap)
     && ($resolvedMergedWard['ward']['name'] ?? '') === 'Phường Bình Lợi Trung'
-    && ($resolvedNoDistrict['ward']['name'] ?? '') === 'Phường An Khánh',
-    "8.5 Live Autocomplete (#mapSearchAddress), Fallback đa tầng không ép Quận 1, API hành chính nội bộ & đồng bộ ngược Tỉnh/Phường hoạt động chính xác"
+    && ($resolvedNoDistrict['ward']['name'] ?? '') === 'Phường An Khánh'
+    && ($resolvedBienHo['ward']['name'] ?? '') === 'Xã Biển Hồ'
+    && ($resolvedVinhQuang['ward']['name'] ?? '') === 'Xã Vĩnh Quang'
+    && ($resolvedDongTien['ward']['name'] ?? '') === 'Xã Đồng Tiến'
+    && in_array('Xã Ba Tô', $quangNgaiWardNames, true)
+    && in_array('Xã Ba Tơ', $quangNgaiWardNames, true),
+    "8.5 Live Autocomplete (#mapSearchAddress), Fallback đa tầng không ép Quận 1, API hành chính nội bộ & đồng bộ ngược Tỉnh/Phường/Xã (kể cả cặp dấu Ba Tô/Ba Tơ) hoạt động chính xác"
 );
 
 // 8.6 Kiểm tra UX Writing Guard trên các thành phần giao diện tìm kiếm địa chỉ & đăng tin

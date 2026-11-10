@@ -171,7 +171,7 @@ class Location extends Model
 
     /**
      * Ánh xạ các tên phường cũ (trước sáp nhập 2025) sang đúng tên Phường mới
-     * trong danh sách 709 phường chuẩn Wikipedia (mô hình 2 cấp).
+     * trong danh sách 3.308 phường/xã chuẩn Wikipedia (709 Phường + 2.599 Xã trên 63 tỉnh/thành).
      */
     private function mergedWardAliases(): array
     {
@@ -582,7 +582,7 @@ class Location extends Model
         $matchedWard = null;
         $matchedDistrict = null;
 
-        // 2. Tra cứu trực tiếp trong danh sách phường của tỉnh (Exact match & Core match)
+        // 2. Tra cứu trực tiếp trong danh sách phường/xã của tỉnh (ưu tiên khớp chính xác cả tiền tố Phường/Xã trước, sau đó mới khớp lõi tên)
         foreach ($wardCandidates as $cand) {
             $cNorm = $this->normalizeRomanSuffix($this->normalizeVietnamese((string)$cand));
             $cCore = $this->stripPrefix($cNorm, 'ward');
@@ -591,8 +591,18 @@ class Location extends Model
             }
             foreach ($allWards as $w) {
                 $wNorm = $this->normalizeRomanSuffix($this->normalizeVietnamese($w['ward_name']));
+                if ($cNorm === $wNorm) {
+                    $matchedWard = ['id' => (int)$w['ward_id'], 'name' => $w['ward_name']];
+                    if (!empty($w['district_id'])) {
+                        $matchedDistrict = ['id' => (int)$w['district_id'], 'name' => $w['district_name']];
+                    }
+                    break 2;
+                }
+            }
+            foreach ($allWards as $w) {
+                $wNorm = $this->normalizeRomanSuffix($this->normalizeVietnamese($w['ward_name']));
                 $wCore = $this->stripPrefix($wNorm, 'ward');
-                if ($cNorm === $wNorm || $cCore === $wCore) {
+                if ($cCore === $wCore) {
                     $matchedWard = ['id' => (int)$w['ward_id'], 'name' => $w['ward_name']];
                     if (!empty($w['district_id'])) {
                         $matchedDistrict = ['id' => (int)$w['district_id'], 'name' => $w['district_name']];

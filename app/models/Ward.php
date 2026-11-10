@@ -12,7 +12,7 @@ class Ward extends CatalogModel
 
     public function findByProvinceId(int $provinceId): array
     {
-        return $this->query('SELECT MIN(id) AS id, name, MIN(province_id) AS province_id FROM wards WHERE province_id = ? GROUP BY name ORDER BY name ASC', [$provinceId])->fetchAll();
+        return $this->query('SELECT MIN(id) AS id, MIN(name) AS name, MIN(province_id) AS province_id FROM wards WHERE province_id = ? GROUP BY BINARY name ORDER BY MIN(name) ASC', [$provinceId])->fetchAll();
     }
 
     /** $filter: province_id hoặc district_id (tùy chọn). Giới hạn 300 dòng cho gọn trang. */
