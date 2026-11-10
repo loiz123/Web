@@ -197,8 +197,8 @@ $existingImages = $existingImages ?? [];
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="<?= e(base_url('assets/js/map.js?v=20261110b')) ?>"></script>
-<script src="<?= e(base_url('assets/js/address-parser.js?v=20261110b')) ?>"></script>
+<script src="<?= e(base_url('assets/js/map.js?v=20261110c')) ?>"></script>
+<script src="<?= e(base_url('assets/js/address-parser.js?v=20261110c')) ?>"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function _callback(){
   var form = document.getElementById('agent-edit-form');

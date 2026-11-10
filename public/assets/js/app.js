@@ -373,22 +373,23 @@ function setupAgentForm() {
   }
 }
 
-document.querySelectorAll('select[data-target]').forEach(function _callback14(province) {
-  if (province.dataset.wardDirectBound === '1' || province.dataset.bdsBound === '1') return;
-  var targetSelect = document.querySelector(province.dataset.target);
+document.querySelectorAll('select[data-target]').forEach(function _callback14(select) {
+  if (select.dataset.autoPopulating === '1' || select.dataset.bdsBound === '1' || select.dataset.wardDirectBound === '1' || select.dataset.appBound === '1') return;
+  var targetSelect = document.querySelector(select.dataset.target);
   if (!targetSelect) return;
+  select.dataset.appBound = '1';
 
-  var isWardLevel = (province.dataset.level === 'wards' || targetSelect.name === 'ward_id' || targetSelect.id === 'searchWard');
+  var isWardLevel = (select.dataset.level === 'wards' || targetSelect.name === 'ward_id' || targetSelect.id === 'searchWard');
   var placeholder = targetSelect.dataset.placeholder || (isWardLevel ? 'Phường/Xã' : 'Quận/Huyện');
 
   async function updateChildOptions(keepSelected) {
-    if (!province.value) {
+    if (!select.value) {
       fillSelect(targetSelect, [], placeholder);
       return;
     }
     var endpoint = isWardLevel
-      ? `api/wards?province_id=${encodeURIComponent(province.value)}`
-      : `api/districts/${province.value}`;
+      ? `api/wards?province_id=${encodeURIComponent(select.value)}`
+      : `api/districts/${select.value}`;
     var response = await api(endpoint);
     var items = Array.isArray(response) ? response : (response.success ? response.data : []);
     if (isWardLevel && Array.isArray(items)) {
@@ -406,12 +407,13 @@ document.querySelectorAll('select[data-target]').forEach(function _callback14(pr
     }
   }
 
-  province.addEventListener('change', function _callback15() {
+  select.addEventListener('change', function _callback15() {
+    if (select.dataset.autoPopulating === '1') return;
     targetSelect.dataset.selected = '';
     updateChildOptions(false);
   });
 
-  if (province.value && targetSelect.options.length <= 1) {
+  if (select.value && targetSelect.options.length <= 1) {
     updateChildOptions(true);
   }
 });
