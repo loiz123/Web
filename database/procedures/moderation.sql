@@ -5,7 +5,7 @@ BEGIN SELECT COUNT(*) AS total FROM properties WHERE status=p_status; END$$
 DROP PROCEDURE IF EXISTS sp_moderation_list$$
 CREATE PROCEDURE sp_moderation_list(IN p_status VARCHAR(20), IN p_limit INT, IN p_offset INT)
 BEGIN
- SELECT p.id,p.title,p.listing_type,p.price,p.area,p.address_detail,p.status,p.reject_reason,p.created_at,u.full_name AS agent_name
+ SELECT p.id,p.title,p.listing_type,p.price,p.area,p.address_detail,p.status,p.reject_reason,p.is_verified,p.created_at,u.full_name AS agent_name
  FROM properties p JOIN users u ON u.id=p.user_id WHERE p.status=p_status
  ORDER BY p.created_at ASC,p.id ASC LIMIT p_limit OFFSET p_offset;
 END$$

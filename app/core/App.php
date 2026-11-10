@@ -34,7 +34,7 @@ class App
         }
 
         $controller = new $class();
-        $method = str_replace(' ', '', lcfirst(ucwords(str_replace('-', ' ', $action))));
+        $method = str_replace(' ', '', lcfirst(ucwords(str_replace(['-', '_'], ' ', $action))));
         if (!method_exists($controller, $method)
             || !(new ReflectionMethod($controller, $method))->isPublic()
             || $method[0] === '_') { $this->notFound(); }

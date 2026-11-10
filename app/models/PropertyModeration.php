@@ -137,4 +137,167 @@ class PropertyModeration extends Model
     {
         return ['approve' => 'Đã duyệt tin.', 'reject' => 'Đã từ chối tin.', 'delete' => 'Đã xóa tin.'][$action];
     }
+
+    public static function toggleVerified(int $propertyId): array
+    {
+        $db = Database::connection();
+        $stmt = $db->prepare('SELECT id, user_id, title, is_verified FROM properties WHERE id = ? LIMIT 1');
+        $stmt->execute([$propertyId]);
+        $prop = $stmt->fetch();
+
+        if (!$prop) {
+            return ['success' => false, 'message' => 'Tin đăng không tồn tại hoặc đã bị xóa.'];
+        }
+
+        $currentVal = (int)($prop['is_verified'] ?? 0);
+        $newVal = $currentVal === 1 ? 0 : 1;
+
+        $upStmt = $db->prepare('UPDATE properties SET is_verified = ? WHERE id = ?');
+        $upStmt->execute([$newVal, $propertyId]);
+
+        // Tạo thông báo in-app tự động cho chủ tin (user_id của tin đó) qua model Notification::create(...)
+        try {
+            $userId = (int)$prop['user_id'];
+            $title = (string)$prop['title'];
+            if ($userId > 0) {
+                if ($newVal === 1) {
+                    $notifTitle = 'Cấp huy hiệu Đã xác thực';
+                    $notifMsg = "Tin đăng '{$title}' của bạn vừa được Quản trị viên cấp huy hiệu Đã xác thực!";
+                    $notifType = 'success';
+                } else {
+                    $notifTitle = 'Gỡ huy hiệu xác thực';
+                    $notifMsg = "Tin đăng '{$title}' của bạn đã gỡ huy hiệu xác thực.";
+                    $notifType = 'warning';
+                }
+                Notification::create(
+                    $userId,
+                    $notifTitle,
+                    $notifMsg,
+                    'property/detail/' . $propertyId,
+                    $notifType
+                );
+            }
+        } catch (\Throwable $e) {
+            error_log('Notification error on toggleVerified: ' . $e->getMessage());
+        }
+
+        $message = $newVal === 1
+            ? "Tin đăng '{$prop['title']}' vừa được Quản trị viên cấp huy hiệu Đã xác thực!"
+            : "Tin đăng '{$prop['title']}' đã gỡ huy hiệu xác thực.";
+
+        return [
+            'success' => true,
+            'is_verified' => $newVal,
+            'message' => $message,
+        ];
+    }
+
+    public static function updateStatus(int $propertyId, string $status): array
+    {
+        $status = strtolower(trim($status));
+        $validStatuses = ['approved', 'pending', 'hidden', 'rejected', 'deleted', 'closed'];
+        if (!in_array($status, $validStatuses, true)) {
+            return ['success' => false, 'message' => 'Trạng thái không hợp lệ.'];
+        }
+
+        $db = Database::connection();
+        $stmt = $db->prepare('SELECT id, user_id, title, status FROM properties WHERE id = ? LIMIT 1');
+        $stmt->execute([$propertyId]);
+        $prop = $stmt->fetch();
+
+        if (!$prop) {
+            return ['success' => false, 'message' => 'Tin đăng không tồn tại hoặc đã bị xóa.'];
+        }
+
+        if ($status === 'deleted') {
+            $delStmt = $db->prepare('DELETE FROM properties WHERE id = ?');
+            $delStmt->execute([$propertyId]);
+
+            try {
+                $userId = (int)$prop['user_id'];
+                if ($userId > 0) {
+                    Notification::create(
+                        $userId,
+                        'Tin đăng đã bị xóa',
+                        "Tin đăng '{$prop['title']}' của bạn đã bị Quản trị viên xóa khỏi hệ thống.",
+                        'agent',
+                        'danger'
+                    );
+                }
+            } catch (\Throwable $e) {
+                error_log('Notification error on delete: ' . $e->getMessage());
+            }
+
+            return [
+                'success' => true,
+                'status' => 'deleted',
+                'message' => 'Đã xóa tin đăng thành công.',
+            ];
+        }
+
+        if ($status === 'approved') {
+            $upStmt = $db->prepare(
+                "UPDATE properties SET status = 'approved', reject_reason = NULL, expired_at = COALESCE(expired_at, DATE_ADD(NOW(), INTERVAL 30 DAY)) WHERE id = ?"
+            );
+            $upStmt->execute([$propertyId]);
+            $msg = 'Đã duyệt và công khai tin đăng thành công.';
+        } elseif ($status === 'rejected') {
+            $upStmt = $db->prepare("UPDATE properties SET status = 'rejected' WHERE id = ?");
+            $upStmt->execute([$propertyId]);
+            $msg = 'Đã từ chối tin đăng.';
+        } elseif ($status === 'hidden') {
+            $upStmt = $db->prepare("UPDATE properties SET status = 'hidden' WHERE id = ?");
+            $upStmt->execute([$propertyId]);
+            $msg = 'Đã tạm ẩn tin đăng.';
+        } elseif ($status === 'pending') {
+            $upStmt = $db->prepare("UPDATE properties SET status = 'pending' WHERE id = ?");
+            $upStmt->execute([$propertyId]);
+            $msg = 'Đã chuyển tin về trạng thái chờ duyệt.';
+        } else {
+            $upStmt = $db->prepare("UPDATE properties SET status = ? WHERE id = ?");
+            $upStmt->execute([$status, $propertyId]);
+            $msg = "Đã cập nhật trạng thái tin thành {$status}.";
+        }
+
+        // Tạo thông báo in-app tự động cho chủ tin
+        try {
+            $userId = (int)$prop['user_id'];
+            $title = (string)$prop['title'];
+            if ($userId > 0) {
+                if ($status === 'approved') {
+                    Notification::create(
+                        $userId,
+                        'Tin đăng đã được duyệt',
+                        "Tin đăng '{$title}' của bạn đã được Quản trị viên phê duyệt.",
+                        'property/detail/' . $propertyId,
+                        'success'
+                    );
+                } elseif ($status === 'hidden') {
+                    Notification::create(
+                        $userId,
+                        'Tin đăng bị tạm ẩn',
+                        "Tin đăng '{$title}' của bạn đã được Quản trị viên tạm ẩn.",
+                        'property/detail/' . $propertyId,
+                        'warning'
+                    );
+                } elseif ($status === 'rejected') {
+                    Notification::create(
+                        $userId,
+                        'Tin đăng bị từ chối',
+                        "Tin đăng '{$title}' của bạn đã bị Quản trị viên từ chối duyệt.",
+                        'agent',
+                        'danger'
+                    );
+                }
+            }
+        } catch (\Throwable $e) {
+            error_log('Notification error on updateStatus: ' . $e->getMessage());
+        }
+
+        return [
+            'success' => true,
+            'status' => $status,
+            'message' => $msg,
+        ];
+    }
 }

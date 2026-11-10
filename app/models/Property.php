@@ -340,4 +340,14 @@ class Property extends Model
 
         return $rows;
     }
+
+    public static function toggleVerified(int $propertyId): array
+    {
+        return PropertyModeration::toggleVerified($propertyId);
+    }
+
+    public static function updateStatus(int $propertyId, string $status): array
+    {
+        return PropertyModeration::updateStatus($propertyId, $status);
+    }
 }

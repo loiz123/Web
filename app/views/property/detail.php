@@ -47,6 +47,67 @@ if (!$hasValidCoords) {
     </ol>
   </nav>
 
+  <?php if (!empty($_SESSION['user']) && ((int)($_SESSION['user']['role_id'] ?? 0) === 1 || ($_SESSION['user']['role'] ?? '') === 'admin')): ?>
+    <!-- Admin Control Panel (Thanh công cụ Quản trị viên) -->
+    <div class="bg-light border border-primary p-3 rounded-3 mb-3 shadow-sm">
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+        <div class="d-flex align-items-center gap-2">
+          <span class="fs-4">👑</span>
+          <div>
+            <div class="fw-bold text-primary">Bảng kiểm duyệt của Quản trị viên (Admin Control Panel)</div>
+            <div class="small text-muted">
+              Trạng thái: 
+              <span id="adminCurrentStatus" class="badge <?= $property['status'] === 'approved' ? 'bg-success' : ($property['status'] === 'pending' ? 'bg-warning text-dark' : 'bg-secondary') ?>">
+                <?= e(strtoupper($property['status'])) ?>
+              </span>
+              • Huy hiệu: 
+              <span id="adminCurrentVerify" class="badge <?= !empty($property['is_verified']) ? 'bg-success' : 'bg-light text-muted border' ?>">
+                <?= !empty($property['is_verified']) ? 'Đã xác thực' : 'Chưa xác thực' ?>
+              </span>
+            </div>
+          </div>
+        </div>
+        <div class="d-flex flex-wrap align-items-center gap-2">
+          <!-- Nút Toggle Xác thực -->
+          <?php if (!empty($property['is_verified'])): ?>
+            <button type="button" class="btn btn-sm btn-outline-warning" id="btnAdminVerify" data-id="<?= (int)$property['id'] ?>" data-url="<?= e(base_url('admin/properties/verify/' . (int)$property['id'])) ?>">
+              🛡️ Gỡ huy hiệu Đã xác thực
+            </button>
+          <?php else: ?>
+            <button type="button" class="btn btn-sm btn-success" id="btnAdminVerify" data-id="<?= (int)$property['id'] ?>" data-url="<?= e(base_url('admin/properties/verify/' . (int)$property['id'])) ?>">
+              🛡️ Cấp huy hiệu ĐÃ XÁC THỰC
+            </button>
+          <?php endif; ?>
+
+          <!-- Nhóm nút trạng thái -->
+          <div class="btn-group btn-group-sm" role="group">
+            <?php if ($property['status'] !== 'approved'): ?>
+              <button type="button" class="btn btn-outline-success btn-admin-status" data-id="<?= (int)$property['id'] ?>" data-status="approved" data-url="<?= e(base_url('admin/properties/changeStatus/' . (int)$property['id'])) ?>">
+                ✓ Duyệt tin
+              </button>
+            <?php endif; ?>
+            <?php if ($property['status'] !== 'hidden'): ?>
+              <button type="button" class="btn btn-outline-secondary btn-admin-status" data-id="<?= (int)$property['id'] ?>" data-status="hidden" data-url="<?= e(base_url('admin/properties/changeStatus/' . (int)$property['id'])) ?>">
+                👁️ Tạm ẩn tin
+              </button>
+            <?php else: ?>
+              <button type="button" class="btn btn-outline-primary btn-admin-status" data-id="<?= (int)$property['id'] ?>" data-status="approved" data-url="<?= e(base_url('admin/properties/changeStatus/' . (int)$property['id'])) ?>">
+                👁️ Hiện lại tin
+              </button>
+            <?php endif; ?>
+            <button type="button" class="btn btn-outline-danger btn-admin-status" data-id="<?= (int)$property['id'] ?>" data-status="deleted" data-url="<?= e(base_url('admin/properties/changeStatus/' . (int)$property['id'])) ?>">
+              🗑️ Xóa tin
+            </button>
+          </div>
+
+          <a href="<?= e(base_url('admin/properties')) ?>" class="btn btn-sm btn-outline-dark">
+            Trang duyệt tin &raquo;
+          </a>
+        </div>
+      </div>
+    </div>
+  <?php endif; ?>
+
   <div class="row g-4">
     <!-- Cột trái: Thông tin chính, gallery, tiện ích, bản đồ -->
     <div class="col-lg-8">
@@ -57,9 +118,11 @@ if (!$hasValidCoords) {
             <?= $property['listing_type'] === 'sale' ? 'Bán' : 'Cho thuê' ?>
           </span>
           <span class="badge text-bg-primary fs-6"><?= e($property['type_name']) ?></span>
-          <?php if (!empty($property['is_verified'])): ?>
-            <span class="badge badge-verified text-bg-success text-white fs-6">✓ Đã xác thực</span>
-          <?php endif; ?>
+          <span id="verifiedBadgeWrapper">
+            <?php if (!empty($property['is_verified'])): ?>
+              <span class="badge badge-verified text-bg-success text-white fs-6">✓ Đã xác thực</span>
+            <?php endif; ?>
+          </span>
           <span class="badge text-bg-light border text-muted">👁 <?= e($property['views']) ?> lượt xem</span>
           <span class="badge text-bg-light border text-muted">Mã tin: #<?= (int)$property['id'] ?></span>
           <span class="badge text-bg-light border text-muted">Cập nhật: <?= date('d/m/Y', strtotime($property['updated_at'] ?: $property['created_at'])) ?></span>
@@ -68,23 +131,6 @@ if (!$hasValidCoords) {
         <p class="text-muted mb-0">
           📍 <?= e($property['address_detail'] ? $property['address_detail'] . ', ' : '') ?><?= e($property['ward_name']) ?>, <?= e($property['province_name']) ?>
         </p>
-        <div class="mt-2">
-          <?php if (Auth::check()): ?>
-            <?php if (!empty($hasReported)): ?>
-              <button class="btn btn-outline-warning btn-sm w-100" disabled>
-                🚩 Bạn đã báo cáo tin đăng này
-              </button>
-            <?php elseif ((int)Auth::id() !== (int)$property['user_id']): ?>
-              <button class="btn btn-outline-danger btn-sm w-100" data-bs-toggle="modal" data-bs-target="#reportModal">
-                🚩 Báo cáo tin đăng vi phạm
-              </button>
-            <?php endif; ?>
-          <?php else: ?>
-            <a href="<?= e(base_url('auth/login')) ?>" class="btn btn-outline-danger btn-sm w-100">
-              🚩 Đăng nhập để báo cáo vi phạm
-            </a>
-          <?php endif; ?>
-        </div>
       </div>
 
       <!-- Mức giá & Diện tích nổi bật -->
@@ -1621,3 +1667,111 @@ if (!$hasValidCoords) {
     // 6. Ghi nhận & Hiển thị Lịch sử Bất động sản vừa xem
     initRecentlyViewedDetail();
   });</script>
+
+<?php if (!empty($_SESSION['user']) && ((int)($_SESSION['user']['role_id'] ?? 0) === 1 || ($_SESSION['user']['role'] ?? '') === 'admin')): ?>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  // 1. Xử lý Toggle Huy hiệu Đã xác thực
+  const btnVerify = document.getElementById('btnAdminVerify');
+  if (btnVerify) {
+    btnVerify.addEventListener('click', async function () {
+      const propId = this.dataset.id;
+      const url = this.dataset.url || ('<?= e(base_url('admin/properties/verify/')) ?>' + propId);
+      this.disabled = true;
+      const originalText = this.innerHTML;
+      this.innerHTML = '⏳ Đang xử lý...';
+
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+          }
+        });
+        const data = await res.json();
+        if (data && data.success) {
+          const isVerified = Number(data.is_verified) === 1;
+          if (isVerified) {
+            this.className = 'btn btn-sm btn-outline-warning';
+            this.innerHTML = '🛡️ Gỡ huy hiệu Đã xác thực';
+          } else {
+            this.className = 'btn btn-sm btn-success';
+            this.innerHTML = '🛡️ Cấp huy hiệu ĐÃ XÁC THỰC';
+          }
+
+          const badgeWrap = document.getElementById('verifiedBadgeWrapper');
+          if (badgeWrap) {
+            badgeWrap.innerHTML = isVerified
+              ? '<span class="badge badge-verified text-bg-success text-white fs-6">✓ Đã xác thực</span>'
+              : '';
+          }
+
+          const verifyStatusText = document.getElementById('adminCurrentVerify');
+          if (verifyStatusText) {
+            if (isVerified) {
+              verifyStatusText.className = 'badge bg-success';
+              verifyStatusText.textContent = 'Đã xác thực';
+            } else {
+              verifyStatusText.className = 'badge bg-light text-muted border';
+              verifyStatusText.textContent = 'Chưa xác thực';
+            }
+          }
+        } else {
+          alert((data && data.message) ? data.message : 'Có lỗi xảy ra khi cập nhật.');
+          this.innerHTML = originalText;
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Lỗi kết nối máy chủ.');
+        this.innerHTML = originalText;
+      } finally {
+        this.disabled = false;
+      }
+    });
+  }
+
+  // 2. Xử lý Thay đổi Trạng thái Tin đăng (Duyệt tin, Tạm ẩn tin, Xóa tin)
+  document.querySelectorAll('.btn-admin-status').forEach(btn => {
+    btn.addEventListener('click', async function () {
+      const status = this.dataset.status;
+      if (status === 'deleted' && !confirm('Bạn có chắc chắn muốn xóa tin đăng này? Thao tác này không thể hoàn tác!')) {
+        return;
+      }
+      const propId = this.dataset.id;
+      const url = this.dataset.url || ('<?= e(base_url('admin/properties/changeStatus/')) ?>' + propId);
+      this.disabled = true;
+
+      try {
+        const formData = new FormData();
+        formData.append('status', status);
+
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+          },
+          body: formData
+        });
+        const data = await res.json();
+        if (data && data.success) {
+          if (status === 'deleted') {
+            window.location.href = '<?= e(base_url('admin/properties')) ?>';
+            return;
+          }
+          window.location.reload();
+        } else {
+          alert((data && data.message) ? data.message : 'Không thể cập nhật trạng thái.');
+          this.disabled = false;
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Lỗi kết nối máy chủ.');
+        this.disabled = false;
+      }
+    });
+  });
+});
+</script>
+<?php endif; ?>

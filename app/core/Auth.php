@@ -34,7 +34,8 @@ class Auth
             'id' => (int)$user['id'],
             'full_name' => $user['full_name'],
             'email' => $user['email'],
-            'role' => $user['role_name'],
+            'role' => $user['role_name'] ?? ($user['role'] ?? 'user'),
+            'role_id' => (int)($user['role_id'] ?? ($_SESSION['user']['role_id'] ?? (($user['role_name'] ?? ($user['role'] ?? '')) === 'admin' ? 1 : 2))),
             'avatar' => array_key_exists('avatar', $user) ? $user['avatar'] : ($_SESSION['user']['avatar'] ?? null),
             'bio' => array_key_exists('bio', $user) ? $user['bio'] : ($_SESSION['user']['bio'] ?? null),
             'pwd_sig' => $pwdSig,
@@ -53,7 +54,7 @@ class Auth
     {
         if (!self::check()) return;
         $stmt = Database::connection()->prepare(
-            'SELECT u.id, u.full_name, u.email, u.password_hash, u.avatar, u.bio, u.status, r.name AS role_name
+            'SELECT u.id, u.full_name, u.email, u.password_hash, u.avatar, u.bio, u.status, u.role_id, r.name AS role_name
              FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = ?'
         );
         $stmt->execute([self::id()]);
@@ -95,5 +96,15 @@ class Auth
     public static function check(): bool { return isset($_SESSION['user']); }
     public static function user(): ?array { return $_SESSION['user'] ?? null; }
     public static function id(): ?int { return $_SESSION['user']['id'] ?? null; }
-    public static function hasRole(string ...$roles): bool { return self::check() && in_array($_SESSION['user']['role'], $roles, true); }
+    public static function isAdmin(): bool
+    {
+        return self::check() && ((int)($_SESSION['user']['role_id'] ?? 0) === 1 || ($_SESSION['user']['role'] ?? '') === 'admin');
+    }
+    public static function hasRole(string ...$roles): bool
+    {
+        if (!self::check()) return false;
+        $currentRole = $_SESSION['user']['role'] ?? '';
+        $roleId = (int)($_SESSION['user']['role_id'] ?? 0);
+        return in_array($currentRole, $roles, true) || ($roleId === 1 && in_array('admin', $roles, true));
+    }
 }
