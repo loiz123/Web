@@ -7,7 +7,7 @@ require ROOT . '/app/helpers/Mailer.php';
 $GLOBALS['config'] = require ROOT . '/config/config.php';
 $mailer = new Mailer();
 if (!$mailer->isEnabled()) {
-    fwrite(STDERR, "Chưa đủ cấu hình gửi mail. Kiểm tra MAIL_TRANSPORT, RESEND_API_KEY và MAIL_FROM_EMAIL; hoặc cấu hình SMTP.\n");
+    fwrite(STDERR, "Chưa đủ cấu hình gửi mail. Kiểm tra MAIL_TRANSPORT, BREVO_API_KEY (hoặc RESEND_API_KEY) và MAIL_FROM_EMAIL; hoặc cấu hình SMTP.\n");
     exit(1);
 }
 echo "Đã có cấu hình gửi mail. Không hiển thị API key hoặc mật khẩu.\n";

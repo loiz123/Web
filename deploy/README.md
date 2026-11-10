@@ -11,7 +11,40 @@
 
 Gói Render Free không lưu được file trên filesystem qua lần khởi động lại, ngủ hoặc triển khai lại; hãy cấu hình Cloudinary hoặc dùng dịch vụ trả phí có persistent disk trước khi dùng ảnh thật. Session trên filesystem có thể mất khi dịch vụ khởi động lại.
 
-## Gửi mail quên mật khẩu qua HTTPS (Resend)
+## Gửi mail quên mật khẩu qua HTTPS (Brevo)
+
+1. Tạo tài khoản Brevo. Trong **Settings → Senders, Domains, IPs → Senders**, thêm email gửi và xác minh bằng mã nhận trong hộp thư. Tài khoản Brevo phải được kích hoạt tính năng gửi transactional email.
+2. Tạo **API key** ở phần **SMTP & API → API Keys** (không dùng SMTP key làm API key).
+3. Trên **Render → backend PHP → Environment**, đặt:
+
+   ```text
+   MAIL_TRANSPORT=brevo
+   BREVO_API_KEY=<API key Brevo của bạn>
+   MAIL_FROM_EMAIL=<email sender vừa xác minh>
+   MAIL_FROM_NAME=BDS Viet
+   ```
+
+   Đổi `MAIL_FROM_EMAIL` từ `onboarding@resend.dev` sang email đã xác minh trong Brevo. Nếu còn `RESEND_API_KEY` hoặc biến SMTP cũ, chúng không được dùng khi chọn rõ `MAIL_TRANSPORT=brevo`.
+
+4. Lưu và triển khai lại backend. Dùng email tài khoản ứng dụng để thử quên mật khẩu; email người nhận không bắt buộc trùng sender.
+5. XAMPP: thêm cấu hình sau vào `config/config.local.php`, giữ nguyên phần database:
+
+   ```php
+   'mail' => [
+       'transport' => 'brevo',
+       'brevo_api_key' => '<API key Brevo của bạn>',
+       'from_email' => '<email sender vừa xác minh>',
+       'from_name' => 'BDS Viet',
+   ],
+   ```
+
+Ứng dụng dùng `POST https://api.brevo.com/v3/smtp/email` qua HTTPS/cổng 443, không kết nối SMTP. PHP cần cURL và CA certificates hợp lệ. Xem [tài liệu Brevo](https://developers.brevo.com/docs/send-a-transactional-email).
+
+Nếu dùng Gmail làm sender, [Brevo có thể thay tên miền hiển thị bằng @brevosend.com](https://help.brevo.com/hc/en-us/articles/16045394674066-Troubleshooting-Domain-authentication) vì Gmail không cho bạn tự xác thực DNS. Khả năng gửi còn phụ thuộc trạng thái tài khoản và hạn mức của Brevo; không bảo đảm thư vào Inbox.
+
+Chạy `php scripts/check_mail.php` để kiểm tra có cấu hình. Thêm `--to=email-cua-ban@example.com` khi muốn gửi một thư kiểm tra. Nếu gửi thất bại, xem lỗi HTTP trong server log và chi tiết tại **Brevo → Transactional → Logs**; không đưa API key hoặc link đặt lại mật khẩu vào Git.
+
+## Phương án khác: Resend
 
 Render Free [chặn cổng SMTP 25/465/587](https://render.com/docs/free). Ứng dụng hỗ trợ [Resend API](https://resend.com/docs/api-reference/emails/send-email) qua HTTPS/cổng 443.
 

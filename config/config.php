@@ -24,10 +24,11 @@ $config = [
         'template'     => 'compact2',
     ],
     'mail' => [
-        'transport' => 'auto', // Ưu tiên HTTPS khi có Resend API key; còn lại dùng SMTP.
+        'transport' => 'auto', // Ưu tiên Brevo, rồi Resend khi có API key; còn lại dùng SMTP.
         'from_email' => '',
         'from_name' => 'BĐS Việt',
         'resend_api_key' => '',
+        'brevo_api_key' => '',
         'timeout' => 15,
     ],
     'smtp' => [
@@ -62,7 +63,7 @@ if (($value = getenv('SMTP_PORT')) !== false) $config['smtp']['port'] = (int)$va
 if (($value = getenv('SMTP_USER')) !== false || ($value = getenv('SMTP_USERNAME')) !== false) $config['smtp']['username'] = $value;
 if (($value = getenv('SMTP_PASS')) !== false || ($value = getenv('SMTP_PASSWORD')) !== false) $config['smtp']['password'] = $value;
 if (($value = getenv('SMTP_FROM_NAME')) !== false) $config['smtp']['from_name'] = $value;
-foreach (['MAIL_TRANSPORT' => 'transport', 'MAIL_FROM_EMAIL' => 'from_email', 'MAIL_FROM_NAME' => 'from_name', 'RESEND_API_KEY' => 'resend_api_key'] as $env => $key) {
+foreach (['MAIL_TRANSPORT' => 'transport', 'MAIL_FROM_EMAIL' => 'from_email', 'MAIL_FROM_NAME' => 'from_name', 'RESEND_API_KEY' => 'resend_api_key', 'BREVO_API_KEY' => 'brevo_api_key'] as $env => $key) {
     if (($value = getenv($env)) !== false) $config['mail'][$key] = $value;
 }
 return $config;

@@ -1,5 +1,5 @@
 <?php
-// Gửi email bằng Resend HTTPS API hoặc SMTP; log không chứa link đặt lại mật khẩu.
+// Gửi email bằng Brevo/Resend HTTPS API hoặc SMTP; log không chứa link đặt lại mật khẩu.
 class Mailer
 {
     private array $smtpConfig;
@@ -19,11 +19,12 @@ class Mailer
 
     public function isEnabled(): bool
     {
-        if ($this->transport() === 'resend') {
-            return trim((string)($this->mailConfig['resend_api_key'] ?? '')) !== ''
+        $transport = $this->transport();
+        if (in_array($transport, ['brevo', 'resend'], true)) {
+            return trim((string)($this->mailConfig[$transport . '_api_key'] ?? '')) !== ''
                 && (bool)filter_var($this->mailConfig['from_email'] ?? '', FILTER_VALIDATE_EMAIL);
         }
-        if ($this->transport() !== 'smtp') return false;
+        if ($transport !== 'smtp') return false;
         return !empty($this->smtpConfig['enabled'])
             && !empty($this->smtpConfig['host'])
             && !empty($this->smtpConfig['username'])
@@ -39,7 +40,7 @@ class Mailer
         $toEmail = trim($toEmail);
 
         if (!$this->isEnabled()) {
-            $this->lastError = 'Dịch vụ gửi email chưa đủ cấu hình Resend hoặc SMTP.';
+            $this->lastError = 'Dịch vụ gửi email chưa đủ cấu hình Brevo, Resend hoặc SMTP.';
             $this->writeMailLog($toEmail, $subject, $htmlBody, 'NOT_CONFIGURED', $this->lastError, $meta);
             return false;
         }
@@ -49,9 +50,11 @@ class Mailer
         }
 
         try {
-            $sent = $this->transport() === 'resend'
-                ? $this->sendViaResend($toEmail, $subject, $htmlBody)
-                : $this->sendViaSmtpSocket($toEmail, $toName, $subject, $htmlBody);
+            $sent = match ($this->transport()) {
+                'brevo' => $this->sendViaBrevo($toEmail, $toName, $subject, $htmlBody),
+                'resend' => $this->sendViaResend($toEmail, $subject, $htmlBody),
+                default => $this->sendViaSmtpSocket($toEmail, $toName, $subject, $htmlBody),
+            };
             if ($sent) {
                 $this->writeMailLog($toEmail, $subject, $htmlBody, 'ACCEPTED_' . strtoupper($this->transport()), 'OK', $meta);
                 return true;
@@ -78,8 +81,32 @@ class Mailer
     {
         $transport = strtolower(trim((string)($this->mailConfig['transport'] ?? 'auto')));
         return $transport === 'auto'
-            ? (!empty($this->mailConfig['resend_api_key']) ? 'resend' : 'smtp')
+            ? (!empty($this->mailConfig['brevo_api_key']) ? 'brevo' : (!empty($this->mailConfig['resend_api_key']) ? 'resend' : 'smtp'))
             : $transport;
+    }
+
+    private function sendViaBrevo(string $toEmail, string $toName, string $subject, string $htmlBody): bool
+    {
+        $recipient = ['email' => $toEmail];
+        if ($toName !== '') $recipient['name'] = $toName;
+        $response = $this->brevoRequest([
+            'sender' => [
+                'email' => trim((string)$this->mailConfig['from_email']),
+                'name' => trim((string)($this->mailConfig['from_name'] ?? config('app_name', 'BĐS Việt'))),
+            ],
+            'to' => [$recipient],
+            'subject' => $subject,
+            'htmlContent' => $htmlBody,
+        ]);
+        if ($response['status'] >= 200 && $response['status'] < 300 && !empty($response['data']['messageId'])) return true;
+        $this->lastError = 'Brevo không chấp nhận thư (HTTP ' . $response['status'] . '). Kiểm tra API key, sender đã xác minh, trạng thái tài khoản và hạn mức gửi trong Brevo.';
+        return false;
+    }
+
+    protected function brevoRequest(array $payload): array
+    {
+        return $this->httpsMailRequest('Brevo', 'https://api.brevo.com/v3/smtp/email',
+            'api-key: ' . trim((string)$this->mailConfig['brevo_api_key']), $payload);
     }
 
     private function sendViaResend(string $toEmail, string $subject, string $htmlBody): bool
@@ -100,8 +127,14 @@ class Mailer
     /** Ranh giới HTTP riêng để kiểm thử phản hồi mà không gửi mail thật. */
     protected function resendRequest(array $payload): array
     {
+        return $this->httpsMailRequest('Resend', 'https://api.resend.com/emails',
+            'Authorization: Bearer ' . trim((string)$this->mailConfig['resend_api_key']), $payload);
+    }
+
+    private function httpsMailRequest(string $provider, string $endpoint, string $authorization, array $payload): array
+    {
         if (!function_exists('curl_init')) throw new RuntimeException('PHP cần bật extension cURL để gửi email qua HTTPS.');
-        $curl = curl_init('https://api.resend.com/emails');
+        $curl = curl_init($endpoint);
         curl_setopt_array($curl, [
             CURLOPT_POST => true,
             CURLOPT_RETURNTRANSFER => true,
@@ -110,14 +143,15 @@ class Mailer
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_SSL_VERIFYHOST => 2,
             CURLOPT_HTTPHEADER => [
-                'Authorization: Bearer ' . trim((string)$this->mailConfig['resend_api_key']),
+                $authorization,
+                'Accept: application/json',
                 'Content-Type: application/json',
             ],
             CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
         ]);
         try {
             $body = curl_exec($curl);
-            if ($body === false) throw new RuntimeException('Không kết nối được Resend qua HTTPS (cURL ' . curl_errno($curl) . ').');
+            if ($body === false) throw new RuntimeException('Không kết nối được ' . $provider . ' qua HTTPS (cURL ' . curl_errno($curl) . ').');
             return ['status' => (int)curl_getinfo($curl, CURLINFO_RESPONSE_CODE), 'data' => json_decode($body, true)];
         } finally {
             curl_close($curl);
