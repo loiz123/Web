@@ -61,7 +61,7 @@ DROP PROCEDURE IF EXISTS sp_catalog_usage$$
 CREATE PROCEDURE sp_catalog_usage(IN t VARCHAR(30),IN n INT)
 BEGIN
  CASE t
- WHEN 'provinces' THEN SELECT COUNT(*) AS total FROM properties p JOIN wards w ON w.id=p.ward_id JOIN districts d ON d.id=w.district_id WHERE d.province_id=n;
+ WHEN 'provinces' THEN SELECT COUNT(*) AS total FROM properties p JOIN wards w ON w.id=p.ward_id LEFT JOIN districts d ON d.id=w.district_id JOIN provinces pr ON pr.id=w.province_id WHERE pr.id=n;
  WHEN 'districts' THEN SELECT COUNT(*) AS total FROM properties p JOIN wards w ON w.id=p.ward_id WHERE w.district_id=n;
  WHEN 'wards' THEN SELECT COUNT(*) AS total FROM properties WHERE ward_id=n;
  WHEN 'amenities' THEN SELECT COUNT(*) AS total FROM property_amenities WHERE amenity_id=n;
@@ -83,9 +83,9 @@ DROP PROCEDURE IF EXISTS sp_catalog_admin_list$$
 CREATE PROCEDURE sp_catalog_admin_list(IN t VARCHAR(30), IN province_filter INT, IN district_filter INT)
 BEGIN
  CASE t
- WHEN 'provinces' THEN SELECT pr.id,pr.name,NULL AS parent_id,NULL AS parent_name,(SELECT COUNT(*) FROM districts d WHERE d.province_id=pr.id) AS extra,(SELECT COUNT(*) FROM properties p JOIN wards w ON w.id=p.ward_id JOIN districts d ON d.id=w.district_id WHERE d.province_id=pr.id) AS used FROM provinces pr ORDER BY pr.name;
+ WHEN 'provinces' THEN SELECT pr.id,pr.name,NULL AS parent_id,NULL AS parent_name,(SELECT COUNT(*) FROM districts d WHERE d.province_id=pr.id) AS extra,(SELECT COUNT(*) FROM properties p JOIN wards w ON w.id=p.ward_id LEFT JOIN districts d ON d.id=w.district_id WHERE w.province_id=pr.id) AS used FROM provinces pr ORDER BY pr.name;
  WHEN 'districts' THEN SELECT d.id,d.name,d.province_id AS parent_id,pr.name AS parent_name,(SELECT COUNT(*) FROM wards w WHERE w.district_id=d.id) AS extra,(SELECT COUNT(*) FROM properties p JOIN wards w ON w.id=p.ward_id WHERE w.district_id=d.id) AS used FROM districts d JOIN provinces pr ON pr.id=d.province_id WHERE province_filter=0 OR d.province_id=province_filter ORDER BY pr.name,d.name;
- WHEN 'wards' THEN SELECT w.id,w.name,w.district_id AS parent_id,d.name AS parent_name,d.province_id AS grand_id,pr.name AS grand_name,NULL AS extra,(SELECT COUNT(*) FROM properties p WHERE p.ward_id=w.id) AS used FROM wards w JOIN districts d ON d.id=w.district_id JOIN provinces pr ON pr.id=d.province_id WHERE (district_filter<>0 AND w.district_id=district_filter) OR (district_filter=0 AND (province_filter=0 OR d.province_id=province_filter)) ORDER BY pr.name,d.name,w.name LIMIT 300;
+ WHEN 'wards' THEN SELECT w.id,w.name,w.district_id AS parent_id,d.name AS parent_name,pr.id AS grand_id,pr.name AS grand_name,NULL AS extra,(SELECT COUNT(*) FROM properties p WHERE p.ward_id=w.id) AS used FROM wards w LEFT JOIN districts d ON d.id=w.district_id JOIN provinces pr ON pr.id=w.province_id WHERE (district_filter<>0 AND w.district_id=district_filter) OR (district_filter=0 AND (province_filter=0 OR pr.id=province_filter)) ORDER BY pr.name,d.name,w.name LIMIT 300;
  WHEN 'amenities' THEN SELECT a.id,a.name,NULL AS parent_id,NULL AS parent_name,NULL AS extra,(SELECT COUNT(*) FROM property_amenities pa WHERE pa.amenity_id=a.id) AS used FROM amenities a ORDER BY a.name;
  WHEN 'property_types' THEN SELECT t1.id,t1.name,NULL AS parent_id,NULL AS parent_name,NULL AS extra,(SELECT COUNT(*) FROM properties p WHERE p.type_id=t1.id) AS used FROM property_types t1 ORDER BY t1.name;
  ELSE SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Invalid catalog'; END CASE;
@@ -95,6 +95,9 @@ CREATE PROCEDURE sp_catalog_sorted(IN t VARCHAR(30))
 BEGIN
  CASE t WHEN 'amenities' THEN SELECT id,name FROM amenities ORDER BY name;
  WHEN 'property_types' THEN SELECT id,name FROM property_types ORDER BY name;
+ WHEN 'provinces' THEN SELECT id,name FROM provinces ORDER BY name;
+ WHEN 'districts' THEN SELECT id,name FROM districts ORDER BY name;
+ WHEN 'wards' THEN SELECT id,name FROM wards ORDER BY name;
  ELSE SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Invalid catalog'; END CASE;
 END$$
 DELIMITER ;

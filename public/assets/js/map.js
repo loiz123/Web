@@ -8,8 +8,8 @@ window.BdsMap =           (function _callback(){
   const DEFAULT_LNG = 106.700806;
   const DEFAULT_ZOOM = 14;
 
-  const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-  const OSM_ATTRIBUTION = '&copy; Bản đồ số BĐS Việt';
+  const OSM_TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+  const OSM_ATTRIBUTION = '© OpenStreetMap';
 
   const OSM_HOT_URL = 'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png';
   const OSM_HOT_ATTRIBUTION = '&copy; Bản đồ giao thông & tiện ích';
@@ -65,24 +65,38 @@ window.BdsMap =           (function _callback(){
 
   function applyAntiGreyScreen(map, mapEl) {
     if (!map) return;
+    const safeInvalidate = function _safeInvalidate() {
+      try {
+        if (map && typeof map.invalidateSize === 'function') {
+          map.invalidateSize();
+        }
+      } catch (e) {}
+    };
     try {
       if (map.attributionControl && typeof map.attributionControl.setPrefix === 'function') {
         map.attributionControl.setPrefix('Định vị trực tuyến');
       }
-      map.invalidateSize();
-      setTimeout(function _callback2(){if(map)map.invalidateSize();},150);
-      setTimeout(function _callback3(){if(map)map.invalidateSize();},500);
-      setTimeout(function _callback4(){if(map)map.invalidateSize();},1000);
+      safeInvalidate();
+      setTimeout(safeInvalidate, 150);
+      setTimeout(safeInvalidate, 500);
+      setTimeout(safeInvalidate, 1000);
 
-      window.addEventListener('resize', function _callback5(){if(map)map.invalidateSize();});
-      window.addEventListener('load', function _callback6(){if(map)map.invalidateSize();});
+      if (typeof map.on === 'function') {
+        map.on('load', safeInvalidate);
+      }
+      window.addEventListener('resize', safeInvalidate);
+      if (document.readyState === 'complete') {
+        setTimeout(safeInvalidate, 50);
+      } else {
+        window.addEventListener('load', safeInvalidate);
+      }
 
       if (typeof IntersectionObserver !== 'undefined' && mapEl) {
         const observer = new IntersectionObserver(function _callback7(entries){
           entries.forEach(function _callback8(entry){
             if (entry.isIntersecting) {
-              setTimeout(function _callback9(){if(map)map.invalidateSize();},50);
-              setTimeout(function _callback0(){if(map)map.invalidateSize();},200);
+              setTimeout(safeInvalidate, 50);
+              setTimeout(safeInvalidate, 200);
             }
           });
         }, { threshold: 0.1 });
@@ -490,7 +504,6 @@ window.BdsMap =           (function _callback(){
           btn.classList.replace('btn-primary', 'btn-success');
           btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Đã áp dụng địa chỉ';
         });
-        });
       }
     }
 
@@ -598,7 +611,6 @@ window.BdsMap =           (function _callback(){
         try { searchAbortController.abort(); } catch (e) {}
       }
 
->>>>>>> thien
       if (!q) {
         resultsEl.replaceChildren();
         resultsEl.hidden = true;
@@ -969,76 +981,160 @@ window.BdsMap =           (function _callback(){
     const mapEl = document.getElementById(mapId);
     if (!mapEl) return null;
 
+    const rawLat = parseFloat(options.lat);
+    const rawLng = parseFloat(options.lng);
+    const lat = Number.isFinite(rawLat) && rawLat !== 0 && Math.abs(rawLat) <= 90 ? rawLat : DEFAULT_LAT;
+    const lng = Number.isFinite(rawLng) && rawLng !== 0 && Math.abs(rawLng) <= 180 ? rawLng : DEFAULT_LNG;
+    const rawZoom = parseInt(options.zoom, 10);
+    const zoom = Number.isFinite(rawZoom) && rawZoom > 0 && rawZoom <= 19 ? rawZoom : 15;
+
+    function renderHtmlFallback() {
+      try {
+        mapEl.innerHTML =
+          '<div class="d-flex flex-column align-items-center justify-content-center h-100 p-4 text-center bg-light text-secondary">' +
+            '<i class="bi bi-geo-alt-fill text-danger fs-1 mb-2"></i>' +
+            '<div class="fw-semibold text-dark mb-1">Không thể tải bản đồ tương tác ngay lúc này</div>' +
+            '<div class="small mb-3">Tọa độ tham chiếu: ' + lat.toFixed(6) + ', ' + lng.toFixed(6) + '</div>' +
+            '<a href="https://www.google.com/maps?q=' + encodeURIComponent(lat + ',' + lng) + '" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-primary rounded-pill px-3">' +
+              '<i class="bi bi-map me-1"></i>Mở vị trí trên bản đồ trực tuyến' +
+            '</a>' +
+          '</div>';
+      } catch (e) {}
+    }
+
     if (typeof L === 'undefined') {
-      console.error('Leaflet chưa được tải.');
+      console.error('Thư viện bản đồ chưa sẵn sàng.');
+      renderHtmlFallback();
       return null;
     }
 
-    fixLeafletIconPaths();
+    try {
+      fixLeafletIconPaths();
 
-    const lat = parseFloat(options.lat) || DEFAULT_LAT;
-    const lng = parseFloat(options.lng) || DEFAULT_LNG;
-    const zoom = options.zoom || 15;
+      if (mapEl._leaflet_id) {
+        try {
+          delete mapEl._leaflet_id;
+          mapEl.innerHTML = '';
+        } catch (e) {}
+      }
 
-    const map = L.map(mapId, {
-      center: [lat, lng],
-      zoom: zoom,
-      scrollWheelZoom: true,
-    });
+      const map = L.map(mapId, {
+        center: [lat, lng],
+        zoom: zoom,
+        scrollWheelZoom: true,
+      });
 
-    const baseLayer = createBaseTileLayer();
-    baseLayer.addTo(map);
-    addLayerSwitcher(map, baseLayer);
+      const baseLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap',
+      }).addTo(map);
 
-    // Marker BĐS chính - màu đỏ nổi bật với icon ngôi nhà
-    const propertyIcon = L.divIcon({
-      className: 'property-main-marker',
-      html: '<div style="background: linear-gradient(135deg, #ef4444, #b91c1c); color:white; width:42px; height:42px; border-radius:50% 50% 50% 0; transform:rotate(-45deg); display:flex; align-items:center; justify-content:center; box-shadow:0 6px 16px rgba(220,38,38,0.45); border:3px solid white;"><span style="transform:rotate(45deg); font-size:18px;">🏠</span></div>',
-      iconSize: [42, 42],
-      iconAnchor: [21, 42],
-      popupAnchor: [0, -42]
-    });
-
-    const marker = L.marker([lat, lng], {
-      icon: propertyIcon,
-      title: 'Vị trí bất động sản'
-    }).addTo(map);
-
-    if (options.popupText) {
-      marker.bindPopup(options.popupText).openPopup();
-    }
-
-    // Layer chứa các marker tiện ích xung quanh (POI)
-    const poiLayer = L.layerGroup().addTo(map);
-
-    async function loadPoi(categoryKey, districtName = '') {
-      poiLayer.clearLayers();
-      const conf = POI_CONFIG[categoryKey];
-      if (!conf) return [];
-
-      let poiItems = null;
-
-      // 1. Thử gọi Overpass API với timeout 1.5s
       try {
-        const filterParts = conf.osmValues.map(function _callback18(v){return'node["'+conf.osmKey+'"="'+v+'"](around:1600,'+lat+','+lng+');';}).join('');
-        const query = '[out:json][timeout:2];(' + filterParts + ');out body 10;';
-        const url = 'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(query);
+        addLayerSwitcher(map, baseLayer);
+      } catch (switcherErr) {
+        console.warn('Không thể khởi tạo bộ chuyển lớp bản đồ:', switcherErr);
+      }
 
-        const controller = new AbortController();
-        const timer = setTimeout(function _callback19(){return controller.abort();},1500);
-        const res = await fetch(url, { signal: controller.signal });
-        clearTimeout(timer);
+      // Marker BĐS chính - màu đỏ nổi bật với icon ngôi nhà (có fallback marker mặc định)
+      let marker = null;
+      try {
+        const propertyIcon = L.divIcon({
+          className: 'property-main-marker',
+          html: '<div style="background: linear-gradient(135deg, #ef4444, #b91c1c); color:white; width:42px; height:42px; border-radius:50% 50% 50% 0; transform:rotate(-45deg); display:flex; align-items:center; justify-content:center; box-shadow:0 6px 16px rgba(220,38,38,0.45); border:3px solid white;"><span style="transform:rotate(45deg); font-size:18px;">🏠</span></div>',
+          iconSize: [42, 42],
+          iconAnchor: [21, 42],
+          popupAnchor: [0, -42]
+        });
 
-        if (res.ok) {
-          const data = await res.json();
-          if (data.elements && data.elements.length > 0) {
-            poiItems = data.elements.map(function _callback20(el){
-              const name = el.tags.name || el.tags['name:vi'] || el.tags['name:en'] || conf.label;
-              const d = calculateDistance(lat, lng, el.lat, el.lon);
+        marker = L.marker([lat, lng], {
+          icon: propertyIcon,
+          title: 'Vị trí bất động sản'
+        }).addTo(map);
+      } catch (markerErr) {
+        try {
+          marker = L.marker([lat, lng], { title: 'Vị trí bất động sản' }).addTo(map);
+        } catch (fallbackMarkerErr) {}
+      }
+
+      if (marker && options.popupText) {
+        try {
+          marker.bindPopup(options.popupText).openPopup();
+        } catch (popupErr) {
+          console.warn('Không thể hiển thị chú thích trên ghim:', popupErr);
+        }
+      }
+
+      // Layer chứa các marker tiện ích xung quanh (POI)
+      let poiLayer = null;
+      try {
+        poiLayer = L.layerGroup().addTo(map);
+      } catch (poiLayerErr) {
+        poiLayer = { clearLayers: function () {}, addLayer: function () {}, eachLayer: function () {} };
+      }
+
+      async function loadPoi(categoryKey, districtName = '') {
+        try {
+          if (poiLayer && typeof poiLayer.clearLayers === 'function') poiLayer.clearLayers();
+          const conf = POI_CONFIG[categoryKey];
+          if (!conf) return [];
+
+          let poiItems = null;
+
+          // 1. Thử gọi Overpass API với timeout 1.5s
+          try {
+            const filterParts = conf.osmValues.map(function _callback18(v){return'node["'+conf.osmKey+'"="'+v+'"](around:1600,'+lat+','+lng+');';}).join('');
+            const query = '[out:json][timeout:2];(' + filterParts + ');out body 10;';
+            const url = 'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(query);
+
+            const controller = new AbortController();
+            const timer = setTimeout(function _callback19(){return controller.abort();},1500);
+            const res = await fetch(url, { signal: controller.signal });
+            clearTimeout(timer);
+
+            if (res.ok) {
+              const data = await res.json();
+              if (data.elements && data.elements.length > 0) {
+                poiItems = data.elements.map(function _callback20(el){
+                  const name = (el.tags && (el.tags.name || el.tags['name:vi'] || el.tags['name:en'])) || conf.label;
+                  const d = calculateDistance(lat, lng, el.lat, el.lon);
+                  return {
+                    name: name,
+                    lat: el.lat,
+                    lng: el.lon,
+                    distance: d,
+                    formattedDistance: formatDistance(d),
+                    type: conf.label,
+                    icon: conf.icon,
+                    badgeClass: conf.badgeClass,
+                    color: conf.color
+                  };
+                }).filter(function _callback21(item){return item.distance<=2200;});
+              }
+            }
+          } catch (e) {
+            // Overpass timeout hoặc lỗi mạng/CORS -> chuyển sang Smart Mock
+          }
+
+          // 2. Fallback sang Smart Mock Generator nếu Overpass không có kết quả
+          if (!poiItems || poiItems.length === 0) {
+            const offsets = [
+              { dLat: 0.0032, dLng: 0.0025 },
+              { dLat: -0.0025, dLng: 0.0038 },
+              { dLat: -0.0041, dLng: -0.0028 },
+              { dLat: 0.0046, dLng: -0.0039 },
+              { dLat: 0.0015, dLng: 0.0055 },
+              { dLat: -0.0052, dLng: 0.0015 }
+            ];
+            const prefix = districtName ? ' (' + districtName + ')' : '';
+            poiItems = conf.mockNames.map(function _callback22(name,idx){
+              const off = offsets[idx % offsets.length];
+              const poiLat = lat + off.dLat;
+              const poiLng = lng + off.dLng;
+              const d = calculateDistance(lat, lng, poiLat, poiLng);
               return {
-                name: name,
-                lat: el.lat,
-                lng: el.lon,
+                name: name +( idx < 2 ? prefix : ''),
+                lat: poiLat,
+                lng: poiLng,
                 distance: d,
                 formattedDistance: formatDistance(d),
                 type: conf.label,
@@ -1046,104 +1142,111 @@ window.BdsMap =           (function _callback(){
                 badgeClass: conf.badgeClass,
                 color: conf.color
               };
-            }).filter(function _callback21(item){return item.distance<=2200;});
+            });
           }
+
+          poiItems.sort(function _callback23(a,b){return a.distance-b.distance;});
+
+          // Vẽ markers lên bản đồ
+          const allPoints = [[lat, lng]];
+          poiItems.forEach(function _callback24(item){
+            const iconHtml = '<div class="poi-marker-icon ' + item.badgeClass + '"><span>' + item.icon + '</span></div>';
+            const divIcon = L.divIcon({
+              className: 'poi-div-icon',
+              html: iconHtml,
+              iconSize: [36, 36],
+              iconAnchor: [18, 18],
+              popupAnchor: [0, -18]
+            });
+
+            const walkMinutes = Math.max(1, Math.round(item.distance / 75));
+            const popupHtml =
+              '<div style="min-width: 200px; font-family: system-ui, -apple-system, sans-serif; line-height: 1.45; padding: 2px;">' +
+                '<div class="d-flex align-items-center gap-2 mb-1">' +
+                  '<span style="font-size: 1.25rem;">' + item.icon + '</span>' +
+                  '<strong class="text-dark" style="font-size: 0.875rem;">' + escapeHtml(item.name) + '</strong>' +
+                '</div>' +
+                '<div class="text-muted small mb-1">Loại: <span class="badge bg-light text-dark border">' + item.type + '</span></div>' +
+                '<div class="text-danger fw-bold small mb-2">📍 Cách ' + item.formattedDistance + ' <span class="fw-normal text-muted">(~' + walkMinutes + ' phút đi bộ)</span></div>' +
+                '<div class="d-flex gap-1">' +
+                  '<a href="https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=%2C%3B' + item.lat + '%2C' + item.lng + '" target="_blank" rel="noopener noreferrer" class="btn btn-outline-success btn-sm py-0 px-2 text-decoration-none" style="font-size:0.75rem;"><i class="bi bi-signpost-2 me-1"></i>Chỉ đường nhanh</a>' +
+                  '<a href="https://www.google.com/maps/dir/?api=1&destination=' + item.lat + ',' + item.lng + '" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary btn-sm py-0 px-2 text-decoration-none" style="font-size:0.75rem;"><i class="bi bi-geo-alt me-1"></i>Google Maps</a>' +
+                '</div>' +
+              '</div>';
+
+            const m = L.marker([item.lat, item.lng], { icon: divIcon })
+              .bindPopup(popupHtml);
+            if (poiLayer && typeof poiLayer.addLayer === 'function') {
+              poiLayer.addLayer(m);
+            }
+            allPoints.push([item.lat, item.lng]);
+          });
+
+          if (allPoints.length > 1) {
+            const bounds = L.latLngBounds(allPoints);
+            map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });
+          }
+
+          return poiItems;
+        } catch (loadPoiErr) {
+          console.warn('Lỗi tải tiện ích xung quanh:', loadPoiErr);
+          return [];
         }
-      } catch (e) {
-        // Overpass timeout hoặc lỗi mạng/CORS -> chuyển sang Smart Mock
       }
 
-      // 2. Fallback sang Smart Mock Generator nếu Overpass không có kết quả
-      if (!poiItems || poiItems.length === 0) {
-        const offsets = [
-          { dLat: 0.0032, dLng: 0.0025 },
-          { dLat: -0.0025, dLng: 0.0038 },
-          { dLat: -0.0041, dLng: -0.0028 },
-          { dLat: 0.0046, dLng: -0.0039 },
-          { dLat: 0.0015, dLng: 0.0055 },
-          { dLat: -0.0052, dLng: 0.0015 }
-        ];
-        const prefix = districtName ? ' (' + districtName + ')' : '';
-        poiItems = conf.mockNames.map(function _callback22(name,idx){
-          const off = offsets[idx % offsets.length];
-          const poiLat = lat + off.dLat;
-          const poiLng = lng + off.dLng;
-          const d = calculateDistance(lat, lng, poiLat, poiLng);
-          return {
-            name: name +( idx < 2 ? prefix : ''),
-            lat: poiLat,
-            lng: poiLng,
-            distance: d,
-            formattedDistance: formatDistance(d),
-            type: conf.label,
-            icon: conf.icon,
-            badgeClass: conf.badgeClass,
-            color: conf.color
-          };
-        });
+      function clearPoi() {
+        try {
+          if (poiLayer && typeof poiLayer.clearLayers === 'function') poiLayer.clearLayers();
+          map.setView([lat, lng], zoom);
+          if (marker && typeof marker.openPopup === 'function') marker.openPopup();
+        } catch (e) {}
       }
 
-      poiItems.sort(function _callback23(a,b){return a.distance-b.distance;});
+      // Kích hoạt chống màn hình xám/trắng triệt để (gọi invalidateSize ngay, khi load và theo timer)
+      applyAntiGreyScreen(map, mapEl);
 
-      // Vẽ markers lên bản đồ
-      const allPoints = [[lat, lng]];
-      poiItems.forEach(function _callback24(item){
-        const iconHtml = '<div class="poi-marker-icon ' + item.badgeClass + '"><span>' + item.icon + '</span></div>';
-        const divIcon = L.divIcon({
-          className: 'poi-div-icon',
-          html: iconHtml,
-          iconSize: [36, 36],
-          iconAnchor: [18, 18],
-          popupAnchor: [0, -18]
-        });
-
-        const walkMinutes = Math.max(1, Math.round(item.distance / 75));
-        const popupHtml =
-          '<div style="min-width: 200px; font-family: system-ui, -apple-system, sans-serif; line-height: 1.45; padding: 2px;">' +
-            '<div class="d-flex align-items-center gap-2 mb-1">' +
-              '<span style="font-size: 1.25rem;">' + item.icon + '</span>' +
-              '<strong class="text-dark" style="font-size: 0.875rem;">' + escapeHtml(item.name) + '</strong>' +
-            '</div>' +
-            '<div class="text-muted small mb-1">Loại: <span class="badge bg-light text-dark border">' + item.type + '</span></div>' +
-            '<div class="text-danger fw-bold small mb-2">📍 Cách ' + item.formattedDistance + ' <span class="fw-normal text-muted">(~' + walkMinutes + ' phút đi bộ)</span></div>' +
-            '<div class="d-flex gap-1">' +
-              '<a href="https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=%2C%3B' + item.lat + '%2C' + item.lng + '" target="_blank" rel="noopener noreferrer" class="btn btn-outline-success btn-sm py-0 px-2 text-decoration-none" style="font-size:0.75rem;"><i class="bi bi-signpost-2 me-1"></i>Chỉ đường nhanh</a>' +
-              '<a href="https://www.google.com/maps/dir/?api=1&destination=' + item.lat + ',' + item.lng + '" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary btn-sm py-0 px-2 text-decoration-none" style="font-size:0.75rem;"><i class="bi bi-geo-alt me-1"></i>Google Maps</a>' +
-            '</div>' +
-          '</div>';
-
-        const m = L.marker([item.lat, item.lng], { icon: divIcon })
-          .bindPopup(popupHtml);
-        poiLayer.addLayer(m);
-        allPoints.push([item.lat, item.lng]);
-      });
-
-      if (allPoints.length > 1) {
-        const bounds = L.latLngBounds(allPoints);
-        map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });
+      return {
+        map,
+        marker,
+        poiLayer,
+        loadPoi,
+        clearPoi,
+        POI_CONFIG,
+        invalidateSize: function _callback25(){
+          try { return map.invalidateSize(); } catch (e) { return null; }
+        },
+      };
+    } catch (initErr) {
+      console.error('Lỗi khởi tạo bản đồ chi tiết, chuyển sang chế độ dự phòng:', initErr);
+      try {
+        if (mapEl._leaflet_id) delete mapEl._leaflet_id;
+        mapEl.innerHTML = '';
+        const fallbackMap = L.map(mapId, { center: [lat, lng], zoom: zoom, scrollWheelZoom: true });
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '© OpenStreetMap'
+        }).addTo(fallbackMap);
+        const fallbackMarker = L.marker([lat, lng]).addTo(fallbackMap);
+        applyAntiGreyScreen(fallbackMap, mapEl);
+        return {
+          map: fallbackMap,
+          marker: fallbackMarker,
+          poiLayer: null,
+          loadPoi: async function () { return []; },
+          clearPoi: function () {
+            try { fallbackMap.setView([lat, lng], zoom); } catch (e) {}
+          },
+          POI_CONFIG,
+          invalidateSize: function () {
+            try { return fallbackMap.invalidateSize(); } catch (e) { return null; }
+          }
+        };
+      } catch (fatalErr) {
+        console.error('Không thể khởi tạo bản đồ dự phòng:', fatalErr);
+        renderHtmlFallback();
+        return null;
       }
-
-      return poiItems;
     }
-
-    function clearPoi() {
-      poiLayer.clearLayers();
-      map.setView([lat, lng], zoom);
-      marker.openPopup();
-    }
-
-    // Kích hoạt chống màn hình xám triệt để
-    applyAntiGreyScreen(map, mapEl);
-
-    return {
-      map,
-      marker,
-      poiLayer,
-      loadPoi,
-      clearPoi,
-      POI_CONFIG,
-      invalidateSize: function _callback25(){return map.invalidateSize();},
-    };
   }
 
   /**

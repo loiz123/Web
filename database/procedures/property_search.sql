@@ -2,7 +2,7 @@ DELIMITER $$
 DROP PROCEDURE IF EXISTS sp_latest_properties_v3$$
 CREATE PROCEDURE sp_latest_properties_v3(IN p_limit INT)
 BEGIN
-  SELECT p.id, p.title, p.listing_type, p.price, p.area, p.bedrooms, p.bathrooms,
+  SELECT p.id, p.title, p.slug, p.address_detail, p.status, p.listing_type, p.price, p.area, p.bedrooms, p.bathrooms,
          p.direction, p.is_verified, p.latitude, p.longitude, p.created_at,
          t.id AS type_id, t.name AS type_name,
          w.id AS ward_id, w.name AS ward_name,
@@ -13,8 +13,8 @@ BEGIN
   FROM properties p
   JOIN property_types t ON t.id = p.type_id
   JOIN wards w          ON w.id = p.ward_id
-  JOIN districts d      ON d.id = w.district_id
-  JOIN provinces pr     ON pr.id = d.province_id
+  LEFT JOIN districts d ON d.id = w.district_id
+  JOIN provinces pr     ON pr.id = w.province_id
   WHERE p.status = 'approved'
   ORDER BY p.created_at DESC, p.id DESC
   LIMIT p_limit;
@@ -37,7 +37,7 @@ CREATE PROCEDURE sp_search_properties_v3(
   IN p_limit INT,
   IN p_offset INT)
 BEGIN
-  SELECT p.id, p.title, p.listing_type, p.price, p.area, p.bedrooms, p.bathrooms,
+  SELECT p.id, p.title, p.slug, p.address_detail, p.status, p.listing_type, p.price, p.area, p.bedrooms, p.bathrooms,
          p.direction, p.is_verified, p.latitude, p.longitude, p.created_at,
          t.id AS type_id, t.name AS type_name,
          w.id AS ward_id, w.name AS ward_name,
@@ -48,8 +48,8 @@ BEGIN
   FROM properties p
   JOIN property_types t ON t.id = p.type_id
   JOIN wards w          ON w.id = p.ward_id
-  JOIN districts d      ON d.id = w.district_id
-  JOIN provinces pr     ON pr.id = d.province_id
+  LEFT JOIN districts d ON d.id = w.district_id
+  JOIN provinces pr     ON pr.id = w.province_id
   WHERE p.status = 'approved'
     AND (p_keyword IS NULL OR p.title LIKE CONCAT('%',p_keyword,'%') OR p.address_detail LIKE CONCAT('%',p_keyword,'%') OR w.name LIKE CONCAT('%',p_keyword,'%') OR d.name LIKE CONCAT('%',p_keyword,'%') OR pr.name LIKE CONCAT('%',p_keyword,'%') OR t.name LIKE CONCAT('%',p_keyword,'%') OR (p_segment IS NOT NULL AND (p.title LIKE CONCAT('%',p_segment,'%') OR p.address_detail LIKE CONCAT('%',p_segment,'%') OR w.name LIKE CONCAT('%',p_segment,'%') OR d.name LIKE CONCAT('%',p_segment,'%') OR pr.name LIKE CONCAT('%',p_segment,'%') OR t.name LIKE CONCAT('%',p_segment,'%'))))
     AND (p_listing_type IS NULL OR p.listing_type = p_listing_type)
@@ -92,8 +92,8 @@ BEGIN
   FROM properties p
   JOIN property_types t ON t.id = p.type_id
   JOIN wards w          ON w.id = p.ward_id
-  JOIN districts d      ON d.id = w.district_id
-  JOIN provinces pr     ON pr.id = d.province_id
+  LEFT JOIN districts d ON d.id = w.district_id
+  JOIN provinces pr     ON pr.id = w.province_id
   WHERE p.status = 'approved'
     AND (p_keyword IS NULL OR p.title LIKE CONCAT('%',p_keyword,'%') OR p.address_detail LIKE CONCAT('%',p_keyword,'%') OR w.name LIKE CONCAT('%',p_keyword,'%') OR d.name LIKE CONCAT('%',p_keyword,'%') OR pr.name LIKE CONCAT('%',p_keyword,'%') OR t.name LIKE CONCAT('%',p_keyword,'%') OR (p_segment IS NOT NULL AND (p.title LIKE CONCAT('%',p_segment,'%') OR p.address_detail LIKE CONCAT('%',p_segment,'%') OR w.name LIKE CONCAT('%',p_segment,'%') OR d.name LIKE CONCAT('%',p_segment,'%') OR pr.name LIKE CONCAT('%',p_segment,'%') OR t.name LIKE CONCAT('%',p_segment,'%'))))
     AND (p_listing_type IS NULL OR p.listing_type = p_listing_type)

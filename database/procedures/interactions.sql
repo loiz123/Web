@@ -12,10 +12,10 @@ DROP PROCEDURE IF EXISTS sp_favorite_list$$
 CREATE PROCEDURE sp_favorite_list(IN p_user INT)
 BEGIN
  SELECT p.id,p.title,p.listing_type,p.price,p.area,p.bedrooms,p.bathrooms,p.is_verified,p.status,f.created_at AS favorited_at,
- t.name AS type_name,w.name AS ward_name,d.name AS district_name,
+ t.name AS type_name,w.name AS ward_name,COALESCE(d.name,'') AS district_name,pr.name AS province_name,
  (SELECT image_url FROM property_images i WHERE i.property_id=p.id ORDER BY i.is_cover DESC,i.id LIMIT 1) AS cover_url
  FROM favorites f JOIN properties p ON p.id=f.property_id JOIN property_types t ON t.id=p.type_id
- JOIN wards w ON w.id=p.ward_id JOIN districts d ON d.id=w.district_id
+ JOIN wards w ON w.id=p.ward_id LEFT JOIN districts d ON d.id=w.district_id JOIN provinces pr ON pr.id=w.province_id
  WHERE f.user_id=p_user AND p.status='approved' ORDER BY f.created_at DESC;
 END$$
 DROP PROCEDURE IF EXISTS sp_favorite_count$$

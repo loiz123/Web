@@ -878,7 +878,7 @@ if (!$hasValidCoords) {
 
 <!-- Thư viện hiển thị bản đồ vị trí và tiện ích xung quanh -->
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="<?= e(base_url('assets/js/map.js')) ?>"></script>
+<script src="<?= e(base_url('assets/js/map.js?v=20261110')) ?>"></script>
 <script>
   function switchGalleryImg(url, el) {
     const mainImg = document.getElementById('mainGalleryImg');
@@ -1475,58 +1475,131 @@ if (!$hasValidCoords) {
     }
 
     // 2. Khởi tạo bản đồ vị trí & tiện ích khu vực xung quanh
-    const lat = <?= $propLat ?>;
-    const lng = <?= $propLng ?>;
+    const lat = Number.isFinite(Number(<?= $propLat ?>)) ? Number(<?= $propLat ?>) : 10.776889;
+    const lng = Number.isFinite(Number(<?= $propLng ?>)) ? Number(<?= $propLng ?>) : 106.700806;
     const title = <?= json_for_script($property['title']) ?>;
+    const mapContainerEl = document.getElementById('propertyMap');
 
-    if (document.getElementById('propertyMap') && window.BdsMap && typeof window.BdsMap.initViewer === 'function') {
+    if (mapContainerEl) {
       const popupHtml = '<div style="min-width:200px; max-width:280px; font-family:system-ui, -apple-system, sans-serif; line-height:1.45; padding:3px;">' +
-        '<div style="font-weight:700; font-size:14px; color:#0f172a; margin-bottom:5px;">' + title + '</div>' +
+        '<div style="font-weight:700; font-size:14px; color:#0f172a; margin-bottom:5px;">' + escapeHtml(title) + '</div>' +
         '<div style="margin-bottom:6px;">' +
-          '<span style="color:#dc3545; font-weight:800; font-size:15px;">' + <?= json_for_script(format_price($property['price'])) ?> + '</span>' +
-          '<span style="color:#64748b; font-weight:600; font-size:13px;"> • ' + <?= json_for_script($property['area'] . ' m²') ?> + '</span>' +
+          '<span style="color:#dc3545; font-weight:800; font-size:15px;">' + escapeHtml(propPriceFormatted) + '</span>' +
+          '<span style="color:#64748b; font-weight:600; font-size:13px;"> • ' + escapeHtml(propAreaFormatted) + '</span>' +
         '</div>' +
         '<div style="font-size:12px; color:#64748b; border-top:1px solid #f1f5f9; padding-top:4px; margin-bottom:8px;">' +
-          '📍 ' + <?= json_for_script(($property['address_detail'] ? $property['address_detail'] . ', ' : '') . $property['ward_name'] . ', ' . $property['province_name']) ?> +
+          '📍 ' + escapeHtml(propAddressFormatted) +
         '</div>' +
         '<div class="d-flex gap-1 pt-1 border-top">' +
-          '<a href="https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=%2C%3B' + lat + '%2C' + lng + '" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-success py-0 px-2 text-decoration-none" style="font-size:0.75rem;">' +
+          '<a href="https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=%2C%3B' + encodeURIComponent(lat) + '%2C' + encodeURIComponent(lng) + '" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-success py-0 px-2 text-decoration-none" style="font-size:0.75rem;">' +
             '<i class="bi bi-signpost-2 me-1"></i>Chỉ đường trực tuyến' +
           '</a>' +
-          '<a href="https://www.google.com/maps/dir/?api=1&destination=' + lat + ',' + lng + '" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary py-0 px-2 text-decoration-none" style="font-size:0.75rem;">' +
+          '<a href="https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(lat) + ',' + encodeURIComponent(lng) + '" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary py-0 px-2 text-decoration-none" style="font-size:0.75rem;">' +
             '<i class="bi bi-geo-alt me-1"></i>Google Maps' +
           '</a>' +
         '</div>' +
       '</div>';
 
-      detailMapInstance = window.BdsMap.initViewer({
-        mapId: 'propertyMap',
-        lat: lat,
-        lng: lng,
-        zoom: 15,
-        popupText: popupHtml
-      });
-
-      // Đảm bảo bản đồ vẽ lại đầy đủ gạch (chống khung xám trắng khi render)
-      if (detailMapInstance && detailMapInstance.map) {
-        detailMapInstance.map.invalidateSize();
-        setTimeout(function _callback27(){detailMapInstance.map.invalidateSize();},150);
-        setTimeout(function _callback28(){detailMapInstance.map.invalidateSize();},500);
-        setTimeout(function _callback29(){detailMapInstance.map.invalidateSize();},1000);
+      try {
+        if (window.BdsMap && typeof window.BdsMap.initViewer === 'function') {
+          detailMapInstance = window.BdsMap.initViewer({
+            mapId: 'propertyMap',
+            lat: lat,
+            lng: lng,
+            zoom: 15,
+            popupText: popupHtml
+          });
+        }
+      } catch (viewerErr) {
+        console.warn('Khởi tạo bản đồ qua BdsMap thất bại, chuyển sang chế độ dự phòng:', viewerErr);
+        detailMapInstance = null;
       }
 
-      // Xử lý khi cuộn đến vùng bản đồ bằng IntersectionObserver
-      const mapContainerEl = document.getElementById('propertyMap');
-      if (mapContainerEl && typeof IntersectionObserver !== 'undefined') {
-        const mapObserver = new IntersectionObserver(function _callback30(entries){
-          entries.forEach(function _callback31(entry){
-            if (entry.isIntersecting && detailMapInstance && detailMapInstance.map) {
-              setTimeout(function _callback32(){detailMapInstance.map.invalidateSize();},50);
-              setTimeout(function _callback33(){detailMapInstance.map.invalidateSize();},200);
-            }
+      // Fallback an toàn nếu BdsMap gặp lỗi hoặc chưa sẵn sàng nhưng L đã nạp
+      if ((!detailMapInstance || !detailMapInstance.map) && typeof L !== 'undefined') {
+        try {
+          if (mapContainerEl._leaflet_id) {
+            delete mapContainerEl._leaflet_id;
+            mapContainerEl.innerHTML = '';
+          }
+          const fallbackMap = L.map('propertyMap', {
+            center: [lat, lng],
+            zoom: 15,
+            scrollWheelZoom: true
           });
-        }, { threshold: 0.1 });
-        mapObserver.observe(mapContainerEl);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
+          }).addTo(fallbackMap);
+          const fallbackMarker = L.marker([lat, lng], { title: 'Vị trí bất động sản' }).addTo(fallbackMap);
+          try {
+            fallbackMarker.bindPopup(popupHtml).openPopup();
+          } catch (popupErr) {}
+          detailMapInstance = {
+            map: fallbackMap,
+            marker: fallbackMarker,
+            poiLayer: null,
+            loadPoi: async function () { return []; },
+            clearPoi: function () {
+              try { fallbackMap.setView([lat, lng], 15); } catch (e) {}
+            },
+            POI_CONFIG: {},
+            invalidateSize: function () {
+              try { return fallbackMap.invalidateSize(); } catch (e) { return null; }
+            }
+          };
+        } catch (fallbackErr) {
+          console.error('Khởi tạo bản đồ dự phòng thất bại:', fallbackErr);
+          detailMapInstance = null;
+        }
+      }
+
+      // Fallback hiển thị thân thiện nếu hoàn toàn không tải được thư viện bản đồ
+      if (!detailMapInstance || !detailMapInstance.map) {
+        mapContainerEl.innerHTML =
+          '<div class="d-flex flex-column align-items-center justify-content-center h-100 p-4 text-center bg-light text-secondary">' +
+            '<i class="bi bi-geo-alt-fill text-danger fs-1 mb-2"></i>' +
+            '<div class="fw-semibold text-dark mb-1">Không thể hiển thị bản đồ tương tác ngay lúc này</div>' +
+            '<div class="small mb-3">' + escapeHtml(propAddressFormatted) + '</div>' +
+            '<a href="https://www.google.com/maps?q=' + encodeURIComponent(lat + ',' + lng) + '" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-primary rounded-pill px-3">' +
+              '<i class="bi bi-map me-1"></i>Xem vị trí trên bản đồ trực tuyến' +
+            '</a>' +
+          '</div>';
+      } else {
+        const safeInvalidateMap = function _safeInvalidateDetailMap() {
+          try {
+            if (detailMapInstance && detailMapInstance.map && typeof detailMapInstance.map.invalidateSize === 'function') {
+              detailMapInstance.map.invalidateSize();
+            }
+          } catch (e) {}
+        };
+
+        // Đảm bảo bản đồ vẽ lại đầy đủ gạch (chống khung xám/trắng khi render hoặc sau load)
+        safeInvalidateMap();
+        if (typeof detailMapInstance.map.on === 'function') {
+          detailMapInstance.map.on('load', safeInvalidateMap);
+        }
+        if (document.readyState === 'complete') {
+          setTimeout(safeInvalidateMap, 50);
+        } else {
+          window.addEventListener('load', safeInvalidateMap);
+        }
+        setTimeout(safeInvalidateMap, 150);
+        setTimeout(safeInvalidateMap, 500);
+        setTimeout(safeInvalidateMap, 1000);
+
+        // Xử lý khi cuộn đến vùng bản đồ bằng IntersectionObserver
+        if (typeof IntersectionObserver !== 'undefined') {
+          const mapObserver = new IntersectionObserver(function _callback30(entries){
+            entries.forEach(function _callback31(entry){
+              if (entry.isIntersecting) {
+                setTimeout(safeInvalidateMap, 50);
+                setTimeout(safeInvalidateMap, 200);
+              }
+            });
+          }, { threshold: 0.1 });
+          mapObserver.observe(mapContainerEl);
+        }
       }
 
       // Lắng nghe sự kiện click các nút lọc POI

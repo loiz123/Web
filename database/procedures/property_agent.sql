@@ -5,7 +5,7 @@ BEGIN SELECT * FROM properties WHERE id=p_id AND (p_owner IS NULL OR user_id=p_o
 DROP PROCEDURE IF EXISTS sp_agent_property_list$$
 CREATE PROCEDURE sp_agent_property_list(IN p_owner INT, IN p_status VARCHAR(20))
 BEGIN
- SELECT p.id,p.title,p.status,p.listing_type,p.price,p.area,p.created_at,p.reject_reason,t.name AS type_name,
+ SELECT p.id,p.title,p.status,p.listing_type,p.price,p.area,p.created_at,p.expired_at,p.reject_reason,t.name AS type_name,
  (SELECT image_url FROM property_images i WHERE i.property_id=p.id ORDER BY i.is_cover DESC,i.id LIMIT 1) AS cover_url
  FROM properties p JOIN property_types t ON t.id=p.type_id WHERE p.user_id=p_owner AND (p_status IS NULL OR p.status=p_status)
  ORDER BY p.created_at DESC,p.id DESC;
@@ -46,7 +46,7 @@ BEGIN
  pr.id AS province_id,pr.name AS province_name,
  (SELECT image_url FROM property_images i WHERE i.property_id=p.id ORDER BY i.is_cover DESC,i.id ASC LIMIT 1) AS cover_url
  FROM properties p JOIN property_types t ON t.id=p.type_id JOIN wards w ON w.id=p.ward_id
- JOIN districts d ON d.id=w.district_id JOIN provinces pr ON pr.id=d.province_id
+ LEFT JOIN districts d ON d.id=w.district_id JOIN provinces pr ON pr.id=w.province_id
  WHERE p.status='approved' AND p.id<>p_id
  ORDER BY CASE WHEN d.id=p_district AND p.type_id=p_type THEN 0 WHEN d.id=p_district THEN 1 WHEN p.type_id=p_type THEN 2 ELSE 3 END,
  ABS(p.price-p_price),p.created_at DESC LIMIT p_limit;
