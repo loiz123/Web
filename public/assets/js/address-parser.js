@@ -119,10 +119,11 @@
     }
     if (level === 'ward') {
       const stripped = normalizeRomanSuffix(
-        norm.replace(/^(phuong|p|xa|x|thi tran|tt|quan|q|huyen|h|thi xa|tx)\s+/, '').trim()
+        norm.replace(/^(phuong|p|xa|x|thi tran|tt|quan|q|huyen|h|thi xa|tx|ap|thon|xom)\s+/, '').trim()
       );
       if (/^\d+$/.test(stripped)) {
-        return 'phuong ' + stripped.replace(/^0+/, '');
+        const isXa = /^(xa|x)\s+/i.test(norm);
+        return (isXa ? 'xa ' : 'phuong ') + stripped.replace(/^0+/, '');
       }
       return stripped;
     }
@@ -143,9 +144,10 @@
       return stripped;
     }
     if (level === 'ward') {
-      const stripped = norm.replace(/^(phường|p|xã|x|thị trấn|tt|quận|q|huyện|h|thị xã|tx)\s+/u, '').trim();
+      const stripped = norm.replace(/^(phường|p|xã|x|thị trấn|tt|quận|q|huyện|h|thị xã|tx|ấp|thôn|xóm)\s+/u, '').trim();
       if (/^\d+$/.test(stripped)) {
-        return 'phường ' + stripped.replace(/^0+/, '');
+        const isXa = /^(xã|x)\s+/u.test(norm);
+        return (isXa ? 'xã ' : 'phường ') + stripped.replace(/^0+/, '');
       }
       return stripped;
     }
@@ -378,7 +380,7 @@
     const num = String(numberStr).replace(/^0+/, '');
     const prefixPattern = prefixType === 'district'
       ? '(?:quan|q)'
-      : '(?:phuong|p)';
+      : '(?:phuong|p|xa|x|thi tran|tt)';
     const regex = new RegExp('(?:^|\\s)' + prefixPattern + '\\s*0*' + escapeRegex(num) + '(?:$|\\s)', 'i');
     return regex.test(textUnaccented);
   }
@@ -525,22 +527,41 @@
 
     // 1. Đối chiếu từ đối tượng address của Nominatim nếu có
     if (addressObj && typeof addressObj === 'object') {
-      const candidates = [
+      const rawCandidates = [
+        addressObj.commune,
         addressObj.ward,
+        addressObj.county,
+        addressObj.town,
+        addressObj.city_district,
         addressObj.suburb,
         addressObj.quarter,
         addressObj.neighbourhood,
         addressObj.village,
         addressObj.hamlet,
-        addressObj.town,
-        addressObj.city_district,
-        addressObj.district,
-        addressObj.county
+        addressObj.district
       ].filter(Boolean);
 
-      for (let c = 0; c < candidates.length; c++) {
-        const candUnaccented = normalizeRomanSuffix(normalizeUnaccented(candidates[c]));
-        const candCore = stripAdminPrefix(candidates[c], 'ward');
+      const prefixRegex = /^(xã|phường|thị trấn|xa|phuong|thi tran|x\.|p\.|tt\.)\s*/ui;
+      const primaryCandidates = [];
+      const secondaryCandidates = [];
+
+      rawCandidates.forEach(function (val) {
+        const str = String(val).trim();
+        if (!str) return;
+        if (prefixRegex.test(str)) {
+          if (!primaryCandidates.includes(str)) primaryCandidates.push(str);
+        } else {
+          if (!secondaryCandidates.includes(str)) secondaryCandidates.push(str);
+        }
+      });
+
+      const orderedCandidates = primaryCandidates.concat(secondaryCandidates);
+
+      // Lượt 1: So khớp CHÍNH XÁC (toàn bộ hoặc tên cốt lõi) qua tất cả ứng viên
+      for (let c = 0; c < orderedCandidates.length; c++) {
+        const cand = orderedCandidates[c];
+        const candUnaccented = normalizeRomanSuffix(normalizeUnaccented(cand));
+        const candCore = stripAdminPrefix(cand, 'ward');
         for (let i = 0; i < prepared.length; i++) {
           const item = prepared[i];
           if (item.isNumeric) {
@@ -549,9 +570,22 @@
             }
           } else if (
             candCore === item.coreUnaccented ||
-            candUnaccented === item.fullUnaccented ||
-            containsWholePhrase(candUnaccented, item.coreUnaccented)
+            candUnaccented === item.fullUnaccented
           ) {
+            return { id: item.id, name: item.name, segmentIndex: -1 };
+          }
+        }
+      }
+
+      // Lượt 2: So khớp cụm từ (containsWholePhrase) nếu không có ứng viên nào khớp chính xác
+      for (let c = 0; c < orderedCandidates.length; c++) {
+        const cand = orderedCandidates[c];
+        const candUnaccented = normalizeRomanSuffix(normalizeUnaccented(cand));
+        const candCore = stripAdminPrefix(cand, 'ward');
+        if (candCore.length < 3) continue;
+        for (let i = 0; i < prepared.length; i++) {
+          const item = prepared[i];
+          if (!item.isNumeric && containsWholePhrase(candUnaccented, item.coreUnaccented)) {
             return { id: item.id, name: item.name, segmentIndex: -1 };
           }
         }
@@ -573,6 +607,7 @@
       const segUnaccented = normalizeRomanSuffix(normalizeUnaccented(segRaw));
       const segAccented = normalizeAccented(segRaw);
 
+      // 2a. Khớp chính xác phân đoạn
       for (let i = 0; i < prepared.length; i++) {
         const item = prepared[i];
         if (item.isNumeric) {
@@ -582,9 +617,20 @@
         } else {
           if (
             segAccented === item.coreAccented ||
-            containsWholePhrase(segAccented, item.coreAccented) ||
             segUnaccented === item.fullUnaccented ||
-            segUnaccented === item.coreUnaccented ||
+            segUnaccented === item.coreUnaccented
+          ) {
+            return { id: item.id, name: item.name, segmentIndex: sIdx };
+          }
+        }
+      }
+
+      // 2b. Khớp chứa cụm từ
+      for (let i = 0; i < prepared.length; i++) {
+        const item = prepared[i];
+        if (!item.isNumeric) {
+          if (
+            containsWholePhrase(segAccented, item.coreAccented) ||
             containsWholePhrase(segUnaccented, item.coreUnaccented)
           ) {
             return { id: item.id, name: item.name, segmentIndex: sIdx };
@@ -596,6 +642,14 @@
     // 3. Quét trên toàn chuỗi địa chỉ (ưu tiên có tiền tố Phường/Xã/Thị trấn hoặc tên >= 4 ký tự)
     const fullUnaccented = normalizeRomanSuffix(normalizeUnaccented(rawAddress));
     const fullAccented = normalizeAccented(rawAddress);
+    // 3a. Ưu tiên khớp cả tên đầy đủ có tiền tố trước
+    for (let i = 0; i < prepared.length; i++) {
+      const item = prepared[i];
+      if (!item.isNumeric && containsWholePhrase(fullUnaccented, item.fullUnaccented)) {
+        return { id: item.id, name: item.name, segmentIndex: -1 };
+      }
+    }
+    // 3b. Khớp theo số hoặc lõi tên
     for (let i = 0; i < prepared.length; i++) {
       const item = prepared[i];
       if (item.isNumeric) {
@@ -603,7 +657,6 @@
           return { id: item.id, name: item.name, segmentIndex: -1 };
         }
       } else if (
-        containsWholePhrase(fullUnaccented, item.fullUnaccented) ||
         containsWholePhrase(fullAccented, item.coreAccented) ||
         containsWholePhrase(fullUnaccented, item.coreUnaccented)
       ) {
@@ -797,7 +850,7 @@
         provinceSelect.value = String(matchedProvince.id);
         provinceSelect.dataset.selected = String(matchedProvince.id);
 
-        const twoTierWards = await fetchAdminList('wards', matchedProvince.id);
+        let twoTierWards = await fetchAdminList('wards', matchedProvince.id);
         if (currentSeq !== parseSequence) {
           return null;
         }
@@ -815,9 +868,24 @@
 
         // Dự phòng: đối soát qua API nội bộ khi chưa khớp được phường
         if (!twoTierWard) {
-          const wardHint2 = addressObj
-            ? (addressObj.ward || addressObj.suburb || addressObj.quarter || addressObj.neighbourhood || addressObj.village || addressObj.hamlet || addressObj.city_district || addressObj.district || addressObj.county || addressObj.town || '')
-            : '';
+          let wardHint2 = '';
+          if (addressObj) {
+            const rawHints = [
+              addressObj.commune,
+              addressObj.ward,
+              addressObj.county,
+              addressObj.town,
+              addressObj.city_district,
+              addressObj.suburb,
+              addressObj.quarter,
+              addressObj.neighbourhood,
+              addressObj.village,
+              addressObj.hamlet,
+              addressObj.district
+            ].filter(Boolean);
+            const prefixed = rawHints.find(h => /^(xã|phường|thị trấn|xa|phuong|thi tran|x\.|p\.|tt\.)\s*/ui.test(h));
+            wardHint2 = prefixed || rawHints[0] || '';
+          }
           const resolved2 = resolvedFallback || await resolveAdminViaApi(
             matchedProvince.id,
             matchedProvince.name,
@@ -828,11 +896,25 @@
           if (currentSeq !== parseSequence) {
             return null;
           }
-          if (resolved2 && resolved2.ward) {
-            const foundW2 = twoTierWards.find(function (w) { return String(w.id) === String(resolved2.ward.id); });
-            twoTierWard = foundW2
-              ? { id: String(foundW2.id), name: foundW2.name, segmentIndex: -1 }
-              : { id: String(resolved2.ward.id), name: resolved2.ward.name, segmentIndex: -1 };
+          if (resolved2) {
+            // Nếu API đối soát phát hiện tỉnh chính xác khác với tỉnh sơ bộ (do OSM 2025 sáp nhập tỉnh, ví dụ Bình Định -> Gia Lai)
+            if (resolved2.province && String(resolved2.province.id) !== String(matchedProvince.id)) {
+              matchedProvince = {
+                id: String(resolved2.province.id),
+                name: resolved2.province.name,
+                segmentIndex: -1
+              };
+              provinceSelect.value = String(matchedProvince.id);
+              provinceSelect.dataset.selected = String(matchedProvince.id);
+              // Tải lại danh sách phường/xã của tỉnh đúng
+              twoTierWards = await fetchAdminList('wards', matchedProvince.id);
+            }
+            if (resolved2.ward) {
+              const foundW2 = twoTierWards.find(function (w) { return String(w.id) === String(resolved2.ward.id); });
+              twoTierWard = foundW2
+                ? { id: String(foundW2.id), name: foundW2.name, segmentIndex: -1 }
+                : { id: String(resolved2.ward.id), name: resolved2.ward.name, segmentIndex: -1 };
+            }
           }
         }
 
