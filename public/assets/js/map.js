@@ -1,6 +1,6 @@
 /**
  * Thư viện quản lý bản đồ tương tác & Định vị tọa độ BĐS Việt
- * Phục vụ: Chọn vị trí khi đăng/sửa tin, xem vị trí & tiện ích xung quanh, và bản đồ tìm kiếm BĐS.
+ * Phục vụ: Chọn vị trí khi đăng/sửa tin, xem vị trí bất động sản, và bản đồ tìm kiếm BĐS.
  */
 
 window.BdsMap =           (function _callback(){
@@ -9,7 +9,7 @@ window.BdsMap =           (function _callback(){
   const DEFAULT_ZOOM = 14;
 
   const OSM_TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-  const OSM_ATTRIBUTION = '© OpenStreetMap';
+  const OSM_ATTRIBUTION = '© Bản đồ trực tuyến';
 
   const OSM_HOT_URL = 'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png';
   const OSM_HOT_ATTRIBUTION = '&copy; Bản đồ giao thông & tiện ích';
@@ -845,69 +845,11 @@ window.BdsMap =           (function _callback(){
     return pickerInstance;
   }
 
-  // Cấu hình danh mục tiện ích xung quanh (POI)
-  const POI_CONFIG = {
-    school: {
-      label: 'Trường học',
-      icon: '🏫',
-      badgeClass: 'poi-badge-school',
-      osmKey: 'amenity',
-      osmValues: ['school', 'kindergarten', 'college', 'university'],
-      mockNames: ['Trường Tiểu học Chu Văn An', 'Trường THCS Lê Quý Đôn', 'Trường THPT Chuyên Nguyễn Du', 'Trường Mầm non Ánh Sao', 'Trường Quốc tế VAS']
-    },
-    hospital: {
-      label: 'Bệnh viện / Y tế',
-      icon: '🏥',
-      badgeClass: 'poi-badge-hospital',
-      osmKey: 'amenity',
-      osmValues: ['hospital', 'clinic', 'pharmacy', 'doctors'],
-      mockNames: ['Bệnh viện Đa khoa Quận', 'Trung tâm Y tế Dự phòng', 'Bệnh viện Quốc tế Hoàn Mỹ', 'Phòng khám Đa khoa Medic', 'Nhà thuốc Long Châu']
-    },
-    market: {
-      label: 'Siêu thị / Chợ',
-      icon: '🛒',
-      badgeClass: 'poi-badge-market',
-      osmKey: 'shop',
-      osmValues: ['supermarket', 'mall', 'convenience', 'department_store'],
-      mockNames: ['Siêu thị Co.opmart', 'Đại siêu thị Emart', 'Chợ Dân sinh Truyền thống', 'Cửa hàng Tiện lợi WinMart+', 'TTTM Vincom Plaza']
-    },
-    bus: {
-      label: 'Trạm xe buýt',
-      icon: '🚌',
-      badgeClass: 'poi-badge-bus',
-      osmKey: 'highway',
-      osmValues: ['bus_stop', 'platform'],
-      mockNames: ['Trạm Xe buýt Tuyến 03 - 19', 'Trạm dừng ĐH Giao thông', 'Trạm Xe buýt Tuyến 36', 'Trạm trung chuyển Xe buýt Chợ Bến Thành', 'Trạm Xe buýt Tuyến 56']
-    },
-    park: {
-      label: 'Công viên',
-      icon: '🌳',
-      badgeClass: 'poi-badge-park',
-      osmKey: 'leisure',
-      osmValues: ['park', 'garden', 'playground'],
-      mockNames: ['Công viên Cây xanh Đô thị', 'Công viên Bờ sông Thoáng mát', 'Vườn hoa Trung tâm', 'Công viên Thể thao Ngoài trời', 'Quảng trường Cây xanh']
-    }
-  };
-
-  function calculateDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371000;
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return Math.round(R * c);
-  }
-
-  function formatDistance(meters) {
-    if (meters < 1000) return meters + 'm';
-    return (meters / 1000).toFixed(1) + 'km';
-  }
+  // Sanitize helper reference: escapeHtml(item.name)
 
   /**
    * Khởi tạo bản đồ xem chi tiết vị trí (View-only cho trang chi tiết tin)
-   * Tích hợp tìm kiếm tiện ích xung quanh POI (Overpass API + Smart Mock)
+   * Tập trung hiển thị chính xác vị trí BĐS, chống màn hình xám và hỗ trợ chỉ đường
    */
   function initViewer(options = {}) {
     const mapId = options.mapId || 'map';
@@ -957,10 +899,7 @@ window.BdsMap =           (function _callback(){
         scrollWheelZoom: true,
       });
 
-      const baseLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '© OpenStreetMap',
-      }).addTo(map);
+      const baseLayer = createBaseTileLayer().addTo(map);
 
       try {
         addLayerSwitcher(map, baseLayer);
@@ -997,154 +936,12 @@ window.BdsMap =           (function _callback(){
         }
       }
 
-      // Layer chứa các marker tiện ích xung quanh (POI)
-      let poiLayer = null;
-      try {
-        poiLayer = L.layerGroup().addTo(map);
-      } catch (poiLayerErr) {
-        poiLayer = { clearLayers: function () {}, addLayer: function () {}, eachLayer: function () {} };
-      }
-
-      async function loadPoi(categoryKey, districtName = '') {
-        try {
-          if (poiLayer && typeof poiLayer.clearLayers === 'function') poiLayer.clearLayers();
-          const conf = POI_CONFIG[categoryKey];
-          if (!conf) return [];
-
-          let poiItems = null;
-
-          // 1. Thử gọi Overpass API với timeout 1.5s
-          try {
-            const filterParts = conf.osmValues.map(function _callback18(v){return'node["'+conf.osmKey+'"="'+v+'"](around:1600,'+lat+','+lng+');';}).join('');
-            const query = '[out:json][timeout:2];(' + filterParts + ');out body 10;';
-            const url = 'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(query);
-
-            const controller = new AbortController();
-            const timer = setTimeout(function _callback19(){return controller.abort();},1500);
-            const res = await fetch(url, { signal: controller.signal });
-            clearTimeout(timer);
-
-            if (res.ok) {
-              const data = await res.json();
-              if (data.elements && data.elements.length > 0) {
-                poiItems = data.elements.map(function _callback20(el){
-                  const name = (el.tags && (el.tags.name || el.tags['name:vi'] || el.tags['name:en'])) || conf.label;
-                  const d = calculateDistance(lat, lng, el.lat, el.lon);
-                  return {
-                    name: name,
-                    lat: el.lat,
-                    lng: el.lon,
-                    distance: d,
-                    formattedDistance: formatDistance(d),
-                    type: conf.label,
-                    icon: conf.icon,
-                    badgeClass: conf.badgeClass,
-                    color: conf.color
-                  };
-                }).filter(function _callback21(item){return item.distance<=2200;});
-              }
-            }
-          } catch (e) {
-            // Overpass timeout hoặc lỗi mạng/CORS -> chuyển sang Smart Mock
-          }
-
-          // 2. Fallback sang Smart Mock Generator nếu Overpass không có kết quả
-          if (!poiItems || poiItems.length === 0) {
-            const offsets = [
-              { dLat: 0.0032, dLng: 0.0025 },
-              { dLat: -0.0025, dLng: 0.0038 },
-              { dLat: -0.0041, dLng: -0.0028 },
-              { dLat: 0.0046, dLng: -0.0039 },
-              { dLat: 0.0015, dLng: 0.0055 },
-              { dLat: -0.0052, dLng: 0.0015 }
-            ];
-            const prefix = districtName ? ' (' + districtName + ')' : '';
-            poiItems = conf.mockNames.map(function _callback22(name,idx){
-              const off = offsets[idx % offsets.length];
-              const poiLat = lat + off.dLat;
-              const poiLng = lng + off.dLng;
-              const d = calculateDistance(lat, lng, poiLat, poiLng);
-              return {
-                name: name +( idx < 2 ? prefix : ''),
-                lat: poiLat,
-                lng: poiLng,
-                distance: d,
-                formattedDistance: formatDistance(d),
-                type: conf.label,
-                icon: conf.icon,
-                badgeClass: conf.badgeClass,
-                color: conf.color
-              };
-            });
-          }
-
-          poiItems.sort(function _callback23(a,b){return a.distance-b.distance;});
-
-          // Vẽ markers lên bản đồ
-          const allPoints = [[lat, lng]];
-          poiItems.forEach(function _callback24(item){
-            const iconHtml = '<div class="poi-marker-icon ' + item.badgeClass + '"><span>' + item.icon + '</span></div>';
-            const divIcon = L.divIcon({
-              className: 'poi-div-icon',
-              html: iconHtml,
-              iconSize: [36, 36],
-              iconAnchor: [18, 18],
-              popupAnchor: [0, -18]
-            });
-
-            const walkMinutes = Math.max(1, Math.round(item.distance / 75));
-            const popupHtml =
-              '<div style="min-width: 200px; font-family: system-ui, -apple-system, sans-serif; line-height: 1.45; padding: 2px;">' +
-                '<div class="d-flex align-items-center gap-2 mb-1">' +
-                  '<span style="font-size: 1.25rem;">' + item.icon + '</span>' +
-                  '<strong class="text-dark" style="font-size: 0.875rem;">' + escapeHtml(item.name) + '</strong>' +
-                '</div>' +
-                '<div class="text-muted small mb-1">Loại: <span class="badge bg-light text-dark border">' + item.type + '</span></div>' +
-                '<div class="text-danger fw-bold small mb-2">📍 Cách ' + item.formattedDistance + ' <span class="fw-normal text-muted">(~' + walkMinutes + ' phút đi bộ)</span></div>' +
-                '<div class="d-flex gap-1">' +
-                  '<a href="https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=%2C%3B' + item.lat + '%2C' + item.lng + '" target="_blank" rel="noopener noreferrer" class="btn btn-outline-success btn-sm py-0 px-2 text-decoration-none" style="font-size:0.75rem;"><i class="bi bi-signpost-2 me-1"></i>Chỉ đường nhanh</a>' +
-                  '<a href="https://www.google.com/maps/dir/?api=1&destination=' + item.lat + ',' + item.lng + '" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary btn-sm py-0 px-2 text-decoration-none" style="font-size:0.75rem;"><i class="bi bi-geo-alt me-1"></i>Google Maps</a>' +
-                '</div>' +
-              '</div>';
-
-            const m = L.marker([item.lat, item.lng], { icon: divIcon })
-              .bindPopup(popupHtml);
-            if (poiLayer && typeof poiLayer.addLayer === 'function') {
-              poiLayer.addLayer(m);
-            }
-            allPoints.push([item.lat, item.lng]);
-          });
-
-          if (allPoints.length > 1) {
-            const bounds = L.latLngBounds(allPoints);
-            map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });
-          }
-
-          return poiItems;
-        } catch (loadPoiErr) {
-          console.warn('Lỗi tải tiện ích xung quanh:', loadPoiErr);
-          return [];
-        }
-      }
-
-      function clearPoi() {
-        try {
-          if (poiLayer && typeof poiLayer.clearLayers === 'function') poiLayer.clearLayers();
-          map.setView([lat, lng], zoom);
-          if (marker && typeof marker.openPopup === 'function') marker.openPopup();
-        } catch (e) {}
-      }
-
       // Kích hoạt chống màn hình xám/trắng triệt để (gọi invalidateSize ngay, khi load và theo timer)
       applyAntiGreyScreen(map, mapEl);
 
       return {
         map,
         marker,
-        poiLayer,
-        loadPoi,
-        clearPoi,
-        POI_CONFIG,
         invalidateSize: function _callback25(){
           try { return map.invalidateSize(); } catch (e) { return null; }
         },
@@ -1155,21 +952,12 @@ window.BdsMap =           (function _callback(){
         if (mapEl._leaflet_id) delete mapEl._leaflet_id;
         mapEl.innerHTML = '';
         const fallbackMap = L.map(mapId, { center: [lat, lng], zoom: zoom, scrollWheelZoom: true });
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          maxZoom: 19,
-          attribution: '© OpenStreetMap'
-        }).addTo(fallbackMap);
+        createBaseTileLayer().addTo(fallbackMap);
         const fallbackMarker = L.marker([lat, lng]).addTo(fallbackMap);
         applyAntiGreyScreen(fallbackMap, mapEl);
         return {
           map: fallbackMap,
           marker: fallbackMarker,
-          poiLayer: null,
-          loadPoi: async function () { return []; },
-          clearPoi: function () {
-            try { fallbackMap.setView([lat, lng], zoom); } catch (e) {}
-          },
-          POI_CONFIG,
           invalidateSize: function () {
             try { return fallbackMap.invalidateSize(); } catch (e) { return null; }
           }
@@ -1192,7 +980,7 @@ window.BdsMap =           (function _callback(){
     if (!mapEl) return null;
 
     if (typeof L === 'undefined') {
-      console.error('Leaflet chưa được tải. Vui lòng nhúng leaflet.js và leaflet.css');
+      console.error('Chưa tải được thư viện bản đồ.');
       return null;
     }
 
@@ -1294,5 +1082,6 @@ window.BdsMap =           (function _callback(){
     initPicker,
     initViewer,
     initSearchMap,
+    initOverviewMap: initSearchMap,
   };
 }                          )();

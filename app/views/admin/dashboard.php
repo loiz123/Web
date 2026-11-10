@@ -50,12 +50,12 @@ $statusLabels = [
             </span>
           </a>
         <?php endforeach; ?>
-        <a href="<?= e(base_url('admin/properties?tab=all')) ?>"
-           class="list-group-item list-group-item-action d-flex justify-content-between align-items-center py-2 px-3 bg-light fw-bold dashboard-status-shortcut"
-           title="Xem tất cả tin đăng">
-          <span class="text-dark">Tổng</span>
+        <a href="<?= e(base_url('admin/properties?tab=approved')) ?>"
+           class="list-group-item list-group-item-action d-flex justify-content-between align-items-center py-2 px-3 bg-success-subtle fw-bold dashboard-status-shortcut"
+           title="Xem danh sách tin đã duyệt đang hiển thị">
+          <span class="text-success-emphasis">Tổng tin đã duyệt (đang hiển thị)</span>
           <span class="d-flex align-items-center gap-1">
-            <strong class="text-primary"><?= (int)array_sum($byStatus) ?></strong>
+            <strong class="text-success"><?= (int)($byStatus['approved'] ?? 0) ?></strong>
             <i class="bi bi-chevron-right text-muted small"></i>
           </span>
         </a>
@@ -64,8 +64,9 @@ $statusLabels = [
   </div>
   <div class="col-lg-7">
     <div class="card shadow-sm border-0">
-      <div class="card-header bg-white py-3 fw-semibold border-bottom">
-        <i class="bi bi-geo-alt text-danger me-2"></i>Tin đăng theo Tỉnh / Thành phố
+      <div class="card-header bg-white py-3 fw-semibold border-bottom d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-geo-alt text-danger me-2"></i>Tin đăng theo Tỉnh / Thành phố</span>
+        <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">Tin đã duyệt</span>
       </div>
       <?php $provinceList = $byProvince ?? $byDistrict ?? []; ?>
       <?php if (!$provinceList): ?>
@@ -76,18 +77,22 @@ $statusLabels = [
             <thead class="table-light">
               <tr>
                 <th class="ps-3">Tỉnh / Thành phố</th>
-                <th class="text-end">Tổng tin</th>
-                <th class="text-end pe-3">Đã duyệt</th>
+                <th class="text-end pe-3">Số tin đã duyệt</th>
               </tr>
             </thead>
             <tbody>
+              <?php $totalProvinceApproved = 0; ?>
               <?php foreach ($provinceList as $p): ?>
+                <?php $totalProvinceApproved += (int)$p['approved']; ?>
                 <tr>
                   <td class="ps-3 fw-medium text-dark"><?= e($p['province']) ?></td>
-                  <td class="text-end fw-semibold"><?= (int)$p['total'] ?></td>
                   <td class="text-end pe-3 text-success fw-semibold"><?= (int)$p['approved'] ?></td>
                 </tr>
               <?php endforeach; ?>
+              <tr class="table-light fw-bold">
+                <td class="ps-3 text-dark">Tổng cộng (Đã duyệt)</td>
+                <td class="text-end pe-3 text-success"><?= (int)$totalProvinceApproved ?></td>
+              </tr>
             </tbody>
           </table>
         </div>

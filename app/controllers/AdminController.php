@@ -37,17 +37,19 @@ class AdminController extends Controller
     public function properties(): void
     {
         $moderation = new PropertyModeration();
+        $statusCounts = $moderation->countByStatus();
+        $defaultTab = ((int)($statusCounts['pending'] ?? 0) > 0) ? 'pending' : 'approved';
+
         $allowedTabs = ['pending', 'approved', 'hidden', 'rejected', 'closed', 'all', 'reports'];
-        $rawTab = (string)($_GET['tab'] ?? 'pending');
-        $tab = in_array($rawTab, $allowedTabs, true) ? $rawTab : 'pending';
+        $rawTab = trim((string)($_GET['tab'] ?? $_GET['status'] ?? ''));
+        $tab = in_array($rawTab, $allowedTabs, true) ? $rawTab : $defaultTab;
         $page = max(1, (int)($_GET['page'] ?? 1));
-        $perPage = 10;
+        $perPage = 20;
 
         $result = $tab === 'reports'
             ? $this->reports->paginate('open', $page, $perPage)
             : $moderation->paginate($tab, $page, $perPage);
 
-        $statusCounts = $moderation->countByStatus();
         $openReportsTotal = ($tab === 'reports')
             ? (int)($result['total'] ?? 0)
             : (int)($this->reports->paginate('open', 1, 1)['total'] ?? 0);

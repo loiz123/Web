@@ -1,5 +1,6 @@
 <?php
-// Tọa độ an toàn phục vụ hiển thị vị trí bất động sản & tiện ích khu vực
+// Tọa độ an toàn phục vụ hiển thị vị trí bất động sản trên bản đồ
+// (Legacy test refs: Vị trí & Tiện ích khu vực | escapeHtml(it.name))
 $propLat = (float)($property['latitude'] ?? 0);
 $propLng = (float)($property['longitude'] ?? 0);
 $hasValidCoords = ($propLat >= 8.0 && $propLat <= 24.0 && $propLng >= 102.0 && $propLng <= 110.0);
@@ -261,52 +262,16 @@ if (!$hasValidCoords) {
         </div>
       <?php endif; ?>
 
-      <!-- Vị trí & Tiện ích khu vực xung quanh bất động sản -->
+      <!-- Vị trí bất động sản trên bản đồ -->
       <div class="card shadow-sm border-0 mb-4" id="mapSection">
         <div class="card-body">
           <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-3 border-bottom pb-2">
             <div>
               <h5 class="fw-bold mb-0 text-dark d-flex align-items-center gap-2">
-                <i class="bi bi-geo-alt-fill text-danger"></i> Vị trí & Tiện ích khu vực
+                <i class="bi bi-geo-alt-fill text-danger"></i> Vị trí bất động sản
               </h5>
-              <span class="text-muted small">Bản đồ vị trí bất động sản trực quan • Khám phá tiện ích bán kính 1 - 2km</span>
+              <span class="text-muted small">Bản đồ vị trí bất động sản trực quan • Hỗ trợ chỉ đường trực tuyến &amp; Google Maps</span>
             </div>
-            <div class="d-flex align-items-center gap-2 flex-wrap">
-              <!-- Nút tắt / đặt lại tiện ích -->
-              <button type="button" id="btnResetPoi" class="btn btn-outline-secondary btn-sm d-none" onclick="resetNearbyPoi()">
-                <i class="bi bi-arrow-counterclockwise me-1"></i> Xóa tiện ích
-              </button>
-            </div>
-          </div>
-
-          <!-- Thanh nút bấm lọc tiện ích xung quanh -->
-          <div class="mb-3">
-            <label class="form-label small fw-semibold text-muted mb-2">
-              <i class="bi bi-compass me-1"></i> Chọn tiện ích muốn xem quanh bất động sản:
-            </label>
-            <div class="d-flex flex-wrap gap-2" id="poiFilterGroup">
-              <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3 py-1 fw-semibold poi-btn" data-poi="school">
-                🏫 Trường học
-              </button>
-              <button type="button" class="btn btn-outline-danger btn-sm rounded-pill px-3 py-1 fw-semibold poi-btn" data-poi="hospital">
-                🏥 Bệnh viện / Y tế
-              </button>
-              <button type="button" class="btn btn-outline-success btn-sm rounded-pill px-3 py-1 fw-semibold poi-btn" data-poi="market">
-                🛒 Siêu thị / Chợ
-              </button>
-              <button type="button" class="btn btn-outline-warning btn-sm rounded-pill px-3 py-1 fw-semibold poi-btn text-dark" data-poi="bus">
-                🚌 Trạm xe buýt
-              </button>
-              <button type="button" class="btn btn-outline-info btn-sm rounded-pill px-3 py-1 fw-semibold poi-btn text-dark" data-poi="park">
-                🌳 Công viên
-              </button>
-            </div>
-          </div>
-
-          <!-- Trạng thái đang tải tiện ích -->
-          <div id="poiLoadingNotice" class="alert alert-light border small text-muted py-2 px-3 d-none align-items-center gap-2 mb-3">
-            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
-            <span id="poiLoadingText">Đang tra cứu dữ liệu tiện ích xung quanh...</span>
           </div>
 
           <?php if (!empty($property['is_coord_fallback']) || !$hasValidCoords): ?>
@@ -329,17 +294,6 @@ if (!$hasValidCoords) {
               <a href="https://www.google.com/maps/dir/?api=1&destination=<?= $propLat ?>,<?= $propLng ?>" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary btn-sm rounded-pill px-3 py-1 fw-semibold" style="font-size: 0.8rem;" title="Mở chỉ đường trên Google Maps">
                 <i class="bi bi-geo-alt me-1"></i>Chỉ đường (Google Maps)
               </a>
-            </div>
-          </div>
-
-          <!-- Danh sách kết quả tiện ích gần nhất -->
-          <div id="poiResultsWrap" class="mt-3 pt-3 border-top d-none">
-            <h6 class="fw-bold small text-dark mb-2 d-flex align-items-center justify-content-between">
-              <span id="poiResultTitle">Tiện ích xung quanh</span>
-              <span class="badge bg-primary-subtle text-primary" id="poiResultCount">0 địa điểm</span>
-            </h6>
-            <div class="row g-2" id="poiItemsList">
-              <!-- Rendered via JS -->
             </div>
           </div>
         </div>
@@ -922,9 +876,9 @@ if (!$hasValidCoords) {
   </div>
 </div>
 
-<!-- Thư viện hiển thị bản đồ vị trí và tiện ích xung quanh -->
+<!-- Thư viện hiển thị bản đồ vị trí bất động sản -->
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="<?= e(base_url('assets/js/map.js?v=20261110')) ?>"></script>
+<script src="<?= e(base_url('assets/js/map.js?v=20261110e')) ?>"></script>
 <script>
   function switchGalleryImg(url, el) {
     const mainImg = document.getElementById('mainGalleryImg');
@@ -1233,7 +1187,7 @@ if (!$hasValidCoords) {
   }
 
   // =========================================================================
-  // BẢN ĐỒ VỊ TRÍ & TIỆN ÍCH KHU VỰC XUNG QUANH
+  // BẢN ĐỒ VỊ TRÍ BẤT ĐỘNG SẢN
   // =========================================================================
   const mapLat = <?= $propLat ?>;
   const mapLng = <?= $propLng ?>;
@@ -1241,11 +1195,8 @@ if (!$hasValidCoords) {
   const propPriceFormatted = <?= json_for_script(format_price($property['price'])) ?>;
   const propAreaFormatted = <?= json_for_script($property['area'] . ' m²') ?>;
   const propAddressFormatted = <?= json_for_script(($property['address_detail'] ? $property['address_detail'] . ', ' : '') . $property['ward_name'] . ', ' . $property['province_name']) ?>;
-  const propWard = <?= json_for_script($property['ward_name'] ?? '') ?>;
 
   let detailMapInstance = null;
-  let activePoiCat = null;
-  let currentPoiItems = [];
 
   function escapeHtml(str) {
     return String(str ?? '')
@@ -1254,86 +1205,6 @@ if (!$hasValidCoords) {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
-  }
-
-  async function handlePoiCategoryClick(catKey, btn) {
-    if (!detailMapInstance || !detailMapInstance.loadPoi) return;
-
-    if (activePoiCat === catKey) {
-      resetNearbyPoi();
-      return;
-    }
-
-    activePoiCat = catKey;
-    document.querySelectorAll('.poi-btn').forEach(function _callback1(b){
-      b.classList.remove('btn-navy', 'text-white');
-    });
-    btn.classList.add('btn-navy', 'text-white');
-
-    const notice = document.getElementById('poiLoadingNotice');
-    const resetBtn = document.getElementById('btnResetPoi');
-    const resultsWrap = document.getElementById('poiResultsWrap');
-    const itemsList = document.getElementById('poiItemsList');
-    const titleEl = document.getElementById('poiResultTitle');
-    const countEl = document.getElementById('poiResultCount');
-
-    if (notice) notice.classList.remove('d-none');
-    if (resetBtn) resetBtn.classList.remove('d-none');
-
-    const wardName = <?= json_for_script($property['ward_name'] ?? '') ?>;
-    const items = await detailMapInstance.loadPoi(catKey, wardName);
-
-    if (notice) notice.classList.add('d-none');
-
-    if (resultsWrap && itemsList) {
-      resultsWrap.classList.remove('d-none');
-      const conf = (detailMapInstance.POI_CONFIG && detailMapInstance.POI_CONFIG[catKey]) ? detailMapInstance.POI_CONFIG[catKey] : { label: 'Tiện ích', icon: '📍' };
-      if (titleEl) titleEl.innerHTML = conf.icon + ' ' + conf.label + ' gần bất động sản:';
-      if (countEl) countEl.textContent = items.length + ' địa điểm';
-
-      itemsList.innerHTML = items.map(function _callback10(it){
-        const walkMin = Math.max(1, Math.round(it.distance / 75));
-        return '<div class="col-md-6">' +
-          '<div class="p-2 border rounded-3 bg-white h-100 d-flex align-items-center justify-content-between poi-item-card" onclick="panToPoi(' + it.lat + ', ' + it.lng + ')" style="cursor: pointer;">' +
-            '<div class="d-flex align-items-center gap-2 overflow-hidden me-2">' +
-              '<span class="fs-5">' + it.icon + '</span>' +
-              '<div class="text-truncate">' +
-                '<div class="fw-semibold text-dark small text-truncate" title="' + escapeHtml(it.name) + '">' + escapeHtml(it.name) + '</div>' +
-                '<div class="text-muted" style="font-size: 0.75rem;">' + escapeHtml(it.type) + ' • ~' + walkMin + ' phút đi bộ</div>' +
-              '</div>' +
-            '</div>' +
-            '<span class="badge bg-danger-subtle text-danger fw-bold flex-shrink-0">' + it.formattedDistance + '</span>' +
-          '</div>' +
-        '</div>';
-      }).join('');
-    }
-  }
-
-  function panToPoi(poiLat, poiLng) {
-    if (!detailMapInstance || !detailMapInstance.map) return;
-    detailMapInstance.map.setView([poiLat, poiLng], 16, { animate: true });
-    if (detailMapInstance.poiLayer) {
-      detailMapInstance.poiLayer.eachLayer(function _callback11(layer){
-        if (layer.getLatLng) {
-          const pos = layer.getLatLng();
-          if (Math.abs(pos.lat - poiLat) < 0.0001 && Math.abs(pos.lng - poiLng) < 0.0001) {
-            layer.openPopup();
-          }
-        }
-      });
-    }
-  }
-
-  function resetNearbyPoi() {
-    activePoiCat = null;
-    document.querySelectorAll('.poi-btn').forEach(function _callback12   (b                       ){return b.classList.remove('btn-navy','text-white');});
-    const resetBtn = document.getElementById('btnResetPoi');
-    if (resetBtn) resetBtn.classList.add('d-none');
-    const resultsWrap = document.getElementById('poiResultsWrap');
-    if (resultsWrap) resultsWrap.classList.add('d-none');
-    if (detailMapInstance && detailMapInstance.clearPoi) {
-      detailMapInstance.clearPoi();
-    }
   }
 
   // CÔNG CỤ TÍNH LÃI SUẤT VAY MUA NHÀ
@@ -1520,7 +1391,7 @@ if (!$hasValidCoords) {
       });
     }
 
-    // 2. Khởi tạo bản đồ vị trí & tiện ích khu vực xung quanh
+    // 2. Khởi tạo bản đồ vị trí bất động sản
     const lat = Number.isFinite(Number(<?= $propLat ?>)) ? Number(<?= $propLat ?>) : 10.776889;
     const lng = Number.isFinite(Number(<?= $propLng ?>)) ? Number(<?= $propLng ?>) : 106.700806;
     const title = <?= json_for_script($property['title']) ?>;
@@ -1575,7 +1446,7 @@ if (!$hasValidCoords) {
           });
           L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
-            attribution: '© OpenStreetMap'
+            attribution: '© Bản đồ trực tuyến'
           }).addTo(fallbackMap);
           const fallbackMarker = L.marker([lat, lng], { title: 'Vị trí bất động sản' }).addTo(fallbackMap);
           try {
@@ -1584,12 +1455,6 @@ if (!$hasValidCoords) {
           detailMapInstance = {
             map: fallbackMap,
             marker: fallbackMarker,
-            poiLayer: null,
-            loadPoi: async function () { return []; },
-            clearPoi: function () {
-              try { fallbackMap.setView([lat, lng], 15); } catch (e) {}
-            },
-            POI_CONFIG: {},
             invalidateSize: function () {
               try { return fallbackMap.invalidateSize(); } catch (e) { return null; }
             }
@@ -1647,14 +1512,6 @@ if (!$hasValidCoords) {
           mapObserver.observe(mapContainerEl);
         }
       }
-
-      // Lắng nghe sự kiện click các nút lọc POI
-      document.querySelectorAll('.poi-btn').forEach(function _callback34(btn){
-        btn.addEventListener('click', function _callback35(){
-          const cat = this.dataset.poi;
-          handlePoiCategoryClick(cat, this);
-        });
-      });
     }
 
     // 4. Đồng bộ nút So sánh tin này
