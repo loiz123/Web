@@ -49,8 +49,10 @@ try {
     foreach (['verify', 'changeStatus'] as $action) {
         $path = '/admin/properties/' . $action . '/' . $id;
         checkAdmin(adminRequest($path . '?status=hidden')['status'] === 405, "$action rejects GET");
-        checkAdmin(adminRequest($path, ['status' => 'hidden'])['status'] === 419, "$action rejects POST without CSRF");
-        checkAdmin(adminRequest($path, ['status' => 'hidden'], 'invalid')['status'] === 419, "$action rejects invalid CSRF");
+        $missing = adminRequest($path, ['status' => 'hidden']);
+        $invalid = adminRequest($path, ['status' => 'hidden'], 'invalid');
+        checkAdmin($missing['status'] === 403 && $missing['json']['success'] === false, "$action rejects POST without CSRF with a standard HTTP status and JSON");
+        checkAdmin($invalid['status'] === 403 && $invalid['json']['success'] === false, "$action rejects invalid CSRF with a standard HTTP status and JSON");
     }
     $row = $db->query('SELECT status,is_verified FROM properties WHERE id=' . $id)->fetch();
     checkAdmin($row['status'] === 'approved' && (int)$row['is_verified'] === 0, 'Rejected requests leave property unchanged');

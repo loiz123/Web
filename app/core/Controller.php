@@ -60,8 +60,13 @@ abstract class Controller
         $token = $_POST['_csrf'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
         $expected = $_SESSION['csrf'] ?? '';
         if (!is_string($token) || !is_string($expected) || $expected === '' || !hash_equals($expected, $token)) {
-            http_response_code(419);
-            exit('CSRF token không hợp lệ.');
+            // Apache chuyển mã không chuẩn 419 thành 500; dùng mã từ chối chuẩn.
+            $message = 'Phiên làm việc không hợp lệ hoặc đã hết hạn. Vui lòng tải lại trang và thử lại.';
+            if ($this->wantsJson()) {
+                $this->json(null, false, $message, 403);
+            }
+            http_response_code(403);
+            exit($message);
         }
     }
 }
