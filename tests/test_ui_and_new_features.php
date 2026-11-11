@@ -123,7 +123,8 @@ assertTest(
 );
 
 // Gọi thực tế HTTP endpoint /geocode/reverse qua localhost (nếu Apache đang chạy) hoặc CLI subprocess
-$reverseJsonRaw = @file_get_contents('http://localhost/batdongsan/public/geocode/reverse?lat=10.776889&lng=106.700806');
+$httpBase = rtrim(getenv('BDS_TEST_HTTP_BASE') ?: 'http://localhost/batdongsan/public', '/');
+$reverseJsonRaw = @file_get_contents($httpBase . '/geocode/reverse?lat=10.776889&lng=106.700806');
 if (!$reverseJsonRaw) {
     $cmd = '"' . PHP_BINARY . '" -r ' . escapeshellarg('
         define("ROOT", ' . var_export(ROOT, true) . ');

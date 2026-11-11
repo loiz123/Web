@@ -3,7 +3,7 @@
  * Chuẩn UX Thương Mại BĐS Việt (Zero Layout Shift, Skeleton Shimmer, Toast & Modal Confirm)
  */
 document.addEventListener('DOMContentLoaded', function _callback(){
-  const form = document.getElementById('searchFilterForm');
+  const form = document.getElementById('propertySearchForm');
   const propertiesGrid = document.getElementById('propertiesGrid');
   const paginationContainer = document.getElementById('paginationContainer');
   const totalCountBadge = document.getElementById('totalCountBadge');
@@ -19,6 +19,9 @@ document.addEventListener('DOMContentLoaded', function _callback(){
 
   let currentViewMode = 'grid'; // 'grid' | 'map' | 'split'
   let searchMapInstance = null;
+  let searchRequest = 0;
+  let searchAbortController = null;
+  let lastResults = propertiesGrid?.innerHTML || '';
 
   function escapeHtml(str) {
     return String(str ?? '')
@@ -114,7 +117,12 @@ document.addEventListener('DOMContentLoaded', function _callback(){
    * Thực hiện lọc & phân trang bằng AJAX kèm Skeleton Loading và Fade-in mượt mà
    */
   async function performSearch(page = 1, updateUrl = true) {
-    if (!form) return;
+    if (!form || !propertiesGrid) return;
+
+    const request = ++searchRequest;
+    searchAbortController?.abort();
+    searchAbortController = new AbortController();
+    const previousResults = lastResults;
 
     const formData = new FormData(form);
     const params = new URLSearchParams();
@@ -134,6 +142,7 @@ document.addEventListener('DOMContentLoaded', function _callback(){
     try {
       const searchUrl = `${BASE_URL}/property/search?${params.toString()}`;
       const res = await fetch(searchUrl, {
+        signal: searchAbortController.signal,
         headers: {
           'Accept': 'application/json',
           'X-Requested-With': 'XMLHttpRequest'
@@ -142,12 +151,14 @@ document.addEventListener('DOMContentLoaded', function _callback(){
 
       if (!res.ok) throw new Error('Không thể tải dữ liệu tìm kiếm.');
       const data = await res.json();
+      if (request !== searchRequest) return;
 
       if (data.success && data.data) {
         const payload = data.data;
 
         // 1. Thay thế Skeleton bằng danh sách tin thật với hiệu ứng fade-in mượt mà
         if (propertiesGrid) {
+          lastResults = payload.html;
           propertiesGrid.innerHTML = payload.html;
           propertiesGrid.classList.remove('bds-fade-in');
           void propertiesGrid.offsetWidth; // trigger reflow
@@ -194,14 +205,18 @@ document.addEventListener('DOMContentLoaded', function _callback(){
         }
       }
     } catch (err) {
+      if (err.name === 'AbortError' || request !== searchRequest) return;
+      if (propertiesGrid) propertiesGrid.innerHTML = previousResults;
       console.error('Lỗi tìm kiếm AJAX:', err);
       if (window.BDS && typeof window.BDS.toast === 'function') {
         window.BDS.toast('Đã xảy ra lỗi khi tải danh sách bất động sản. Vui lòng thử lại.', 'danger', 'Lỗi kết nối');
       }
     } finally {
-      if (propertiesGrid) propertiesGrid.style.opacity = '1';
-      submitSpinner?.classList.add('d-none');
-      if (btnSubmitSearch) btnSubmitSearch.disabled = false;
+      if (request === searchRequest) {
+        if (propertiesGrid) propertiesGrid.style.opacity = '1';
+        submitSpinner?.classList.add('d-none');
+        if (btnSubmitSearch) btnSubmitSearch.disabled = false;
+      }
     }
   }
 
@@ -428,13 +443,10 @@ document.addEventListener('DOMContentLoaded', function _callback(){
     }
   });
 
-  window.addEventListener('popstate', function _callback21(){
+  window.addEventListener('popstate', async function _callback21(){
     if (!form) return;
     const currentParams = new URLSearchParams(window.location.search);
-    for (const [k, v] of currentParams.entries()) {
-      const el = form.elements[k];
-      if (el) el.value = v;
-    }
+    await restoreFilters(Object.fromEntries(currentParams));
     const page = parseInt(currentParams.get('page') || '1', 10);
     performSearch(page, false);
   });
@@ -445,18 +457,40 @@ document.addEventListener('DOMContentLoaded', function _callback(){
     customCollapse?.classList.toggle('d-none');
   });
 
-  function resetAllFilters() {
+  function clearFilters() {
     if (!form) return;
     form.reset();
-    document.querySelectorAll('#searchFilterForm select').forEach(function _callback23(sel){return sel.value='';});
-    document.querySelectorAll('#searchFilterForm input[type="text"], #searchFilterForm input[type="number"]').forEach(function _callback24(inp){return inp.value='';});
-    performSearch(1, true);
+    form.querySelectorAll('select').forEach(function _callback23(sel){ sel.value = sel.name === 'sort' ? 'newest' : ''; });
+    form.querySelectorAll('input[type="text"], input[type="number"]').forEach(function _callback24(inp){ inp.value = ''; });
+    const ward = form.elements.ward_id;
+    if (ward) {
+      ward.dataset.selected = '';
+      fillSelect(ward, [], ward.dataset.placeholder || 'Phường/Xã');
+      ward.disabled = false;
+    }
+  }
+
+  async function restoreFilters(filters) {
+    clearFilters();
+    for (const [key, value] of Object.entries(filters)) {
+      if (key === 'district_id' || key === 'ward_id') continue;
+      const element = form.elements[key];
+      if (element) element.value = value;
+    }
+    if (typeof BdsLocation !== 'undefined') {
+      await BdsLocation.load(form.elements.ward_id, 'wards', form.elements.province_id?.value, filters.ward_id);
+    }
+  }
+
+  function resetAllFilters() {
+    clearFilters();
+    if (propertiesGrid) performSearch(1, true);
     if (window.BDS && typeof window.BDS.toast === 'function') {
       window.BDS.toast('Đã đặt lại toàn bộ tiêu chí lọc tìm kiếm.', 'info', 'Đặt lại bộ lọc');
     }
   }
 
-  document.getElementById('btnResetFilter')?.addEventListener('click', resetAllFilters);
+  document.getElementById('btnResetFilters')?.addEventListener('click', resetAllFilters);
   document.addEventListener('click', function _callback25(e){
     if (e.target.matches('.btn-reset-filters')) {
       resetAllFilters();
@@ -491,7 +525,7 @@ document.addEventListener('DOMContentLoaded', function _callback(){
   }
 
   btnSaveFilterModal?.addEventListener('click', function _callback26(){
-    const kw = document.getElementById('filterKeyword')?.value || '';
+    const kw = keywordInput?.value || '';
     const defName = kw
       ? `Bộ lọc: "${kw}"`
       : `Bộ lọc ${new Date().toLocaleDateString('vi-VN')} ${new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`;
@@ -593,6 +627,9 @@ document.addEventListener('DOMContentLoaded', function _callback(){
   }
 
   const localList = getLocalSavedFilters();
+  (window.INITIAL_SAVED_FILTERS || []).slice().reverse().forEach(function renderAccountFilter(item) {
+    renderSavedFilterItem({ ...item, id: String(item.id), filters: item.filter_data || {}, is_db: true });
+  });
   localList.forEach(function _callback28         (item){return renderSavedFilterItem(item);});
 
   savedFiltersList?.addEventListener('click', async function _callback29(e){
@@ -606,22 +643,7 @@ document.addEventListener('DOMContentLoaded', function _callback(){
 
       try {
         const filterObj = JSON.parse(li.dataset.filters);
-        form.reset();
-        for (const [k, v] of Object.entries(filterObj)) {
-          if (k === 'district_id' || k === 'ward_id') continue;
-          const el = form.elements[k];
-          if (el) el.value = v;
-        }
-        const district = form.elements.district_id;
-        const ward = form.elements.ward_id;
-        if (typeof BdsLocation !== 'undefined') {
-          if (district) {
-            await BdsLocation.load(district, 'districts', form.elements.province_id?.value, filterObj.district_id);
-            await BdsLocation.load(ward, 'wards', district?.value, filterObj.ward_id);
-          } else if (ward) {
-            await BdsLocation.load(ward, 'wards', form.elements.province_id?.value, filterObj.ward_id);
-          }
-        }
+        await restoreFilters(filterObj);
         performSearch(1, true);
         if (window.BDS) {
           window.BDS.toast('Đã khôi phục và áp dụng bộ lọc tìm kiếm.', 'info', 'Áp dụng bộ lọc');

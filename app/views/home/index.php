@@ -51,4 +51,4 @@
     </nav>
   <?php endif; ?>
 <?php endif; ?>
-<script src="<?= e(base_url('assets/js/search-ajax.js')) ?>"></script>
+<script src="<?= e(base_url('assets/js/search-ajax.js?v=20261111')) ?>"></script>

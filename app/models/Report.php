@@ -30,7 +30,8 @@ class Report extends Model
             return 0;
         }
 
-        if (config('use_routines')) {
+        // Procedure hiện tại chỉ nhận reason, không có tham số description.
+        if (config('use_routines') && trim((string)$description) === '') {
             try {
                 $rows = $this->call('sp_report_create', [$propertyId, $reporterId, mb_substr(trim($reason), 0, 255)]);
                 return (int)($rows[0]['id'] ?? 0);
@@ -40,7 +41,7 @@ class Report extends Model
         }
 
         $this->query(
-            "INSERT INTO reports (property_id, reporter_id, reason, description, status) VALUES (?, ?, ?, ?, 'pending')",
+            "INSERT INTO reports (property_id, reporter_id, reason, description, status) VALUES (?, ?, ?, ?, 'open')",
             [$propertyId, $reporterId, mb_substr(trim($reason), 0, 255), $description ? trim($description) : null]
         );
         return (int)$this->db->lastInsertId();
@@ -77,7 +78,8 @@ class Report extends Model
 
         if (trim($search) === '' && config('use_routines')) {
             try {
-                $mappedStatus = in_array($status, ['open', 'resolved', 'dismissed'], true) ? $status : null;
+                $mappedStatus = $status === 'pending' ? 'open' : $status;
+                $mappedStatus = in_array($mappedStatus, ['open', 'resolved', 'dismissed'], true) ? $mappedStatus : null;
                 $total = (int)($this->call('sp_report_count', [$mappedStatus])[0]['total'] ?? 0);
                 $items = $this->call('sp_report_list', [$mappedStatus, $perPage, $offset]);
                 return [
