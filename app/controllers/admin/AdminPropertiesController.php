@@ -94,6 +94,11 @@ class AdminPropertiesController extends Controller
      */
     public function verify($id = 0): void
     {
+        if (!$this->isPost()) {
+            header('Allow: POST');
+            $this->json(null, false, 'Phương thức không hợp lệ.', 405);
+        }
+        $this->verifyCsrf();
         if (!Auth::isAdmin() && (int)($_SESSION['user']['role_id'] ?? 0) !== 1) {
             if ($this->wantsJson()) {
                 $this->json(null, false, 'Bạn không có quyền thực hiện hành động này.', 403);
@@ -140,6 +145,11 @@ class AdminPropertiesController extends Controller
      */
     public function changeStatus($id = 0): void
     {
+        if (!$this->isPost()) {
+            header('Allow: POST');
+            $this->json(null, false, 'Phương thức không hợp lệ.', 405);
+        }
+        $this->verifyCsrf();
         if (!Auth::isAdmin() && (int)($_SESSION['user']['role_id'] ?? 0) !== 1) {
             if ($this->wantsJson()) {
                 $this->json(null, false, 'Bạn không có quyền thực hiện hành động này.', 403);
@@ -150,7 +160,7 @@ class AdminPropertiesController extends Controller
         }
 
         $propertyId = (int)$id;
-        $status = (string)($_POST['status'] ?? ($_GET['status'] ?? ''));
+        $status = (string)($_POST['status'] ?? '');
 
         if ($propertyId <= 0 || $status === '') {
             if ($this->wantsJson()) {

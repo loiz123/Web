@@ -321,7 +321,7 @@ document.addEventListener('DOMContentLoaded', function () {
     try {
       const res = await fetch('<?= e(base_url('admin/properties/verify/')) ?>' + id, {
         method: 'POST',
-        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json', 'X-CSRF-Token': CSRF }
       });
       const data = await res.json();
       if (data && data.success) {
@@ -365,7 +365,7 @@ document.addEventListener('DOMContentLoaded', function () {
       formData.append('status', status);
       const res = await fetch('<?= e(base_url('admin/properties/changeStatus/')) ?>' + id, {
         method: 'POST',
-        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json', 'X-CSRF-Token': CSRF },
         body: formData
       });
       const data = await res.json();

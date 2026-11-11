@@ -115,32 +115,18 @@ class AgentController extends Controller
                 $coverImageId
             );
         } catch (Throwable $error) {
-            foreach ($savedFiles as $savedFile) @unlink($savedFile);
             error_log($error->getMessage());
             $updated = false;
         }
 
         if (!$updated) {
+            $this->discardStoredImages($newImagePaths, $savedFiles);
             flash('danger', 'Không thể cập nhật tin đăng. Vui lòng thử lại.');
             $this->showEditForm(array_merge($listing, $input));
             return;
         }
 
-        // Xóa file vật lý của các ảnh đã xóa (bao gồm cả ảnh thumbnail nếu có)
-        foreach ($deleteImageIds as $delId) {
-            $imagePath = $existingById[$delId]['image_url'] ?? '';
-            $fileName = basename($imagePath);
-            if (!preg_match('/^[a-f0-9]{32}\.(jpg|png|webp)$/', $fileName)) continue;
-            $uploadBase = rtrim(config('upload_dir'), '/\\') . DIRECTORY_SEPARATOR;
-            $filePath = $uploadBase . $fileName;
-            $thumbPath = $uploadBase . 'thumb_' . $fileName;
-            if (is_file($filePath) && !@unlink($filePath)) {
-                error_log('Unable to remove deleted property image: ' . $filePath);
-            }
-            if (is_file($thumbPath)) {
-                @unlink($thumbPath);
-            }
-        }
+        $this->discardStoredImages(array_map(fn($id) => $existingById[$id]['image_url'], $deleteImageIds));
 
         flash('success', 'Tin đăng đã được cập nhật và chuyển về trạng thái chờ duyệt.');
         $this->redirect('agent');
@@ -390,29 +376,7 @@ class AgentController extends Controller
             flash('danger', 'Không thể xóa tin đăng. Vui lòng thử lại.');
             $this->redirect('agent');
         }
-        $storage = new ImageStorage();
-        foreach ($imagePaths as $imagePath) {
-            try {
-                if (class_exists('ImageStorage') && config('image_storage') === 'cloudinary') {
-                    $storage->remove($imagePath);
-                } else {
-                    $fileName = basename($imagePath);
-                    if (preg_match('/^[a-f0-9]{32}\.(jpg|png|webp)$/', $fileName)) {
-                        $uploadBase = rtrim(config('upload_dir'), '/\\') . DIRECTORY_SEPARATOR;
-                        $filePath = $uploadBase . $fileName;
-                        $thumbPath = $uploadBase . 'thumb_' . $fileName;
-                        if (is_file($filePath) && !unlink($filePath)) {
-                            error_log('Unable to remove deleted property image: ' . $filePath);
-                        }
-                        if (is_file($thumbPath)) {
-                            @unlink($thumbPath);
-                        }
-                    }
-                }
-            } catch (Throwable $error) {
-                error_log('Unable to remove deleted property image: ' . $error->getMessage());
-            }
-        }
+        $this->discardStoredImages($imagePaths);
         flash('success', 'Tin đăng đã được xóa.');
         $this->redirect('agent');
     }
@@ -471,7 +435,7 @@ class AgentController extends Controller
         try {
             (new Property())->createListing($propertyData, $imagePaths, $amenityIds, $coverIndex);
         } catch (Throwable $error) {
-            foreach ($savedFiles as $savedFile) @unlink($savedFile);
+            $this->discardStoredImages($imagePaths, $savedFiles);
             error_log($error->getMessage());
             flash('danger', 'Không thể lưu tin đăng. Vui lòng thử lại.');
             $this->showCreateForm($input);
@@ -497,26 +461,53 @@ class AgentController extends Controller
 
         $imagePaths = [];
         $savedFiles = [];
+        $storage = new ImageStorage();
 
         foreach ($images as $image) {
             $res = ImageHelper::processPropertyImage($image['tmp_name'], $uploadDir, 1600, 82, true);
             if ($res === null) {
-                foreach ($savedFiles as $savedFile) {
-                    if (is_file($savedFile)) @unlink($savedFile);
-                }
+                $this->discardStoredImages($imagePaths, $savedFiles);
                 return null;
             }
             $savedFiles[] = $res['full_path'];
             if (!empty($res['thumb_path'])) {
                 $savedFiles[] = $res['thumb_path'];
             }
-            $imagePaths[] = $res['relative_path'];
+            if (config('image_storage') === 'cloudinary') {
+                try {
+                    $imagePaths[] = $storage->store($res['full_path'], pathinfo($res['file_name'], PATHINFO_EXTENSION));
+                } catch (Throwable $error) {
+                    $this->discardStoredImages($imagePaths, $savedFiles);
+                    error_log('Unable to store property image: ' . $error->getMessage());
+                    return null;
+                }
+                @unlink($res['full_path']);
+                if (!empty($res['thumb_path'])) @unlink($res['thumb_path']);
+            } else {
+                $imagePaths[] = $res['relative_path'];
+            }
         }
 
         return [
             'image_paths' => $imagePaths,
             'saved_files' => $savedFiles,
         ];
+    }
+
+    /** Dọn ảnh đúng nơi lưu trữ sau khi xóa, hoặc khi lưu dữ liệu thất bại. */
+    private function discardStoredImages(array $imagePaths, array $savedFiles = []): void
+    {
+        $storage = new ImageStorage();
+        foreach ($imagePaths as $imagePath) {
+            try {
+                $storage->remove($imagePath);
+            } catch (Throwable $error) {
+                error_log('Unable to remove property image: ' . $error->getMessage());
+            }
+        }
+        foreach ($savedFiles as $file) {
+            if (is_file($file)) @unlink($file);
+        }
     }
 
     private function showCreateForm(array $values = []): void

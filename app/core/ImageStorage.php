@@ -33,6 +33,8 @@ class ImageStorage
         if (!preg_match('~^uploads/properties/([a-f0-9]{32}\.(?:jpg|png|webp))$~', $path, $matches)) return;
         $file = rtrim((string)config('upload_dir'), '/\\') . DIRECTORY_SEPARATOR . $matches[1];
         if (is_file($file) && !unlink($file)) throw new RuntimeException('Unable to remove image');
+        $thumbnail = dirname($file) . DIRECTORY_SEPARATOR . 'thumb_' . $matches[1];
+        if (is_file($thumbnail) && !unlink($thumbnail)) throw new RuntimeException('Unable to remove image thumbnail');
     }
 
     private function driver(): string

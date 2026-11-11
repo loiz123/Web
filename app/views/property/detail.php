@@ -1547,7 +1547,8 @@ document.addEventListener('DOMContentLoaded', function () {
           method: 'POST',
           headers: {
             'X-Requested-With': 'XMLHttpRequest',
-            'Accept': 'application/json'
+            'Accept': 'application/json',
+            'X-CSRF-Token': CSRF
           }
         });
         const data = await res.json();
@@ -1613,7 +1614,8 @@ document.addEventListener('DOMContentLoaded', function () {
           method: 'POST',
           headers: {
             'X-Requested-With': 'XMLHttpRequest',
-            'Accept': 'application/json'
+            'Accept': 'application/json',
+            'X-CSRF-Token': CSRF
           },
           body: formData
         });

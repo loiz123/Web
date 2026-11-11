@@ -21,10 +21,13 @@ if ($extractId->invoke($storage, 'https://example.com/image/upload/v123/bds/prop
 mkdir($dir);
 try {
     file_put_contents($dir . '/' . $name . '.jpg', 'test');
+    file_put_contents($dir . '/thumb_' . $name . '.jpg', 'thumbnail');
     $storage->remove('uploads/properties/' . $name . '.jpg');
     if (file_exists($dir . '/' . $name . '.jpg')) throw new RuntimeException('Image cleanup');
+    if (file_exists($dir . '/thumb_' . $name . '.jpg')) throw new RuntimeException('Thumbnail cleanup');
 } finally {
     if (is_file($dir . '/' . $name . '.jpg')) unlink($dir . '/' . $name . '.jpg');
+    if (is_file($dir . '/thumb_' . $name . '.jpg')) unlink($dir . '/thumb_' . $name . '.jpg');
     rmdir($dir);
 }
 echo "Image storage checks passed\n";

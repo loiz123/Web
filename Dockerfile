@@ -7,10 +7,11 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
+# Expose over-limit batches to PHP so application validation can reject more than 10 images.
 RUN sed -ri 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/000-default.conf \
     && printf '<Directory /var/www/html/public>\nAllowOverride All\nRequire all granted\n</Directory>\n' > /etc/apache2/conf-available/app.conf \
     && a2enconf app \
-    && printf 'upload_max_filesize=5M\npost_max_size=55M\nmax_file_uploads=10\n' > /usr/local/etc/php/conf.d/uploads.ini
+    && printf 'upload_max_filesize=5M\npost_max_size=55M\nmax_file_uploads=20\n' > /usr/local/etc/php/conf.d/uploads.ini
 
 COPY . /var/www/html
 COPY deploy/render-start.sh /usr/local/bin/render-start

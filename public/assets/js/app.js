@@ -253,55 +253,8 @@ async function loadLocationOptions(url, select, placeholder, selectedId) {
 
 function setupAgentForm() {
   var province = document.querySelector('#province');
-  if (!province) return;
-
-  var district = document.querySelector('#district');
   var ward = document.querySelector('#ward');
-  if (!district || !ward) return;
-  var selectedDistrict = district.dataset.selected;
-  var selectedWard = ward.dataset.selected;
-
-  province.addEventListener('change', function _callback9() {
-    if (province.dataset.autoPopulating === '1') return;
-    selectedDistrict = '';
-    selectedWard = '';
-    loadLocationOptions(
-      province.value ? `api/districts/${province.value}` : '',
-      district,
-      'Chọn quận/huyện',
-      ''
-    );
-    fillSelect(ward, [], 'Chọn phường/xã');
-  });
-
-  district.addEventListener('change', function _callback0() {
-    if (district.dataset.autoPopulating === '1') return;
-    selectedWard = '';
-    loadLocationOptions(
-      district.value ? `api/wards/${district.value}` : '',
-      ward,
-      'Chọn phường/xã',
-      ''
-    );
-  });
-
-  if (province.value) {
-    loadLocationOptions(
-      `api/districts/${province.value}`,
-      district,
-      'Chọn quận/huyện',
-      selectedDistrict
-    ).then(function _callback1(){
-      if (district.value) {
-        loadLocationOptions(
-          `api/wards/${district.value}`,
-          ward,
-          'Chọn phường/xã',
-          selectedWard
-        );
-      }
-    });
-  }
+  if (!province || !ward) return;
 
   var listingType = document.querySelector('#listing-type');
   var rentFields = document.querySelector('#rent-fields');
