@@ -270,6 +270,7 @@ if ($user) {
 </main>
 
 <!-- Floating Bar So Sánh Bất Động Sản (Tối đa 3 tin) -->
+<?php if (!str_starts_with($currentUrl, 'property/compare')): ?>
 <div id="floatingCompareBar" class="floating-compare-bar d-none">
   <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
     <div class="d-flex align-items-center gap-3">
@@ -293,6 +294,7 @@ if ($user) {
     </div>
   </div>
 </div>
+<?php endif; ?>
 
 <!-- Modern Professional Real Estate Footer -->
 <footer class="footer-modern">

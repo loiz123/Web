@@ -88,6 +88,7 @@
       $prices = array_column($properties, 'price');
       $areas = array_column($properties, 'area');
       $minPrice = !empty($prices) ? min($prices) : 0;
+      $sameListingType = count(array_unique(array_column($properties, 'listing_type'))) === 1;
       $maxArea = !empty($areas) ? max($areas) : 0;
       $colCount = count($properties);
       $colWidthPercent = round(80 / $colCount, 2);
@@ -150,9 +151,9 @@
             <tr>
               <td class="fw-semibold text-muted bg-light">Mức giá niêm yết</td>
               <?php foreach ($properties as $prop): ?>
-                <?php $isBestPrice = ((float)$prop['price'] === (float)$minPrice && $colCount > 1); ?>
+                <?php $isBestPrice = ($sameListingType && (float)$prop['price'] === (float)$minPrice && $colCount > 1); ?>
                 <td class="text-center text-nowrap <?= $isBestPrice ? 'bg-success-subtle' : '' ?>">
-                  <div class="fs-5 fw-bold text-danger text-nowrap" style="white-space: nowrap !important; font-variant-numeric: tabular-nums;"><?= e(format_price($prop['price'])) ?></div>
+                  <div class="fs-5 fw-bold text-danger text-nowrap" style="white-space: nowrap !important; font-variant-numeric: tabular-nums;"><?= e(format_price($prop['price'])) ?><?= ($prop['listing_type'] ?? '') === 'rent' ? '/tháng' : '' ?></div>
                   <?php if ($isBestPrice): ?>
                     <span class="badge bg-success small"><i class="bi bi-star-fill me-1"></i>Giá tốt nhất</span>
                   <?php endif; ?>
@@ -169,7 +170,7 @@
                 ?>
                 <td class="text-center">
                   <?php if ($unitRate): ?>
-                    <span class="fw-semibold text-dark">~<?= $unitRate ?> tr/m²</span>
+                    <span class="fw-semibold text-dark">~<?= $unitRate ?> tr/m²<?= ($prop['listing_type'] ?? '') === 'rent' ? '/tháng' : '' ?></span>
                   <?php else: ?>
                     <span class="text-muted">—</span>
                   <?php endif; ?>
@@ -275,7 +276,9 @@
               <td class="fw-semibold text-muted bg-light">Khu vực / Địa chỉ</td>
               <?php foreach ($properties as $prop): ?>
                 <td class="text-center small">
-                  <?= e($prop['ward_name'] ?? '') ?>, <?= e($prop['district_name'] ?? '') ?>, <?= e($prop['province_name'] ?? '') ?>
+                  <?= e(implode(', ', array_unique(array_filter([
+                      $prop['ward_name'] ?? '', $prop['district_name'] ?? '', $prop['province_name'] ?? '',
+                  ])))) ?>
                 </td>
               <?php endforeach; ?>
             </tr>
