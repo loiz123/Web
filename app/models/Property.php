@@ -116,10 +116,14 @@ class Property extends Model
         ?array $amenityIds = null,
         array $newImagePaths = [],
         array $deleteImageIds = [],
-        ?int $coverImageId = null
+        ?int $coverImageId = null,
+        ?int $newCoverIndex = null
     ): bool {
         $current = $this->findOwned($id, $userId);
         if (!$current) {
+            return false;
+        }
+        if ($newCoverIndex !== null && ($newCoverIndex < 0 || !array_key_exists($newCoverIndex, $newImagePaths))) {
             return false;
         }
 
@@ -179,8 +183,11 @@ class Property extends Model
 
             if (!empty($newImagePaths)) {
                 $propertyImage = new PropertyImage();
-                foreach ($newImagePaths as $imgPath) {
-                    $propertyImage->createForProperty($id, $imgPath, false);
+                foreach ($newImagePaths as $index => $imgPath) {
+                    $newId = $propertyImage->createForProperty($id, $imgPath, false);
+                    if ($newCoverIndex !== null && $index === $newCoverIndex) {
+                        $coverImageId = $newId;
+                    }
                 }
             }
 

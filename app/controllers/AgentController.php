@@ -77,6 +77,14 @@ class AgentController extends Controller
         if ($remainingCount > 10) {
             $errors[] = 'Tổng số ảnh của tin đăng không được vượt quá 10 ảnh.';
         }
+        $newCoverIndex = null;
+        if (isset($input['cover_image']) && $input['cover_image'] !== '') {
+            $newCoverIndex = filter_var($input['cover_image'], FILTER_VALIDATE_INT);
+            if ($newCoverIndex === false || $newCoverIndex < 0 || $newCoverIndex >= count($newImages)) {
+                $errors[] = 'Vui lòng chọn ảnh bìa mới hợp lệ.';
+                $newCoverIndex = null;
+            }
+        }
 
         if ($errors) {
             foreach ($errors as $error) flash('danger', $error);
@@ -112,7 +120,8 @@ class AgentController extends Controller
                 $amenityIds,
                 $newImagePaths,
                 $deleteImageIds,
-                $coverImageId
+                $coverImageId,
+                $newCoverIndex
             );
         } catch (Throwable $error) {
             error_log($error->getMessage());

@@ -274,6 +274,15 @@ function setupAgentForm() {
 
   var imageInput = document.querySelector('#images');
   if (imageInput) {
+    var editingImages = Boolean(document.getElementById('agent-edit-form'));
+    var existingCoverChoices = document.querySelectorAll('input[name="cover_image_id"]');
+    existingCoverChoices.forEach(function bindExistingCover(choice) {
+      choice.addEventListener('change', function selectExistingCover() {
+        if (choice.checked) {
+          document.querySelectorAll('input[name="cover_image"]').forEach(function clearNewCover(radio) { radio.checked = false; });
+        }
+      });
+    });
     imageInput.addEventListener('change', function _callback11(){
       var files = imageInput.files;
       var error = '';
@@ -312,7 +321,12 @@ function setupAgentForm() {
         radio.type = 'radio';
         radio.name = 'cover_image';
         radio.value = String(index);
-        radio.checked = index === 0;
+        radio.checked = !editingImages && index === 0;
+        radio.addEventListener('change', function selectNewCover() {
+          if (editingImages && radio.checked) {
+            existingCoverChoices.forEach(function clearExistingCover(choice) { choice.checked = false; });
+          }
+        });
         radio.className = 'form-check-input';
         var text = document.createElement('span');
         text.className = 'form-check-label';
