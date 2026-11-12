@@ -7,9 +7,12 @@ class PropertyController extends Controller
         $allowedKeys = [
             'keyword', 'listing_type', 'type_id', 'province_id', 'district_id', 'ward_id',
             'min_price', 'max_price', 'price_range', 'min_area', 'max_area', 'area_range',
-            'bedrooms', 'sort_by', 'page'
+            'bedrooms', 'sort', 'sort_by', 'page'
         ];
         $filters = array_intersect_key($_GET, array_flip($allowedKeys));
+        if (!empty($filters['sort']) && empty($filters['sort_by'])) {
+            $filters['sort_by'] = $filters['sort'];
+        }
 
         $location = new Location();
         if (!empty($filters['district_id']) && empty($filters['province_id'])) {
@@ -46,8 +49,9 @@ class PropertyController extends Controller
             $this->renderPagination($page, $totalPages, $total, $limit);
             $paginationHtml = ob_get_clean();
 
-            $mapProperties = array_map(function ($p) {
-                return [
+            $mapProperties = [];
+            foreach ($properties as $p) {
+                $mapProperties[] = [
                     'id'              => (int)$p['id'],
                     'title'           => $p['title'],
                     'price'           => (float)$p['price'],
@@ -60,10 +64,10 @@ class PropertyController extends Controller
                     'longitude'       => !empty($p['longitude']) ? (float)$p['longitude'] : null,
                     'district_name'   => $p['district_name'] ?? '',
                     'ward_name'       => $p['ward_name'] ?? '',
-                    'cover_url'       => !empty($p['cover_url']) ? base_url($p['cover_url']) : '',
+                    'cover_url'       => !empty($p['cover_url']) ? image_url($p['cover_url']) : '',
                     'detail_url'      => base_url('property/detail/' . $p['id']),
                 ];
-            }, $properties);
+            }
 
             $this->json([
                 'total'          => $total,
@@ -80,7 +84,9 @@ class PropertyController extends Controller
 
         $propertyTypes = (new PropertyType())->allSorted();
         $districts = !empty($filters['province_id']) ? $location->districtsByProvince((int)$filters['province_id']) : [];
-        $wards = !empty($filters['district_id']) ? $location->wardsByDistrict((int)$filters['district_id']) : [];
+        $wards = !empty($filters['province_id'])
+            ? $location->wardsByProvince((int)$filters['province_id'])
+            : (!empty($filters['district_id']) ? $location->wardsByDistrict((int)$filters['district_id']) : []);
         $savedSearches = Auth::check() ? (new SavedSearch())->getByUser((int)Auth::id()) : [];
 
         $this->view('property/search', [
@@ -96,6 +102,77 @@ class PropertyController extends Controller
             'wards'         => $wards,
             'propertyTypes' => $propertyTypes,
             'savedSearches' => $savedSearches,
+        ]);
+    }
+
+    /**
+     * [C - Thiện] Bản đồ bất động sản trực quan (Leaflet OpenStreetMap + Marker Clustering)
+     * Tuyến đường: /property/map
+     */
+    public function map(): void
+    {
+        $allowedKeys = [
+            'keyword', 'listing_type', 'type_id', 'province_id', 'district_id', 'ward_id',
+            'min_price', 'max_price', 'price_range', 'min_area', 'max_area', 'area_range',
+            'bedrooms', 'sort_by'
+        ];
+        $filters = array_intersect_key($_GET, array_flip($allowedKeys));
+
+        $location = new Location();
+        if (!empty($filters['district_id']) && empty($filters['province_id'])) {
+            $filters['province_id'] = $location->provinceByDistrict((int)$filters['district_id']);
+        }
+
+        $finder = new PropertyFinder();
+        $rawProperties = $finder->forMap($filters);
+
+        $mapProperties = array_map(function ($p) {
+            $coverUrl = !empty($p['cover_url']) ? property_avatar_url($p['cover_url']) : property_avatar_url(null);
+            return [
+                'id'              => (int)$p['id'],
+                'title'           => $p['title'],
+                'slug'            => slugify($p['title']),
+                'price'           => (float)$p['price'],
+                'formatted_price' => format_price($p['price']),
+                'area'            => (float)$p['area'],
+                'bedrooms'        => (int)($p['bedrooms'] ?? 0),
+                'bathrooms'       => (int)($p['bathrooms'] ?? 0),
+                'listing_type'    => $p['listing_type'],
+                'type_id'         => (int)($p['type_id'] ?? 0),
+                'type_name'       => $p['type_name'] ?? '',
+                'latitude'        => !empty($p['latitude']) ? (float)$p['latitude'] : null,
+                'longitude'       => !empty($p['longitude']) ? (float)$p['longitude'] : null,
+                'province_id'     => (int)($p['province_id'] ?? 0),
+                'province_name'   => $p['province_name'] ?? '',
+                'district_id'     => (int)($p['district_id'] ?? 0),
+                'district_name'   => $p['district_name'] ?? '',
+                'ward_name'       => $p['ward_name'] ?? '',
+                'address_detail'  => $p['address_detail'] ?? '',
+                'cover_url'       => $coverUrl,
+                'detail_url'      => base_url('property/detail/' . $p['id']),
+            ];
+        }, $rawProperties);
+
+        if ($this->wantsJson()) {
+            $this->json([
+                'total'      => count($mapProperties),
+                'properties' => $mapProperties,
+            ], true);
+            return;
+        }
+
+        $provinces = $location->provinces();
+        $districts = !empty($filters['province_id']) ? $location->districtsByProvince((int)$filters['province_id']) : [];
+        $propertyTypes = (new PropertyType())->allSorted();
+
+        $this->view('property/map', [
+            'title'         => 'Bản đồ bất động sản trực quan',
+            'properties'    => $mapProperties,
+            'total'         => count($mapProperties),
+            'filters'       => $filters,
+            'provinces'     => $provinces,
+            'districts'     => $districts,
+            'propertyTypes' => $propertyTypes,
         ]);
     }
 
@@ -119,9 +196,12 @@ class PropertyController extends Controller
             return;
         }
 
-        // Tăng lượt xem tin
-        $finder->incrementViews($id);
-        $property['views'] = ((int)$property['views']) + 1;
+        // Chống tăng lượt xem ảo: chỉ tăng views 1 lần cho mỗi tin trong cùng phiên trình duyệt
+        if (empty($_SESSION['viewed_properties'][$id])) {
+            $finder->incrementViews($id);
+            $property['views'] = ((int)$property['views']) + 1;
+            $_SESSION['viewed_properties'][$id] = time();
+        }
 
         $images = $finder->getImages($id);
         $amenities = $finder->getAmenities($id);
@@ -266,7 +346,7 @@ class PropertyController extends Controller
             $finder = new PropertyFinder();
             foreach ($idList as $id) {
                 $prop = $finder->findDetail($id);
-                if ($prop) {
+                if ($prop && ($prop['status'] ?? '') === 'approved') {
                     $amenities = $finder->getAmenities($id);
                     $prop['amenities'] = $amenities;
                     $properties[] = $prop;
@@ -313,7 +393,7 @@ class PropertyController extends Controller
             $finder = new PropertyFinder();
             foreach ($idList as $id) {
                 $prop = $finder->findDetail($id);
-                if ($prop) {
+                if ($prop && ($prop['status'] ?? '') === 'approved') {
                     $prop['amenities'] = $finder->getAmenities($id);
                     $result[] = $prop;
                 }
@@ -381,5 +461,13 @@ class PropertyController extends Controller
         echo '    </ul>';
         echo '  </nav>';
         echo '</div>';
+    }
+
+    /**
+     * Báo cáo tin vi phạm (chuyển tiếp tới ReportController::submit)
+     */
+    public function report(): void
+    {
+        (new ReportController())->submit();
     }
 }

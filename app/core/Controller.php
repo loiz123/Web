@@ -18,8 +18,16 @@ abstract class Controller
     }
 
     /** Trả JSON chuẩn cho AJAX: {success, message, data} */
-    protected function json($data = null, bool $success = true, string $message = '', int $status = 200)
+    protected function json($data = null, $success = true, string $message = '', int $status = 200)
     {
+        if (is_int($success) && is_array($data) && array_key_exists('success', $data)) {
+            $status = $success;
+            $message = (string)($data['message'] ?? '');
+            $success = (bool)$data['success'];
+            $data = $data['data'] ?? null;
+        } else {
+            $success = (bool)$success;
+        }
         http_response_code($status);
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode(['success' => $success, 'message' => $message, 'data' => $data], JSON_UNESCAPED_UNICODE);
@@ -52,8 +60,13 @@ abstract class Controller
         $token = $_POST['_csrf'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
         $expected = $_SESSION['csrf'] ?? '';
         if (!is_string($token) || !is_string($expected) || $expected === '' || !hash_equals($expected, $token)) {
-            http_response_code(419);
-            exit('CSRF token không hợp lệ.');
+            // Apache chuyển mã không chuẩn 419 thành 500; dùng mã từ chối chuẩn.
+            $message = 'Phiên làm việc không hợp lệ hoặc đã hết hạn. Vui lòng tải lại trang và thử lại.';
+            if ($this->wantsJson()) {
+                $this->json(null, false, $message, 403);
+            }
+            http_response_code(403);
+            exit($message);
         }
     }
 }

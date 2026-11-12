@@ -20,7 +20,7 @@ BEGIN
         IF v_status <> 'pending' THEN
             SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Chỉ duyệt được tin đang chờ duyệt.';
         END IF;
-        UPDATE properties SET status = 'approved', reject_reason = NULL WHERE id = p_id;
+        UPDATE properties SET status = 'approved', reject_reason = NULL, expired_at = DATE_ADD(NOW(), INTERVAL 30 DAY) WHERE id = p_id;
 
     ELSEIF p_action = 'reject' THEN
         IF v_status <> 'pending' THEN
@@ -53,14 +53,16 @@ END$$
 DROP PROCEDURE IF EXISTS sp_stats_properties_by_district$$
 CREATE PROCEDURE sp_stats_properties_by_district()
 BEGIN
-    SELECT d.id, d.name AS district_name, pv.name AS province_name,
-           COUNT(pr.id) AS total, SUM(pr.status = 'approved') AS approved
-    FROM districts d
-    JOIN provinces pv ON pv.id = d.province_id
-    JOIN wards w ON w.district_id = d.id
-    JOIN properties pr ON pr.ward_id = w.id
-    GROUP BY d.id, d.name, pv.name
-    ORDER BY total DESC, d.name;
+    SELECT COALESCE(d.id, w.id) AS id, COALESCE(d.name, w.name) AS district_name, pv.name AS province_name,
+           COALESCE(SUM(pr.status = 'approved'), 0) AS total,
+           COALESCE(SUM(pr.status = 'approved'), 0) AS approved
+    FROM properties pr
+    JOIN wards w ON w.id = pr.ward_id
+    LEFT JOIN districts d ON d.id = w.district_id
+    JOIN provinces pv ON pv.id = w.province_id
+    WHERE pr.status = 'approved'
+    GROUP BY d.id, CASE WHEN d.id IS NULL THEN w.id ELSE 0 END, COALESCE(d.name, w.name), pv.name
+    ORDER BY approved DESC, district_name;
 END$$
 
 DELIMITER ;

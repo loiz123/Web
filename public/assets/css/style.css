@@ -37,6 +37,12 @@ body {
   box-shadow: 0 2px 12px rgba(15, 23, 42, 0.04);
   transition: all 0.3s ease;
   z-index: 1030;
+  min-height: 68px;
+}
+
+.navbar-modern .navbar-brand {
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .brand-logo-icon {
@@ -50,37 +56,82 @@ body {
   justify-content: center;
   font-size: 1.25rem;
   box-shadow: 0 4px 10px rgba(15, 23, 42, 0.15);
+  flex-shrink: 0;
 }
 
 .brand-title {
-  font-size: 1.2rem;
+  font-size: 1.18rem;
   font-weight: 800;
   letter-spacing: -0.02em;
   color: #0f172a;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 .brand-subtitle {
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 500;
   color: #64748b;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
-.navbar-modern .nav-link {
-  font-weight: 500;
-  font-size: 0.925rem;
-  color: #475569;
-  padding: 0.5rem 0.85rem !important;
-  border-radius: 8px;
-  transition: all 0.2s ease;
+.navbar-modern .navbar-nav {
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+.navbar-modern .nav-item {
   display: flex;
   align-items: center;
 }
 
+.navbar-modern .nav-link {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #475569 !important;
+  padding: 0.5rem 0.85rem !important;
+  border-radius: 8px;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+  white-space: nowrap;
+  line-height: 1.25;
+  height: 38px;
+}
+
+.navbar-modern .nav-link i {
+  font-size: 1rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
 .navbar-modern .nav-link:hover,
 .navbar-modern .nav-link.active {
-  color: #0f172a;
-  background-color: #f1f5f9;
+  color: #0f172a !important;
+  background-color: #f1f5f9 !important;
+}
+
+.navbar-modern .navbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+}
+
+.navbar-modern .navbar-actions .btn {
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 38px;
+  line-height: 1;
 }
 
 .btn-post-property {
@@ -88,6 +139,9 @@ body {
   border: none;
   color: #ffffff !important;
   font-weight: 600;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  flex-shrink: 0;
   box-shadow: 0 4px 14px rgba(224, 60, 49, 0.3);
   transition: all 0.2s ease;
 }
@@ -207,7 +261,7 @@ body {
 
 /* Badges */
 .badge-sale {
-  background: linear-gradient(135deg, #e03c31 0%, #ea580c 100%);
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
   color: #ffffff;
   font-weight: 600;
   font-size: 0.725rem;
@@ -225,9 +279,8 @@ body {
 }
 
 .badge-verified {
-  background-color: #ecfdf5;
-  color: #059669;
-  border: 1px solid #a7f3d0;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff;
   font-weight: 600;
   font-size: 0.725rem;
   padding: 0.35em 0.7em;
@@ -249,12 +302,14 @@ body {
   font-weight: 800;
   color: var(--realestate-red);
   letter-spacing: -0.02em;
+  white-space: nowrap;
 }
 
 .property-unit-price {
   font-size: 0.78rem;
   color: #64748b;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .property-specs {
@@ -387,115 +442,13 @@ body {
 }
 
 /* ==========================================================================
-   5. MORTGAGE CALCULATOR WIDGET (Detail Page)
+   6. PROPERTY LOCATION & MAP HELPERS
    ========================================================================== */
-.mortgage-calc-card {
-  border-radius: 16px;
-  border: 1px solid #e2e8f0;
-  background: #ffffff;
-  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
-  overflow: hidden;
+.property-main-marker {
+  transition: transform 0.2s ease;
 }
-
-.mortgage-calc-header {
-  background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
-  color: #ffffff;
-  padding: 1.25rem 1.5rem;
-}
-
-.mortgage-result-box {
-  background: linear-gradient(135deg, #fef2f2 0%, #fff7ed 100%);
-  border: 1px solid #fed7aa;
-  border-radius: 12px;
-  padding: 1.25rem;
-}
-
-.mortgage-slider {
-  accent-color: #e03c31;
-}
-
-.mortgage-breakdown-bar {
-  height: 10px;
-  border-radius: 5px;
-  overflow: hidden;
-  display: flex;
-}
-
-/* ==========================================================================
-   6. NEARBY PLACES / POI (Detail Leaflet Map)
-   ========================================================================== */
-.poi-filter-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.btn-poi-filter {
-  background: #ffffff;
-  border: 1px solid #cbd5e1;
-  color: #334155;
-  border-radius: 50rem;
-  padding: 0.4rem 0.95rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  transition: all 0.2s ease;
-  cursor: pointer;
-}
-
-.btn-poi-filter:hover {
-  background: #f1f5f9;
-  border-color: #94a3b8;
-  color: #0f172a;
-}
-
-.btn-poi-filter.active {
-  background: #0f172a;
-  border-color: #0f172a;
-  color: #ffffff;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.2);
-}
-
-.poi-marker-icon {
-  background: #ffffff;
-  border-radius: 50%;
-  border: 2px solid #0f172a;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
-  transition: transform 0.2s;
-}
-
-.poi-marker-icon:hover {
-  transform: scale(1.2);
-}
-
-.poi-badge-school { border-color: #2563eb; }
-.poi-badge-hospital { border-color: #dc2626; }
-.poi-badge-market { border-color: #16a34a; }
-.poi-badge-bus { border-color: #ea580c; }
-.poi-badge-park { border-color: #059669; }
-
-.poi-item-chip {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 8px 12px;
-  font-size: 0.825rem;
-  transition: all 0.2s ease;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.poi-item-chip:hover {
-  border-color: #cbd5e1;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+.property-main-marker:hover {
+  transform: scale(1.1);
 }
 
 /* ==========================================================================
@@ -629,6 +582,13 @@ body {
 #searchMap, #detailMap, #agentMapPicker, #propertyMap {
   background-color: #f1f5f9;
   z-index: 1;
+}
+
+#agentMapPicker {
+  min-height: 460px;
+  height: 460px;
+  width: 100%;
+  border-radius: 8px;
 }
 
 .leaflet-popup-content {
@@ -930,6 +890,29 @@ body {
   background-color: #f8fafc;
   padding-left: 1rem !important;
 }
+
+/* ==========================================================================
+   ADMIN TABLE & PRICE COLUMN FORMATTING (ANTI-WRAPPING)
+   ========================================================================== */
+.admin-price-col,
+.table-admin-price,
+.col-price-nowrap {
+  white-space: nowrap !important;
+  min-width: 170px !important;
+  text-align: right !important;
+  font-variant-numeric: tabular-nums;
+  word-break: keep-all !important;
+  overflow-wrap: normal !important;
+}
+
+#mod-table th.admin-price-col,
+#mod-table td.admin-price-col,
+#mod-table th.col-price-nowrap,
+#mod-table td.col-price-nowrap {
+  white-space: nowrap !important;
+  min-width: 170px !important;
+}
+
 
 
 

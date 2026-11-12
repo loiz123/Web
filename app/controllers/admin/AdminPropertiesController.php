@@ -4,7 +4,7 @@
 //      /admin/properties/report/3   -> POST xử lý báo cáo (AJAX JSON)
 class AdminPropertiesController extends Controller
 {
-    private const PER_PAGE = 10;
+    private const PER_PAGE = 20;
 
     private PropertyModeration $moderation;
     private Report $reports;
@@ -18,18 +18,38 @@ class AdminPropertiesController extends Controller
 
     public function index(): void
     {
-        $tab = ($_GET['tab'] ?? '') === 'reports' ? 'reports' : 'pending';
+        $statusCounts = $this->moderation->countByStatus();
+        $defaultTab = ((int)($statusCounts['pending'] ?? 0) > 0) ? 'pending' : 'approved';
+
+        $allowedTabs = ['pending', 'approved', 'hidden', 'rejected', 'closed', 'all', 'reports'];
+        $rawTab = trim((string)($_GET['tab'] ?? $_GET['status'] ?? ''));
+        $tab = in_array($rawTab, $allowedTabs, true) ? $rawTab : $defaultTab;
         $page = max(1, (int)($_GET['page'] ?? 1));
 
         $result = $tab === 'reports'
             ? $this->reports->paginate('open', $page, self::PER_PAGE)
-            : $this->moderation->paginate('pending', $page, self::PER_PAGE);
+            : $this->moderation->paginate($tab, $page, self::PER_PAGE);
+
+        $openReportsTotal = ($tab === 'reports')
+            ? (int)($result['total'] ?? 0)
+            : (int)($this->reports->paginate('open', 1, 1)['total'] ?? 0);
+
+        $tabCounts = [
+            'all'      => (int)array_sum($statusCounts),
+            'pending'  => (int)($statusCounts['pending'] ?? 0),
+            'approved' => (int)($statusCounts['approved'] ?? 0),
+            'hidden'   => (int)($statusCounts['hidden'] ?? 0),
+            'rejected' => (int)($statusCounts['rejected'] ?? 0),
+            'closed'   => (int)($statusCounts['closed'] ?? 0),
+            'reports'  => $openReportsTotal,
+        ];
 
         $this->view('admin/properties', [
-            'title'   => 'Duyệt tin đăng',
-            'tab'     => $tab,
-            'result'  => $result,
-            'perPage' => self::PER_PAGE,
+            'title'     => 'Quản lý tin đăng',
+            'tab'       => $tab,
+            'result'    => $result,
+            'perPage'   => self::PER_PAGE,
+            'tabCounts' => $tabCounts,
         ]);
     }
 
@@ -66,5 +86,118 @@ class AdminPropertiesController extends Controller
             ? ($dismiss ? 'Đã bỏ qua báo cáo.' : ($hide ? 'Đã xử lý báo cáo và ẩn tin.' : 'Đã xử lý báo cáo.'))
             : 'Báo cáo không tồn tại hoặc đã được xử lý.';
         $this->json(null, $ok, $msg, $ok ? 200 : 422);
+    }
+
+    /**
+     * Bật/Tắt huy hiệu Đã xác thực (is_verified = 0 <-> 1)
+     * URL: /admin/properties/verify/{id}
+     */
+    public function verify($id = 0): void
+    {
+        if (!$this->isPost()) {
+            header('Allow: POST');
+            $this->json(null, false, 'Phương thức không hợp lệ.', 405);
+        }
+        $this->verifyCsrf();
+        if (!Auth::isAdmin() && (int)($_SESSION['user']['role_id'] ?? 0) !== 1) {
+            if ($this->wantsJson()) {
+                $this->json(null, false, 'Bạn không có quyền thực hiện hành động này.', 403);
+            }
+            flash('danger', 'Bạn không có quyền thực hiện hành động này.');
+            $this->redirect('auth/login');
+            return;
+        }
+
+        $propertyId = (int)$id;
+        if ($propertyId <= 0) {
+            if ($this->wantsJson()) {
+                $this->json(null, false, 'ID tin đăng không hợp lệ.', 400);
+            }
+            flash('danger', 'ID tin đăng không hợp lệ.');
+            $this->redirect('admin/properties');
+            return;
+        }
+
+        $res = PropertyModeration::toggleVerified($propertyId);
+
+        if ($this->wantsJson()) {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode([
+                'success' => (bool)($res['success'] ?? false),
+                'is_verified' => (int)($res['is_verified'] ?? 0),
+                'message' => (string)($res['message'] ?? ''),
+            ], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+
+        flash(!empty($res['success']) ? 'success' : 'danger', $res['message'] ?? '');
+        $referer = $_SERVER['HTTP_REFERER'] ?? '';
+        if ($referer && (str_contains($referer, base_url()) || str_contains($referer, 'http'))) {
+            header('Location: ' . $referer);
+            exit;
+        }
+        $this->redirect('property/detail/' . $propertyId);
+    }
+
+    /**
+     * Thay đổi trạng thái tin đăng (approved, pending, hidden, rejected, deleted)
+     * URL: /admin/properties/changeStatus/{id}
+     */
+    public function changeStatus($id = 0): void
+    {
+        if (!$this->isPost()) {
+            header('Allow: POST');
+            $this->json(null, false, 'Phương thức không hợp lệ.', 405);
+        }
+        $this->verifyCsrf();
+        if (!Auth::isAdmin() && (int)($_SESSION['user']['role_id'] ?? 0) !== 1) {
+            if ($this->wantsJson()) {
+                $this->json(null, false, 'Bạn không có quyền thực hiện hành động này.', 403);
+            }
+            flash('danger', 'Bạn không có quyền thực hiện hành động này.');
+            $this->redirect('auth/login');
+            return;
+        }
+
+        $propertyId = (int)$id;
+        $status = (string)($_POST['status'] ?? '');
+
+        if ($propertyId <= 0 || $status === '') {
+            if ($this->wantsJson()) {
+                $this->json(null, false, 'Tham số không hợp lệ.', 400);
+            }
+            flash('danger', 'Tham số không hợp lệ.');
+            $this->redirect('admin/properties');
+            return;
+        }
+
+        $res = PropertyModeration::updateStatus($propertyId, $status);
+
+        if ($this->wantsJson()) {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode([
+                'success' => (bool)($res['success'] ?? false),
+                'status' => (string)($res['status'] ?? $status),
+                'message' => (string)($res['message'] ?? ''),
+            ], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+
+        flash(!empty($res['success']) ? 'success' : 'danger', $res['message'] ?? '');
+        if ($status === 'deleted') {
+            $this->redirect('admin/properties');
+            return;
+        }
+        $referer = $_SERVER['HTTP_REFERER'] ?? '';
+        if ($referer && (str_contains($referer, base_url()) || str_contains($referer, 'http'))) {
+            header('Location: ' . $referer);
+            exit;
+        }
+        $this->redirect('property/detail/' . $propertyId);
+    }
+
+    public function change_status($id = 0): void
+    {
+        $this->changeStatus($id);
     }
 }

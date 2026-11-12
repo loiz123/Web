@@ -7,31 +7,99 @@ class User extends Model
 
     public function findByEmail(string $email): ?array
     {
-        $row = $this->query(
-            'SELECT u.*, r.name AS role_name FROM users u JOIN roles r ON r.id = u.role_id WHERE u.email = ?',
-            [$email]
-        )->fetch();
+        $row = $this->call('sp_user_by_email', [$email])[0] ?? null;
         return $row ?: null;
+    }
+
+    public function find(int $id): ?array
+    {
+        return $this->call('sp_user_by_id', [$id])[0] ?? null;
+    }
+
+    public function sessionUser(int $id): ?array
+    {
+        return $this->call('sp_user_session', [$id])[0] ?? null;
     }
 
     public function register(string $name, string $email, string $phone, string $password, string $roleName): int
     {
-        $roleId = (int)$this->query('SELECT id FROM roles WHERE name = ?', [$roleName])->fetchColumn();
-        return $this->create([
-            'role_id' => $roleId, 'full_name' => $name, 'email' => $email,
+        $rows = $this->call('sp_user_register', [$name, $email, $phone !== '' ? $phone : null, password_hash($password, PASSWORD_DEFAULT), $roleName]);
+        return (int)($rows[0]['id'] ?? 0);
+    }
+
+    public function updateProfile(int $id, string $name, string $phone, ?string $bio = null, ?string $avatar = null): void
+    {
+        if ($bio === null && $avatar === null && config('use_routines')) {
+            try {
+                $this->call('sp_user_update_profile', [$id, $name, $phone !== '' ? $phone : null]);
+                return;
+            } catch (PDOException $e) {
+                if ((int)($e->errorInfo[1] ?? 0) !== 1305) throw $e;
+            }
+        }
+
+        $data = [
+            'full_name' => $name,
             'phone' => $phone !== '' ? $phone : null,
-            'password_hash' => password_hash($password, PASSWORD_DEFAULT),
-        ]);
+        ];
+        if ($bio !== null) {
+            $data['bio'] = $bio !== '' ? $bio : null;
+        }
+        if ($avatar !== null) {
+            $data['avatar'] = $avatar !== '' ? $avatar : null;
+        }
+        $this->update($id, $data);
     }
 
-    public function updateProfile(int $id, string $name, string $phone): void
+    public function setPassword(int $id, string $password): string
     {
-        $this->update($id, ['full_name' => $name, 'phone' => $phone !== '' ? $phone : null]);
+        $hash = password_hash($password, PASSWORD_DEFAULT);
+        if (config('use_routines')) {
+            try {
+                $this->call('sp_user_set_password', [$id, $hash]);
+                return $hash;
+            } catch (PDOException $e) {
+                if ((int)($e->errorInfo[1] ?? 0) !== 1305) throw $e;
+            }
+        }
+        $this->update($id, ['password_hash' => $hash]);
+        return $hash;
     }
 
-    public function setPassword(int $id, string $password): void
+    // ---------- Đặt lại mật khẩu (password_resets) ----------
+
+    public function createPasswordResetToken(string $email): string
     {
-        $this->update($id, ['password_hash' => password_hash($password, PASSWORD_DEFAULT)]);
+        $token = bin2hex(random_bytes(32));
+        $now = date('Y-m-d H:i:s');
+        $expiresAt = date('Y-m-d H:i:s', time() + 1800); // 30 phút
+
+        $this->query('DELETE FROM password_resets WHERE email = ?', [$email]);
+        $this->query(
+            'INSERT INTO password_resets (email, token, expires_at, created_at) VALUES (?, ?, ?, ?)',
+            [$email, $token, $expiresAt, $now]
+        );
+        return $token;
+    }
+
+    public function findValidPasswordReset(string $token): ?array
+    {
+        if ($token === '') return null;
+        $row = $this->query(
+            'SELECT * FROM password_resets WHERE token = ? AND expires_at >= ? ORDER BY created_at DESC LIMIT 1',
+            [$token, date('Y-m-d H:i:s')]
+        )->fetch();
+        return $row ?: null;
+    }
+
+    public function deletePasswordResetsForEmail(string $email): void
+    {
+        $this->query('DELETE FROM password_resets WHERE email = ?', [$email]);
+    }
+
+    public function deletePasswordResetToken(string $token): void
+    {
+        $this->query('DELETE FROM password_resets WHERE token = ?', [$token]);
     }
 
     // ---------- Kiểm tra dữ liệu dùng chung cho đăng ký và hồ sơ ----------

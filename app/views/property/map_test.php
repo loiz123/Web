@@ -75,7 +75,7 @@
 <script src="<?= e(base_url('assets/js/map.js')) ?>"></script>
 
 <script>
-  document.addEventListener('DOMContentLoaded', function () {
+  document.addEventListener('DOMContentLoaded', function _callback(){
     const picker = BdsMap.initPicker({
       mapId: 'map',
       latInput: '#latitude',
@@ -88,5 +88,4 @@
       defaultZoom: 15,
       draggable: true
     });
-  });
-</script>
+  });</script>

@@ -4,7 +4,7 @@
 //   <select id="district" name="district_id" data-target="#ward" data-level="wards" data-selected="5"></select>
 //   <select id="ward" name="ward_id" data-selected="12"></select>
 // data-level: mục con cần nạp ("districts" mặc định, hoặc "wards"); data-selected: giá trị chọn sẵn (form sửa).
-const BdsLocation = (() => {
+const BdsLocation =  (function _callback(){
   const PLACEHOLDER = { districts: 'Quận/Huyện', wards: 'Phường/Xã' };
   const requests = new WeakMap();
 
@@ -39,7 +39,8 @@ const BdsLocation = (() => {
   }
 
   function bind(select) {
-    select.addEventListener('change', async () => {
+    select.addEventListener('change', async function _callback2() {
+      if (select.dataset.autoPopulating === '1') return;
       const target = document.querySelector(select.dataset.target);
       if (!target) return;
       clearChain(target);
@@ -55,6 +56,6 @@ const BdsLocation = (() => {
     if (target.dataset.target) await init(target);
   }
 
-  document.querySelectorAll('select[data-target]').forEach(s => { bind(s); init(s); });
+  document.querySelectorAll('select[data-target]').forEach(function _callback3(s){bind(s);init(s);});
   return { load };
-})();
+}                     )();

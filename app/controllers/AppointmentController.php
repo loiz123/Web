@@ -56,6 +56,17 @@ class AppointmentController extends Controller
 
         $id = $model->book($propertyId, (int)Auth::id(), date('Y-m-d H:i:s', $ts), $note);
         if ($id > 0) {
+            try {
+                $customerName = (string)(Auth::user()['full_name'] ?? 'Khách hàng');
+                (new Notification())->create(
+                    (int)$property['user_id'],
+                    'Lịch hẹn xem nhà mới',
+                    $customerName . ' vừa đặt lịch xem "' . ($property['title'] ?? 'Bất động sản') . '" vào lúc ' . date('H:i d/m/Y', $ts) . '.',
+                    'appointment/agent'
+                );
+            } catch (Throwable $e) {
+                error_log('Notification error on book: ' . $e->getMessage());
+            }
             $this->respond('Đặt lịch thành công. Môi giới sẽ xác nhận với bạn.', true, 200, $propertyId, ['id' => $id]);
         } else {
             $this->respond('Không thể đặt lịch. Vui lòng thử lại sau.', false, 500, $propertyId);
@@ -70,6 +81,13 @@ class AppointmentController extends Controller
             $this->json($items);
         }
         $this->view('appointment/my', ['title' => 'Lịch hẹn của tôi', 'items' => $items]);
+    }
+
+    public function agent(): void
+    {
+        $this->requireRole('agent');
+        $items = (new Appointment())->forAgent((int)Auth::id());
+        $this->view('appointment/agent', ['title' => 'Lịch hẹn khách đặt', 'items' => $items]);
     }
 
     public function cancel(int|string $id = 0): void
@@ -93,14 +111,38 @@ class AppointmentController extends Controller
         $this->verifyCsrf();
 
         $status = (string)($_POST['status'] ?? '');
-        $ok = (new Appointment())->changeStatusByAgent((int)$id, (int)Auth::id(), $status);
+        $appointmentModel = new Appointment();
+        $appt = $appointmentModel->findWithProperty((int)$id);
+        $ok = $appointmentModel->changeStatusByAgent((int)$id, (int)Auth::id(), $status);
+        if ($ok && $appt) {
+            try {
+                $titleMap = [
+                    'confirmed' => 'Lịch hẹn xem nhà đã được xác nhận',
+                    'cancelled' => 'Lịch hẹn xem nhà đã bị hủy',
+                    'done'      => 'Hoàn tất lịch hẹn xem nhà',
+                ];
+                $statusTextMap = [
+                    'confirmed' => 'đã được môi giới xác nhận',
+                    'cancelled' => 'đã bị môi giới từ chối/hủy',
+                    'done'      => 'đã hoàn tất',
+                ];
+                (new Notification())->create(
+                    (int)$appt['customer_id'],
+                    $titleMap[$status] ?? 'Cập nhật lịch hẹn xem nhà',
+                    'Lịch hẹn xem "' . ($appt['property_title'] ?? 'Bất động sản') . '" (' . date('H:i d/m/Y', strtotime((string)$appt['scheduled_at'])) . ') ' . ($statusTextMap[$status] ?? 'đã cập nhật') . '.',
+                    'appointment/my'
+                );
+            } catch (Throwable $e) {
+                error_log('Notification error on appointment status: ' . $e->getMessage());
+            }
+        }
         $this->respond(
             $ok ? 'Đã cập nhật trạng thái lịch hẹn.' : 'Không cập nhật được (lịch không thuộc tin của bạn hoặc đã kết thúc).',
             $ok,
             $ok ? 200 : 400,
             0,
             [],
-            'agent'
+            'appointment/agent'
         );
     }
 

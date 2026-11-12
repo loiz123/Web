@@ -20,8 +20,9 @@
  * @var array $savedSearches
  */
 
-$initialMapProperties = array_map(function ($p) {
-    return [
+$initialMapProperties = [];
+foreach ($properties as $p) {
+    $initialMapProperties[] = [
         'id'              => (int)$p['id'],
         'title'           => $p['title'],
         'price'           => (float)$p['price'],
@@ -32,15 +33,16 @@ $initialMapProperties = array_map(function ($p) {
         'type_name'       => $p['type_name'] ?? '',
         'latitude'        => !empty($p['latitude']) ? (float)$p['latitude'] : null,
         'longitude'       => !empty($p['longitude']) ? (float)$p['longitude'] : null,
-        'district_name'   => $p['district_name'] ?? '',
         'ward_name'       => $p['ward_name'] ?? '',
-        'cover_url'       => !empty($p['cover_url']) ? base_url($p['cover_url']) : '',
+        'cover_url'       => !empty($p['cover_url']) ? image_url($p['cover_url']) : '',
         'detail_url'      => base_url('property/detail/' . $p['id']),
     ];
-}, $properties);
+}
 ?>
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
 
 <div class="search-page-container">
   <!-- Tiêu đề & Thống kê nhanh -->
@@ -51,19 +53,9 @@ $initialMapProperties = array_map(function ($p) {
         Tìm thấy <strong id="totalCountBadge" class="text-primary fs-6"><?= (int)$total ?></strong> bất động sản phù hợp tiêu chí
       </p>
     </div>
-
-    <!-- Nút chuyển đổi chế độ xem: Dạng Lưới vs Bản đồ -->
-    <div class="btn-group btn-group-sm" role="group" aria-label="Chế độ xem">
-      <button type="button" class="btn btn-outline-primary active bds-btn-touch px-3" id="btnViewGrid">
-        <span class="me-1">📋</span> Danh sách
-      </button>
-      <button type="button" class="btn btn-outline-primary bds-btn-touch px-3" id="btnViewMap">
-        <span class="me-1">🗺️</span> Bản đồ trực quan
-      </button>
-      <button type="button" class="btn btn-outline-primary d-none d-lg-inline-flex bds-btn-touch px-3" id="btnViewSplit">
-        <span class="me-1">🗂️</span> Song song
-      </button>
-    </div>
+    <button type="button" id="btnSaveFilterModal" class="btn btn-outline-primary btn-sm">
+      <i class="bi bi-bookmark-plus me-1"></i>Lưu bộ lọc
+    </button>
   </div>
 
   <!-- Form bộ lọc nâng cao (Tích hợp ô tìm kiếm từ khóa name="keyword" id="filterKeyword" / id="keywordInput" / id="searchKeyword" kèm dropdown gợi ý địa điểm #searchAddressSuggestions) -->
@@ -76,6 +68,13 @@ $initialMapProperties = array_map(function ($p) {
       </div>
     <?php endif; ?>
   </div>
+
+  <details class="card border-0 shadow-sm mb-4" open>
+    <summary class="px-3 py-2 fw-semibold">Bộ lọc đã lưu</summary>
+    <ul id="savedFiltersList" class="list-unstyled mb-0">
+      <li class="empty-saved-text px-3 py-2 small text-muted">Chưa có bộ lọc đã lưu.</li>
+    </ul>
+  </details>
 
   <!-- Vùng hiển thị kết quả (Hỗ trợ Grid View, Map View và Split View) -->
   <div class="row g-4" id="searchMainContent">
@@ -139,23 +138,51 @@ $initialMapProperties = array_map(function ($p) {
   </div>
 </div>
 
+<div class="modal fade" id="modalSaveFilter" tabindex="-1" aria-labelledby="saveFilterTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title fs-5" id="saveFilterTitle">Lưu bộ lọc tìm kiếm</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+      </div>
+      <div class="modal-body">
+        <label for="saveFilterNameInput" class="form-label">Tên bộ lọc</label>
+        <input id="saveFilterNameInput" class="form-control" maxlength="100" placeholder="Ví dụ: Căn hộ dưới 3 tỷ">
+        <?php if (Auth::check()): ?>
+          <div class="form-check mt-3">
+            <input type="checkbox" id="saveToAccountCheck" class="form-check-input" checked>
+            <label for="saveToAccountCheck" class="form-check-label">Lưu vào tài khoản</label>
+          </div>
+        <?php else: ?>
+          <p class="small text-muted mt-3 mb-0">Bộ lọc được lưu trên trình duyệt này. <a href="<?= e(base_url('auth/login')) ?>">Đăng nhập</a> để lưu vào tài khoản.</p>
+        <?php endif; ?>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Hủy</button>
+        <button type="button" id="btnConfirmSaveFilter" class="btn btn-primary">Lưu bộ lọc</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Dữ liệu ban đầu truyền vào JS -->
 <script>
+  window.INITIAL_SAVED_FILTERS = <?= json_for_script($savedSearches ?? []) ?>;
   window.INITIAL_SEARCH_DATA = {
-    properties: <?= json_encode($initialMapProperties, JSON_UNESCAPED_UNICODE) ?>,
+    properties: <?= json_for_script($initialMapProperties) ?>,
     total: <?= (int)$total ?>,
     page: <?= (int)$page ?>,
     totalPages: <?= (int)$totalPages ?>,
     limit: <?= (int)$limit ?>
   };
 
-  document.addEventListener('DOMContentLoaded', function () {
+  document.addEventListener('DOMContentLoaded', function _callback(){
     if (window.RecentlyViewed && typeof window.RecentlyViewed.render === 'function') {
       window.RecentlyViewed.render(0);
     }
-  });
-</script>
+  });</script>
 
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="<?= e(base_url('assets/js/map.js')) ?>"></script>
-<script src="<?= e(base_url('assets/js/search-ajax.js')) ?>"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="<?= e(base_url('assets/js/map.js?v=20261109')) ?>"></script>
+<script src="<?= e(base_url('assets/js/search-ajax.js?v=20261111')) ?>"></script>

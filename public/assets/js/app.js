@@ -12,7 +12,7 @@ async function api(path, { method = 'GET', body = null } = {}) {
 // =============================================================================
 // Hệ thống Toast Thông báo & Modal Xác nhận sang trọng (Bootstrap 5)
 // =============================================================================
-window.BDS = (function () {
+window.BDS =           (function _callback(){
   const TOAST_DURATION_MS = 3500;
 
   function escapeHtml(str) {
@@ -44,7 +44,7 @@ window.BDS = (function () {
    * @param {string} title Tiêu đề thông báo
    */
   function toast(message, type = 'info', title = 'Thông báo') {
-    const normalizedType = type === 'error' ? 'danger' : (['success', 'danger', 'info', 'warning'].includes(type) ? type : 'info');
+    const normalizedType = type === 'error' ? 'danger' :( ['success', 'danger', 'info', 'warning'].includes(type) ? type : 'info');
     const iconMap = {
       success: 'bi-check-circle-fill',
       danger: 'bi-exclamation-octagon-fill',
@@ -81,7 +81,7 @@ window.BDS = (function () {
       toastEl.style.transition = 'opacity 0.22s ease, transform 0.22s ease';
       toastEl.style.opacity = '0';
       toastEl.style.transform = 'translateX(24px)';
-      setTimeout(function () {
+      setTimeout(function _callback2(){
         toastEl.remove();
       }, 230);
     }
@@ -92,12 +92,12 @@ window.BDS = (function () {
     }
 
     const timer = setTimeout(dismiss, TOAST_DURATION_MS);
-    toastEl.addEventListener('mouseenter', function () {
+    toastEl.addEventListener('mouseenter', function _callback3(){
       clearTimeout(timer);
       const bar = toastEl.querySelector('.bds-toast-progress');
       if (bar) bar.style.animationPlayState = 'paused';
     });
-    toastEl.addEventListener('mouseleave', function () {
+    toastEl.addEventListener('mouseleave', function _callback4(){
       setTimeout(dismiss, 1400);
     });
 
@@ -144,7 +144,7 @@ window.BDS = (function () {
    * Hỗ trợ cả callback (onConfirm, onCancel) và Promise<boolean>
    */
   function confirm(message, title = 'Xác nhận', onConfirm = null, onCancel = null) {
-    return new Promise(function (resolve) {
+    return new Promise(function _callback5(resolve){
       const modalEl = ensureConfirmModal();
       const titleEl = modalEl.querySelector('#bdsConfirmTitle');
       const msgEl = modalEl.querySelector('#bdsConfirmMessage');
@@ -205,7 +205,7 @@ window.BDS = (function () {
   }
 
   // Tự động hỗ trợ các form khai báo data-bds-confirm="..."
-  document.addEventListener('submit', function (event) {
+  document.addEventListener('submit', function _callback6(event){
     const form = event.target.closest('form[data-bds-confirm]');
     if (!form) return;
     if (form.dataset.bdsConfirmPassed === '1') {
@@ -215,7 +215,7 @@ window.BDS = (function () {
     event.preventDefault();
     const message = form.getAttribute('data-bds-confirm') || 'Bạn có chắc chắn muốn thực hiện thao tác này?';
     const title = form.getAttribute('data-bds-confirm-title') || 'Xác nhận thao tác';
-    confirm(message, title, function () {
+    confirm(message, title, function _callback7(){
       form.dataset.bdsConfirmPassed = '1';
       if (typeof form.requestSubmit === 'function') {
         form.requestSubmit();
@@ -229,11 +229,11 @@ window.BDS = (function () {
     toast: toast,
     confirm: confirm,
   };
-})();
+}                       )();
 
 function fillSelect(select, items, placeholder) {
   select.innerHTML = `<option value="">${placeholder}</option>`;
-  items.forEach(function (item) {
+  items.forEach(function _callback8(item){
     select.add(new Option(item.name, item.id));
   });
 }
@@ -253,52 +253,8 @@ async function loadLocationOptions(url, select, placeholder, selectedId) {
 
 function setupAgentForm() {
   var province = document.querySelector('#province');
-  if (!province) return;
-
-  var district = document.querySelector('#district');
   var ward = document.querySelector('#ward');
-  var selectedDistrict = district.dataset.selected;
-  var selectedWard = ward.dataset.selected;
-
-  province.addEventListener('change', function () {
-    selectedDistrict = '';
-    selectedWard = '';
-    loadLocationOptions(
-      province.value ? `api/districts/${province.value}` : '',
-      district,
-      'Chọn quận/huyện',
-      ''
-    );
-    fillSelect(ward, [], 'Chọn phường/xã');
-  });
-
-  district.addEventListener('change', function () {
-    selectedWard = '';
-    loadLocationOptions(
-      district.value ? `api/wards/${district.value}` : '',
-      ward,
-      'Chọn phường/xã',
-      ''
-    );
-  });
-
-  if (province.value) {
-    loadLocationOptions(
-      `api/districts/${province.value}`,
-      district,
-      'Chọn quận/huyện',
-      selectedDistrict
-    ).then(function () {
-      if (district.value) {
-        loadLocationOptions(
-          `api/wards/${district.value}`,
-          ward,
-          'Chọn phường/xã',
-          selectedWard
-        );
-      }
-    });
-  }
+  if (!province || !ward) return;
 
   var listingType = document.querySelector('#listing-type');
   var rentFields = document.querySelector('#rent-fields');
@@ -308,7 +264,7 @@ function setupAgentForm() {
       var isRent = listingType.value === 'rent';
       rentFields.hidden = !isRent;
       rentFields.classList.toggle('d-none', !isRent);
-      rentInputs.forEach(function (input) {
+      rentInputs.forEach(function _callback10(input){
         input.disabled = !isRent;
       });
     }
@@ -318,11 +274,20 @@ function setupAgentForm() {
 
   var imageInput = document.querySelector('#images');
   if (imageInput) {
-    imageInput.addEventListener('change', function () {
+    var editingImages = Boolean(document.getElementById('agent-edit-form'));
+    var existingCoverChoices = document.querySelectorAll('input[name="cover_image_id"]');
+    existingCoverChoices.forEach(function bindExistingCover(choice) {
+      choice.addEventListener('change', function selectExistingCover() {
+        if (choice.checked) {
+          document.querySelectorAll('input[name="cover_image"]').forEach(function clearNewCover(radio) { radio.checked = false; });
+        }
+      });
+    });
+    imageInput.addEventListener('change', function _callback11(){
       var files = imageInput.files;
       var error = '';
       if (files.length < 1 || files.length > 10) error = 'Chọn từ 1 đến 10 ảnh.';
-      Array.from(files).forEach(function (file) {
+      Array.from(files).forEach(function _callback12(file){
         if (file.size > 5 * 1024 * 1024) error = 'Mỗi ảnh phải nhỏ hơn 5 MB.';
         if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
           error = 'Ảnh chỉ được có định dạng JPG, PNG hoặc WEBP.';
@@ -339,7 +304,7 @@ function setupAgentForm() {
       var hiddenCover = document.querySelector('input[name="cover_image"][type="hidden"]');
       if (hiddenCover) hiddenCover.remove();
 
-      Array.from(files).forEach(function (file, index) {
+      Array.from(files).forEach(function _callback13(file,index){
         var column = document.createElement('div');
         column.className = 'col-6 col-md-3';
         var card = document.createElement('div');
@@ -356,7 +321,12 @@ function setupAgentForm() {
         radio.type = 'radio';
         radio.name = 'cover_image';
         radio.value = String(index);
-        radio.checked = index === 0;
+        radio.checked = !editingImages && index === 0;
+        radio.addEventListener('change', function selectNewCover() {
+          if (editingImages && radio.checked) {
+            existingCoverChoices.forEach(function clearExistingCover(choice) { choice.checked = false; });
+          }
+        });
         radio.className = 'form-check-input';
         var text = document.createElement('span');
         text.className = 'form-check-label';
@@ -370,29 +340,48 @@ function setupAgentForm() {
   }
 }
 
-document.querySelectorAll('select[data-target]').forEach(function (province) {
-  var district = document.querySelector(province.dataset.target);
-  if (!district) return;
+document.querySelectorAll('select[data-target]').forEach(function _callback14(select) {
+  if (select.dataset.autoPopulating === '1' || select.dataset.bdsBound === '1' || select.dataset.wardDirectBound === '1' || select.dataset.appBound === '1') return;
+  var targetSelect = document.querySelector(select.dataset.target);
+  if (!targetSelect) return;
+  select.dataset.appBound = '1';
 
-  async function updateDistricts(keepSelected) {
-    if (!province.value) {
-      fillSelect(district, [], 'Quận/Huyện');
+  var isWardLevel = (select.dataset.level === 'wards' || targetSelect.name === 'ward_id' || targetSelect.id === 'searchWard');
+  var placeholder = targetSelect.dataset.placeholder || (isWardLevel ? 'Phường/Xã' : 'Quận/Huyện');
+
+  async function updateChildOptions(keepSelected) {
+    if (!select.value) {
+      fillSelect(targetSelect, [], placeholder);
       return;
     }
-    var response = await api(`api/districts/${province.value}`);
-    fillSelect(district, response.success ? response.data : [], 'Quận/Huyện');
-    if (keepSelected && district.dataset.selected) {
-      district.value = district.dataset.selected;
+    var endpoint = isWardLevel
+      ? `api/wards?province_id=${encodeURIComponent(select.value)}`
+      : `api/districts/${select.value}`;
+    var response = await api(endpoint);
+    var items = Array.isArray(response) ? response : (response.success ? response.data : []);
+    if (isWardLevel && Array.isArray(items)) {
+      var seenNames = Object.create(null);
+      items = items.filter(function (w) {
+        var n = String(w.name || '').trim();
+        if (!n || seenNames[n]) return false;
+        seenNames[n] = true;
+        return true;
+      });
+    }
+    fillSelect(targetSelect, items, placeholder);
+    if (keepSelected && targetSelect.dataset.selected) {
+      targetSelect.value = targetSelect.dataset.selected;
     }
   }
 
-  province.addEventListener('change', function () {
-    district.dataset.selected = '';
-    updateDistricts(false);
+  select.addEventListener('change', function _callback15() {
+    if (select.dataset.autoPopulating === '1') return;
+    targetSelect.dataset.selected = '';
+    updateChildOptions(false);
   });
 
-  if (province.value) {
-    updateDistricts(true);
+  if (select.value && targetSelect.options.length <= 1) {
+    updateChildOptions(true);
   }
 });
 
@@ -419,7 +408,7 @@ async function toggleCardFavorite(event, propertyId, btn) {
         BDS.confirm(
           'Vui lòng đăng nhập tài khoản để lưu bất động sản yêu thích. Bạn có muốn chuyển đến trang đăng nhập ngay không?',
           'Yêu cầu đăng nhập',
-          function () {
+          function _callback16(){
             window.location.href = (BASE_URL || '') + '/auth/login';
           }
         );
@@ -469,10 +458,10 @@ function renderAgentStatusActions(card, status) {
 }
 
 function bindAgentStatusForms() {
-  document.querySelectorAll('[data-status-form]').forEach(function (form) {
+  document.querySelectorAll('[data-status-form]').forEach(function _callback17(form){
     if (form.dataset.bound === 'true') return;
     form.dataset.bound = 'true';
-    form.addEventListener('submit', async function (event) {
+    form.addEventListener('submit', async function _callback18(event){
       event.preventDefault();
       var button = form.querySelector('button[type="submit"]');
       if (button) button.disabled = true;
@@ -486,7 +475,7 @@ function bindAgentStatusForms() {
         var status = response.data.status;
         var badge = card.querySelector('[data-status-badge]');
         badge.textContent = agentStatusLabels[status] || status;
-        badge.className = 'badge align-self-start ' + (status === 'approved' ? 'text-bg-success' : 'text-bg-secondary');
+        badge.className = 'badge align-self-start ' +( status === 'approved' ? 'text-bg-success' : 'text-bg-secondary');
         var reason = card.querySelector('[data-reject-reason]');
         if (reason) reason.remove();
         renderAgentStatusActions(card, status);
@@ -506,17 +495,31 @@ setupAgentForm();
 // Bộ quản lý So Sánh Bất Động Sản (Property Comparison Manager)
 // Hỗ trợ lưu tối đa 3 tin trong localStorage, hiển thị Floating Bar & đồng bộ UI
 // =============================================================================
-window.PropertyCompare = (function () {
+window.PropertyCompare =           (function _callback19(){
   const STORAGE_KEY = 'bds_compare_properties';
   const MAX_COMPARE = 3;
+
+  function escapeHtml(str) {
+    return String(str ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
 
   function getList() {
     try {
       const data = localStorage.getItem(STORAGE_KEY);
-      return data ? JSON.parse(data) : [];
+      const parsed = data ? JSON.parse(data) : [];
+      return Array.isArray(parsed) ? parsed : [];
     } catch (e) {
       return [];
     }
+  }
+
+  function count() {
+    return getList().length;
   }
 
   function saveList(list) {
@@ -527,12 +530,12 @@ window.PropertyCompare = (function () {
   }
 
   function has(id) {
-    return getList().some(function (p) { return Number(p.id) === Number(id); });
+    return getList().some(function _callback20(p){return Number(p.id)===Number(id);});
   }
 
   function add(property) {
     var list = getList();
-    if (list.some(function (p) { return Number(p.id) === Number(property.id); })) {
+    if (list.some(function _callback21(p){return Number(p.id)===Number(property.id);})){
       return true;
     }
     if (list.length >= MAX_COMPARE) {
@@ -550,7 +553,7 @@ window.PropertyCompare = (function () {
   }
 
   function remove(id) {
-    var list = getList().filter(function (p) { return Number(p.id) !== Number(id); });
+    var list = getList().filter(function _callback22(p){return Number(p.id)!==Number(id);});
     saveList(list);
   }
 
@@ -598,27 +601,31 @@ window.PropertyCompare = (function () {
       countText.textContent = 'Đã chọn ' + list.length + '/' + MAX_COMPARE + ' tin';
     }
 
+    var ids = list.map(function _callback23(p){return(p&&typeof p==='object')?p.id:p; }).filter(Boolean).join(',');
+    var compareTargetUrl = (BASE_URL || '') + '/property/compare' +        (ids?('?ids='+encodeURIComponent(ids)):'');
     if (btnGo) {
-      var ids = list.map(function (p) { return p.id; }).join(',');
-      btnGo.href = (BASE_URL || '') + '/property/compare?ids=' + encodeURIComponent(ids);
+      btnGo.href = compareTargetUrl;
     }
+    document.querySelectorAll('a[href$="/property/compare"], a[href*="/property/compare?ids="]').forEach(function _callback24(link){
+      link.href = compareTargetUrl;
+    });
 
     if (thumbsContainer) {
       thumbsContainer.innerHTML = '';
-      list.forEach(function (p) {
+      list.forEach(function _callback25(p){
         var item = document.createElement('div');
         item.className = 'compare-thumb-item';
         item.title = p.title || '';
-        var imgUrl = p.cover_url || '';
+        var imgUrl = p.cover_url || p.avatar || '';
         item.innerHTML = (imgUrl
-          ? '<img src="' + imgUrl + '" alt="' + (p.title || '') + '">'
+          ? '<img src="' + escapeHtml(imgUrl) + '" alt="' + escapeHtml(p.title) + '">'
           : '<div class="d-flex align-items-center justify-content-center h-100 text-white small">🏠</div>') +
-          '<span class="compare-thumb-remove" title="Xóa khỏi so sánh" onclick="window.PropertyCompare.remove(' + p.id + ')">&times;</span>';
+          '<span class="compare-thumb-remove" title="Xóa khỏi so sánh" onclick="window.PropertyCompare.remove(' + Number(p.id) + ')">&times;</span>';
         thumbsContainer.appendChild(item);
       });
     }
 
-    document.querySelectorAll('.btn-compare-card').forEach(function (btn) {
+    document.querySelectorAll('.btn-compare-card').forEach(function _callback26(btn){
       var id = btn.dataset.compareId;
       if (id && has(id)) {
         btn.classList.add('active');
@@ -646,12 +653,14 @@ window.PropertyCompare = (function () {
     }
   }
 
-  document.addEventListener('DOMContentLoaded', function () {
+  document.addEventListener('DOMContentLoaded', function _callback27(){
     renderUI();
   });
 
   return {
     get: getList,
+    getAll: function _callback28(){return this.get();},
+    count: count,
     add: add,
     remove: remove,
     clear: clear,
@@ -659,7 +668,7 @@ window.PropertyCompare = (function () {
     toggle: toggle,
     renderUI: renderUI
   };
-})();
+}                                   )();
 
 function toggleCardCompare(event, propertyId, btn, propertyData) {
   if (event) {
@@ -674,7 +683,7 @@ function toggleCardCompare(event, propertyId, btn, propertyData) {
 // Bộ quản lý Lịch sử Bất động sản vừa xem (Recently Viewed Properties)
 // Lưu tối đa 6 tin mới nhất vào localStorage ('bds_recently_viewed')
 // =============================================================================
-window.RecentlyViewed = (function () {
+window.RecentlyViewed =           (function _callback29(){
   const STORAGE_KEY = 'bds_recently_viewed';
   const MAX_ITEMS = 6;
 
@@ -703,22 +712,39 @@ window.RecentlyViewed = (function () {
     } catch (e) {}
   }
 
+  function normalizeWardName(raw) {
+    const val = String(raw ?? '').trim();
+    if (!val) return '';
+    const map = {
+      'Quận 1': 'Phường Bến Nghé',
+      'Quận 2': 'Phường Thảo Điền',
+      'TP. Thủ Đức': 'Phường Thảo Điền',
+      'Quận 3': 'Phường Võ Thị Sáu',
+      'Quận Cầu Giấy': 'Phường Dịch Vọng',
+      'Quận Hải Châu': 'Phường Hải Châu 1',
+      'Quận Ba Đình': 'Phường Điện Biên',
+      'Quận Bình Thạnh': 'Phường Bình Thạnh'
+    };
+    return map[val] || val;
+  }
+
   function record(property) {
     if (!property || !property.id) return;
+    const wardVal = normalizeWardName(property.ward_name || property.ward || '');
     const normalized = {
       id: Number(property.id),
       title: property.title || '',
       price: property.price || property.price_formatted || '',
       price_formatted: property.price_formatted || property.price || '',
       area: property.area || '',
-      district: property.district || property.district_name || '',
-      district_name: property.district_name || property.district || '',
+      ward: wardVal,
+      ward_name: wardVal,
       image: property.image || property.avatar_url || '',
       avatar_url: property.avatar_url || property.image || '',
-      url: property.url || ((BASE_URL || '') + '/property/detail/' + Number(property.id))
+      url: property.url ||( (BASE_URL || '') + '/property/detail/' + Number(property.id))
     };
 
-    const filtered = getList().filter(function (item) {
+    const filtered = getList().filter(function _callback30(item){
       return Number(item.id) !== normalized.id;
     });
     filtered.unshift(normalized);
@@ -747,7 +773,7 @@ window.RecentlyViewed = (function () {
     if (!section) return;
 
     const excludeId = Number(currentPropertyId || section.dataset.currentId || 0);
-    const items = getList().filter(function (item) {
+    const items = getList().filter(function _callback31(item){
       return item && Number(item.id) > 0 && Number(item.id) !== excludeId;
     });
 
@@ -772,14 +798,14 @@ window.RecentlyViewed = (function () {
     }
 
     const fallbackImg = (BASE_URL || '') + '/uploads/sample-property-01.jpg';
-    listEl.innerHTML = items.map(function (item) {
+    listEl.innerHTML = items.map(function _callback32(item){
       const title = escapeText(item.title || 'Bất động sản');
       const price = escapeText(item.price || item.price_formatted || 'Liên hệ');
       const areaVal = String(item.area ?? '').trim();
       const areaText = areaVal ? escapeText(areaVal.includes('m²') ? areaVal : (areaVal + ' m²')) : '';
-      const district = escapeText(item.district || item.district_name || '');
+      const ward = escapeText(normalizeWardName(item.ward_name || item.ward || item.district_name || item.district || ''));
       const img = escapeText(item.image || item.avatar_url || fallbackImg);
-      const url = escapeText(item.url || ((BASE_URL || '') + '/property/detail/' + Number(item.id)));
+      const url = escapeText(item.url ||( (BASE_URL || '') + '/property/detail/' + Number(item.id)));
 
       return '<div class="col">' +
         '<div class="card h-100 border rounded-3 shadow-sm overflow-hidden property-card">' +
@@ -793,8 +819,8 @@ window.RecentlyViewed = (function () {
             '<div class="text-danger fw-bold small mb-1">' + price + '</div>' +
             '<div class="text-muted mt-auto text-truncate" style="font-size: 0.75rem;">' +
               (areaText ? ('<span>' + areaText + '</span>') : '') +
-              (areaText && district ? ' • ' : '') +
-              (district ? ('<span>' + district + '</span>') : '') +
+              (areaText && ward ? ' • ' : '') +
+              (ward ? ('<span><i class="bi bi-geo-alt text-muted"></i> ' + ward + '</span>') : '') +
             '</div>' +
           '</div>' +
         '</div>' +
@@ -811,3 +837,20 @@ window.RecentlyViewed = (function () {
     render: render
   };
 })();
+
+// Ẩn / hiện mật khẩu cho các ô input password
+document.addEventListener('click', function _callbackPasswordToggle(e) {
+  const btn = e.target.closest('.btn-toggle-password');
+  if (!btn) return;
+  e.preventDefault();
+  const inputGroup = btn.closest('.input-group');
+  if (!inputGroup) return;
+  const input = inputGroup.querySelector('input');
+  if (!input) return;
+  input.type = input.type === 'password' ? 'text' : 'password';
+  const icon = btn.querySelector('i');
+  if (icon) {
+    icon.classList.toggle('bi-eye', input.type === 'password');
+    icon.classList.toggle('bi-eye-slash', input.type !== 'password');
+  }
+});

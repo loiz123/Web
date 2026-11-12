@@ -8,6 +8,14 @@ class Review extends Model
     /** Lấy danh sách đánh giá của một tin đăng. */
     public function forProperty(int $propertyId): array
     {
+        if (config('use_routines')) {
+            try {
+                return $this->call('sp_review_for_property', [$propertyId]);
+            } catch (PDOException $e) {
+                if ((int)($e->errorInfo[1] ?? 0) !== 1305) throw $e;
+            }
+        }
+
         return $this->query(
             'SELECT r.*, u.full_name AS user_name, u.avatar AS user_avatar, u.role_id
              FROM reviews r
@@ -21,6 +29,22 @@ class Review extends Model
     /** Thống kê điểm trung bình và tổng số đánh giá của một tin. */
     public function getStats(int $propertyId): array
     {
+        if (config('use_routines')) {
+            try {
+                $row = $this->call('sp_review_stats', [$propertyId])[0] ?? [];
+                $total = (int)($row['total'] ?? 0);
+                $avg = $total > 0 ? round((float)$row['avg_rating'], 1) : 0.0;
+
+                return [
+                    'total'         => $total,
+                    'total_reviews' => $total,
+                    'avg_rating'    => $avg,
+                ];
+            } catch (PDOException $e) {
+                if ((int)($e->errorInfo[1] ?? 0) !== 1305) throw $e;
+            }
+        }
+
         $row = $this->query(
             'SELECT COUNT(*) AS total, AVG(rating) AS avg_rating
              FROM reviews
@@ -41,6 +65,15 @@ class Review extends Model
     /** Lấy đánh giá của một người dùng cụ thể trên tin đăng này. */
     public function getUserReview(int $propertyId, int $userId): ?array
     {
+        if (config('use_routines')) {
+            try {
+                $res = $this->call('sp_review_by_user', [$propertyId, $userId])[0] ?? null;
+                return $res ?: null;
+            } catch (PDOException $e) {
+                if ((int)($e->errorInfo[1] ?? 0) !== 1305) throw $e;
+            }
+        }
+
         $res = $this->query(
             'SELECT * FROM reviews WHERE property_id = ? AND user_id = ? LIMIT 1',
             [$propertyId, $userId]
@@ -56,6 +89,14 @@ class Review extends Model
         if ($comment !== null) {
             preg_match('/^.{0,500}/us', trim($comment), $matches);
             $comment = $matches[0] ?? '';
+        }
+
+        if (config('use_routines')) {
+            try {
+                return (int)($this->call('sp_review_save', [$propertyId, $userId, $rating, $comment])[0]['affected'] ?? 0) > 0;
+            } catch (PDOException $e) {
+                if ((int)($e->errorInfo[1] ?? 0) !== 1305) throw $e;
+            }
         }
 
         // Kiểm tra xem tin có tồn tại không
@@ -77,6 +118,14 @@ class Review extends Model
     /** Xóa đánh giá của chính người dùng. */
     public function deleteByUser(int $id, int $userId): bool
     {
+        if (config('use_routines')) {
+            try {
+                return (int)($this->call('sp_review_delete', [$id, $userId])[0]['affected'] ?? 0) > 0;
+            } catch (PDOException $e) {
+                if ((int)($e->errorInfo[1] ?? 0) !== 1305) throw $e;
+            }
+        }
+
         $stmt = $this->query(
             'DELETE FROM reviews WHERE id = ? AND user_id = ?',
             [$id, $userId]

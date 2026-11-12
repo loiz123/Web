@@ -30,8 +30,9 @@ class AdminUsersController extends Controller
             self::PER_PAGE
         );
 
-        $items = array_map(function (array $u): array {
-            return [
+        $items = [];
+        foreach ($result['items'] as $u) {
+            $items[] = [
                 'id'         => (int)$u['id'],
                 'full_name'  => $u['full_name'],
                 'email'      => $u['email'],
@@ -41,7 +42,7 @@ class AdminUsersController extends Controller
                 'created_at' => $u['created_at'],
                 'can_toggle' => $u['role_name'] !== 'admin',
             ];
-        }, $result['items']);
+        }
 
         $this->json([
             'items'    => $items,

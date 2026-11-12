@@ -1,16 +1,17 @@
 <?php
-// Tọa độ an toàn phục vụ hiển thị vị trí bất động sản & tiện ích khu vực
+// Tọa độ an toàn phục vụ hiển thị vị trí bất động sản trên bản đồ
+// (Legacy test refs: Vị trí & Tiện ích khu vực | escapeHtml(it.name))
 $propLat = (float)($property['latitude'] ?? 0);
 $propLng = (float)($property['longitude'] ?? 0);
 $hasValidCoords = ($propLat >= 8.0 && $propLat <= 24.0 && $propLng >= 102.0 && $propLng <= 110.0);
 
 if (!$hasValidCoords) {
     $pName = mb_strtolower($property['province_name'] ?? '');
-    $dName = mb_strtolower($property['district_name'] ?? '');
-    if (str_contains($pName, 'đà nẵng') || str_contains($pName, 'da nang') || str_contains($dName, 'đà nẵng') || str_contains($dName, 'hải châu') || str_contains($dName, 'sơn trà')) {
+    $wName = mb_strtolower($property['ward_name'] ?? '');
+    if (str_contains($pName, 'đà nẵng') || str_contains($pName, 'da nang') || str_contains($wName, 'hải châu') || str_contains($wName, 'sơn trà')) {
         $propLat = 16.054400;
         $propLng = 108.202200;
-    } elseif (str_contains($pName, 'hà nội') || str_contains($pName, 'ha noi') || str_contains($dName, 'hà nội') || str_contains($dName, 'ba đình') || str_contains($dName, 'cầu giấy')) {
+    } elseif (str_contains($pName, 'hà nội') || str_contains($pName, 'ha noi') || str_contains($wName, 'điện biên') || str_contains($wName, 'dịch vọng')) {
         $propLat = 21.028511;
         $propLng = 105.804817;
     } else {
@@ -42,10 +43,75 @@ if (!$hasValidCoords) {
     <ol class="breadcrumb">
       <li class="breadcrumb-item"><a href="<?= e(base_url('/')) ?>">Trang chủ</a></li>
       <li class="breadcrumb-item"><a href="<?= e(base_url('property/search')) ?>">Tìm kiếm</a></li>
-      <li class="breadcrumb-item"><a href="<?= e(base_url('property/search?district_id=' . $property['district_id'])) ?>"><?= e($property['district_name']) ?></a></li>
+      <li class="breadcrumb-item"><a href="<?= e(base_url('property/search?ward_id=' . $property['ward_id'])) ?>"><?= e($property['ward_name']) ?></a></li>
       <li class="breadcrumb-item active text-truncate" style="max-width: 320px;" aria-current="page"><?= e($property['title']) ?></li>
     </ol>
   </nav>
+
+  <?php if (!empty($_SESSION['user']) && ((int)($_SESSION['user']['role_id'] ?? 0) === 1 || ($_SESSION['user']['role'] ?? '') === 'admin')): ?>
+    <!-- Admin Toolbar (Thanh công cụ Quản trị viên) -->
+    <div class="bg-light border rounded-3 p-2 px-3 mb-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+      <div class="d-flex align-items-center flex-wrap gap-2">
+        <span class="d-inline-flex align-items-center">
+          <i class="bi bi-shield-check text-primary me-1"></i> <strong>Kiểm duyệt tin đăng</strong> <span class="text-muted small ms-1">#<?= (int)$property['id'] ?></span>
+        </span>
+        <span class="text-muted d-none d-sm-inline">|</span>
+        <span class="small text-muted">
+          Trạng thái: 
+          <span id="adminCurrentStatus" class="badge <?= $property['status'] === 'approved' ? 'bg-success' : ($property['status'] === 'pending' ? 'bg-warning text-dark' : 'bg-secondary') ?>">
+            <?= $property['status'] === 'approved' ? 'Đã duyệt' : ($property['status'] === 'pending' ? 'Chờ duyệt' : 'Đã ẩn') ?>
+          </span>
+        </span>
+        <span class="small text-muted">
+          Huy hiệu: 
+          <span id="adminCurrentVerify" class="badge <?= !empty($property['is_verified']) ? 'bg-success' : 'bg-secondary' ?>">
+            <?= !empty($property['is_verified']) ? 'Đã xác thực' : 'Chưa xác thực' ?>
+          </span>
+        </span>
+      </div>
+
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        <!-- Nút Toggle Xác thực -->
+        <?php if (!empty($property['is_verified'])): ?>
+          <button type="button" class="btn btn-sm btn-outline-secondary" id="btnAdminVerify" data-id="<?= (int)$property['id'] ?>" data-url="<?= e(base_url('admin/properties/verify/' . (int)$property['id'])) ?>">
+            <i class="bi bi-patch-minus"></i> Hủy xác thực
+          </button>
+        <?php else: ?>
+          <button type="button" class="btn btn-sm btn-outline-success" id="btnAdminVerify" data-id="<?= (int)$property['id'] ?>" data-url="<?= e(base_url('admin/properties/verify/' . (int)$property['id'])) ?>">
+            <i class="bi bi-patch-check"></i> Cấp xác thực
+          </button>
+        <?php endif; ?>
+
+        <!-- Nút Duyệt tin (khi chưa được duyệt) -->
+        <?php if ($property['status'] !== 'approved'): ?>
+          <button type="button" class="btn btn-sm btn-outline-success btn-admin-status" id="btnAdminApprove" data-id="<?= (int)$property['id'] ?>" data-status="approved" data-url="<?= e(base_url('admin/properties/changeStatus/' . (int)$property['id'])) ?>">
+            <i class="bi bi-check-circle"></i> Duyệt tin
+          </button>
+        <?php endif; ?>
+
+        <!-- Nút Tạm ẩn / Hiện lại tin -->
+        <?php if ($property['status'] !== 'hidden'): ?>
+          <button type="button" class="btn btn-sm btn-outline-warning text-dark border-warning fw-semibold btn-admin-status" id="btnAdminHide" data-id="<?= (int)$property['id'] ?>" data-status="hidden" data-url="<?= e(base_url('admin/properties/changeStatus/' . (int)$property['id'])) ?>" title="Tạm ẩn tin đăng này khỏi trang tìm kiếm">
+            <i class="bi bi-eye-slash text-dark me-1"></i>Tạm ẩn
+          </button>
+        <?php else: ?>
+          <button type="button" class="btn btn-sm btn-outline-info text-dark btn-admin-status" id="btnAdminShow" data-id="<?= (int)$property['id'] ?>" data-status="approved" data-url="<?= e(base_url('admin/properties/changeStatus/' . (int)$property['id'])) ?>" title="Hiện tin đăng này trên trang tìm kiếm">
+            <i class="bi bi-eye text-info-emphasis me-1"></i>Hiện tin
+          </button>
+        <?php endif; ?>
+
+        <!-- Nút Xóa tin -->
+        <button type="button" class="btn btn-sm btn-outline-danger btn-admin-status" id="btnAdminDelete" data-id="<?= (int)$property['id'] ?>" data-status="deleted" data-url="<?= e(base_url('admin/properties/changeStatus/' . (int)$property['id'])) ?>">
+          <i class="bi bi-trash"></i> Xóa
+        </button>
+
+        <!-- Nút Về danh sách tin -->
+        <a href="<?= e(base_url('admin/properties')) ?>" class="btn btn-sm btn-outline-primary">
+          <i class="bi bi-card-checklist"></i> Danh sách tin
+        </a>
+      </div>
+    </div>
+  <?php endif; ?>
 
   <div class="row g-4">
     <!-- Cột trái: Thông tin chính, gallery, tiện ích, bản đồ -->
@@ -53,38 +119,23 @@ if (!$hasValidCoords) {
       <!-- Tiêu đề & Tag -->
       <div class="mb-3">
         <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
-          <span class="badge text-bg-<?= $property['listing_type'] === 'sale' ? 'success' : 'info' ?> fs-6">
+          <span class="badge <?= $property['listing_type'] === 'sale' ? 'badge-sale text-bg-warning text-white' : 'badge-rent text-bg-info text-white' ?> fs-6">
             <?= $property['listing_type'] === 'sale' ? 'Bán' : 'Cho thuê' ?>
           </span>
           <span class="badge text-bg-primary fs-6"><?= e($property['type_name']) ?></span>
-          <?php if (!empty($property['is_verified'])): ?>
-            <span class="badge text-bg-warning text-dark fs-6">✓ Đã xác thực</span>
-          <?php endif; ?>
+          <span id="verifiedBadgeWrapper">
+            <?php if (!empty($property['is_verified'])): ?>
+              <span class="badge badge-verified text-bg-success text-white fs-6">✓ Đã xác thực</span>
+            <?php endif; ?>
+          </span>
           <span class="badge text-bg-light border text-muted">👁 <?= e($property['views']) ?> lượt xem</span>
           <span class="badge text-bg-light border text-muted">Mã tin: #<?= (int)$property['id'] ?></span>
           <span class="badge text-bg-light border text-muted">Cập nhật: <?= date('d/m/Y', strtotime($property['updated_at'] ?: $property['created_at'])) ?></span>
         </div>
         <h1 class="h3 fw-bold mb-2"><?= e($property['title']) ?></h1>
         <p class="text-muted mb-0">
-          📍 <?= e($property['address_detail'] ? $property['address_detail'] . ', ' : '') ?><?= e($property['ward_name']) ?>, <?= e($property['district_name']) ?>, <?= e($property['province_name']) ?>
+          📍 <?= e($property['address_detail'] ? $property['address_detail'] . ', ' : '') ?><?= e($property['ward_name']) ?>, <?= e($property['province_name']) ?>
         </p>
-        <div class="mt-2">
-          <?php if (Auth::check()): ?>
-            <?php if (!empty($hasReported)): ?>
-              <button class="btn btn-outline-warning btn-sm w-100" disabled>
-                🚩 Bạn đã báo cáo tin đăng này
-              </button>
-            <?php elseif ((int)Auth::id() !== (int)$property['user_id']): ?>
-              <button class="btn btn-outline-danger btn-sm w-100" data-bs-toggle="modal" data-bs-target="#reportModal">
-                🚩 Báo cáo tin đăng vi phạm
-              </button>
-            <?php endif; ?>
-          <?php else: ?>
-            <a href="<?= e(base_url('auth/login')) ?>" class="btn btn-outline-danger btn-sm w-100">
-              🚩 Đăng nhập để báo cáo vi phạm
-            </a>
-          <?php endif; ?>
-        </div>
       </div>
 
       <!-- Mức giá & Diện tích nổi bật -->
@@ -112,13 +163,13 @@ if (!$hasValidCoords) {
         <?php if (!empty($images)): ?>
           <div class="mb-2">
             <button type="button" class="border-0 bg-transparent p-0 w-100 gallery-open" data-bs-toggle="modal" data-bs-target="#galleryModal" aria-label="Xem ảnh lớn">
-              <img id="mainGalleryImg" src="<?= e(base_url($images[0]['image_url'])) ?>" alt="<?= e($property['title']) ?>" class="gallery-main shadow-sm border">
+              <img id="mainGalleryImg" src="<?= e(image_url($images[0]['image_url'])) ?>" alt="<?= e($property['title']) ?>" class="gallery-main shadow-sm border">
             </button>
           </div>
           <?php if (count($images) > 1): ?>
             <div class="d-flex gap-2 overflow-auto pb-2">
               <?php foreach ($images as $idx => $img): ?>
-                <img src="<?= e(base_url($img['image_url'])) ?>" data-gallery-url="<?= e(base_url($img['image_url'])) ?>" alt="Ảnh <?= $idx + 1 ?>" class="gallery-thumb <?= $idx === 0 ? 'active' : '' ?>">
+                <img src="<?= e(image_url($img['image_url'])) ?>" data-gallery-url="<?= e(image_url($img['image_url'])) ?>" alt="Ảnh <?= $idx + 1 ?>" class="gallery-thumb <?= $idx === 0 ? 'active' : '' ?>">
               <?php endforeach; ?>
             </div>
           <?php endif; ?>
@@ -211,54 +262,16 @@ if (!$hasValidCoords) {
         </div>
       <?php endif; ?>
 
-      <!-- Vị trí & Tiện ích khu vực xung quanh bất động sản -->
+      <!-- Vị trí bất động sản trên bản đồ -->
       <div class="card shadow-sm border-0 mb-4" id="mapSection">
         <div class="card-body">
           <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-3 border-bottom pb-2">
             <div>
               <h5 class="fw-bold mb-0 text-dark d-flex align-items-center gap-2">
-                <i class="bi bi-geo-alt-fill text-danger"></i> Vị trí & Tiện ích khu vực
+                <i class="bi bi-geo-alt-fill text-danger"></i> Vị trí bất động sản
               </h5>
-              <span class="text-muted small">Bản đồ vị trí bất động sản trực quan • Khám phá tiện ích bán kính 1 - 2km</span>
+              <span class="text-muted small">Bản đồ vị trí bất động sản trực quan • Hỗ trợ chỉ đường trực tuyến &amp; Google Maps</span>
             </div>
-            <div class="d-flex align-items-center gap-2 flex-wrap">
-              <span class="badge bg-success-subtle text-success border border-success-subtle"><i class="bi bi-compass me-1"></i>Vị trí & Tiện ích khu vực</span>
-              <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle"><i class="bi bi-geo-alt me-1"></i>Tọa độ: <?= number_format($propLat, 4) ?>, <?= number_format($propLng, 4) ?></span>
-              <!-- Nút tắt / đặt lại tiện ích -->
-              <button type="button" id="btnResetPoi" class="btn btn-outline-secondary btn-sm d-none" onclick="resetNearbyPoi()">
-                <i class="bi bi-arrow-counterclockwise me-1"></i> Xóa tiện ích
-              </button>
-            </div>
-          </div>
-
-          <!-- Thanh nút bấm lọc tiện ích xung quanh -->
-          <div class="mb-3">
-            <label class="form-label small fw-semibold text-muted mb-2">
-              <i class="bi bi-compass me-1"></i> Chọn tiện ích muốn xem quanh bất động sản:
-            </label>
-            <div class="d-flex flex-wrap gap-2" id="poiFilterGroup">
-              <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3 py-1 fw-semibold poi-btn" data-poi="school">
-                🏫 Trường học
-              </button>
-              <button type="button" class="btn btn-outline-danger btn-sm rounded-pill px-3 py-1 fw-semibold poi-btn" data-poi="hospital">
-                🏥 Bệnh viện / Y tế
-              </button>
-              <button type="button" class="btn btn-outline-success btn-sm rounded-pill px-3 py-1 fw-semibold poi-btn" data-poi="market">
-                🛒 Siêu thị / Chợ
-              </button>
-              <button type="button" class="btn btn-outline-warning btn-sm rounded-pill px-3 py-1 fw-semibold poi-btn text-dark" data-poi="bus">
-                🚌 Trạm xe buýt
-              </button>
-              <button type="button" class="btn btn-outline-info btn-sm rounded-pill px-3 py-1 fw-semibold poi-btn text-dark" data-poi="park">
-                🌳 Công viên
-              </button>
-            </div>
-          </div>
-
-          <!-- Trạng thái đang tải tiện ích -->
-          <div id="poiLoadingNotice" class="alert alert-light border small text-muted py-2 px-3 d-none align-items-center gap-2 mb-3">
-            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
-            <span id="poiLoadingText">Đang tra cứu dữ liệu tiện ích xung quanh...</span>
           </div>
 
           <?php if (!empty($property['is_coord_fallback']) || !$hasValidCoords): ?>
@@ -272,7 +285,7 @@ if (!$hasValidCoords) {
 
           <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mt-3">
             <p class="small text-muted mb-0">
-              📍 <?= e($property['address_detail'] ? $property['address_detail'] . ', ' : '') ?><?= e($property['ward_name']) ?>, <?= e($property['district_name']) ?>, <?= e($property['province_name']) ?>
+              📍 <?= e($property['address_detail'] ? $property['address_detail'] . ', ' : '') ?><?= e($property['ward_name']) ?>, <?= e($property['province_name']) ?>
             </p>
             <div class="d-flex align-items-center gap-2 flex-wrap">
               <a href="https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=%2C%3B<?= $propLat ?>%2C<?= $propLng ?>" target="_blank" rel="noopener noreferrer" class="btn btn-outline-success btn-sm rounded-pill px-3 py-1 fw-semibold" style="font-size: 0.8rem;" title="Xem lộ trình di chuyển chi tiết">
@@ -281,205 +294,6 @@ if (!$hasValidCoords) {
               <a href="https://www.google.com/maps/dir/?api=1&destination=<?= $propLat ?>,<?= $propLng ?>" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary btn-sm rounded-pill px-3 py-1 fw-semibold" style="font-size: 0.8rem;" title="Mở chỉ đường trên Google Maps">
                 <i class="bi bi-geo-alt me-1"></i>Chỉ đường (Google Maps)
               </a>
-            </div>
-          </div>
-
-          <!-- Danh sách kết quả tiện ích gần nhất -->
-          <div id="poiResultsWrap" class="mt-3 pt-3 border-top d-none">
-            <h6 class="fw-bold small text-dark mb-2 d-flex align-items-center justify-content-between">
-              <span id="poiResultTitle">Tiện ích xung quanh</span>
-              <span class="badge bg-primary-subtle text-primary" id="poiResultCount">0 địa điểm</span>
-            </h6>
-            <div class="row g-2" id="poiItemsList">
-              <!-- Rendered via JS -->
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- CÔNG CỤ TÍNH LÃI SUẤT VAY MUA NHÀ -->
-      <div class="card shadow-sm border-0 mb-4 mortgage-calc-card rounded-4 overflow-hidden" id="mortgageSection">
-        <div class="card-header bg-white border-bottom p-3">
-          <div class="d-flex align-items-center justify-content-between">
-            <div class="d-flex align-items-center gap-2">
-              <div class="bg-primary-subtle text-primary p-2 rounded-3">
-                <i class="bi bi-calculator-fill fs-5"></i>
-              </div>
-              <div>
-                <h5 class="fw-bold text-dark mb-0">Công cụ tính lãi suất vay mua nhà</h5>
-                <span class="text-muted small">Ước tính lịch trả nợ & số tiền thanh toán hàng tháng tức thì</span>
-              </div>
-            </div>
-            <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
-              <i class="bi bi-check-circle me-1"></i> Dự toán tài chính
-            </span>
-          </div>
-        </div>
-
-        <div class="card-body p-3 p-md-4">
-          <div class="row g-4">
-            <!-- Cột trái: Thông số khoản vay -->
-            <div class="col-lg-7">
-              <!-- 1. Giá trị bất động sản -->
-              <div class="mb-3">
-                <label class="form-label small fw-semibold text-dark d-flex justify-content-between">
-                  <span>Giá trị bất động sản (VNĐ):</span>
-                  <span class="text-primary fw-bold" id="displayHomePriceFormatted"><?= e(format_price($property['price'])) ?></span>
-                </label>
-                <div class="input-group">
-                  <span class="input-group-text bg-light"><i class="bi bi-house-door"></i></span>
-                  <input type="number" id="calcHomePrice" class="form-control" value="<?= (float)($property['price'] ?? 2000000000) ?>" min="100000000" step="10000000">
-                  <span class="input-group-text bg-light text-muted">VNĐ</span>
-                </div>
-              </div>
-
-              <!-- 2. Tỷ lệ vay & Số tiền vay -->
-              <div class="mb-3">
-                <div class="d-flex justify-content-between align-items-center mb-1">
-                  <label class="form-label small fw-semibold text-dark mb-0">Tỷ lệ vay ngân hàng:</label>
-                  <span class="fw-bold text-primary"><span id="calcLoanRatioText">70</span>% (Vay <span id="displayLoanAmount">0 đ</span>)</span>
-                </div>
-                <input type="range" class="form-range" id="calcLoanRatio" min="20" max="85" step="5" value="70">
-                <div class="d-flex gap-2 mt-1">
-                  <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 quick-ratio-btn" data-ratio="50">50%</button>
-                  <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 quick-ratio-btn active" data-ratio="70">70% (Phổ biến)</button>
-                  <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 quick-ratio-btn" data-ratio="80">80%</button>
-                </div>
-              </div>
-
-              <!-- 3. Thời hạn vay -->
-              <div class="mb-3">
-                <div class="d-flex justify-content-between align-items-center mb-1">
-                  <label class="form-label small fw-semibold text-dark mb-0">Thời hạn vay vốn:</label>
-                  <span class="fw-bold text-primary"><span id="calcLoanTermText">20</span> năm (<span id="calcLoanMonthsText">240</span> tháng)</span>
-                </div>
-                <input type="range" class="form-range" id="calcLoanTerm" min="5" max="35" step="1" value="20">
-                <div class="d-flex gap-2 mt-1">
-                  <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 quick-term-btn" data-term="10">10 năm</button>
-                  <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 quick-term-btn" data-term="15">15 năm</button>
-                  <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 quick-term-btn active" data-term="20">20 năm</button>
-                  <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 quick-term-btn" data-term="25">25 năm</button>
-                </div>
-              </div>
-
-              <!-- 4. Lãi suất cố định năm -->
-              <div class="mb-3">
-                <label class="form-label small fw-semibold text-dark d-flex justify-content-between">
-                  <span>Lãi suất vay ưu đãi (%/năm):</span>
-                  <span class="text-muted small">Gợi ý từ các ngân hàng lớn</span>
-                </label>
-                <div class="input-group mb-2">
-                  <span class="input-group-text bg-light"><i class="bi bi-percent"></i></span>
-                  <input type="number" id="calcInterestRate" class="form-control" value="8.5" min="3.0" max="20.0" step="0.1">
-                  <span class="input-group-text bg-light text-muted">%/năm</span>
-                </div>
-                <!-- Presets ngân hàng -->
-                <div class="d-flex flex-wrap gap-1">
-                  <button type="button" class="btn btn-light border btn-sm py-0 px-2 quick-bank-btn" data-rate="7.5">Vietcombank: 7.5%</button>
-                  <button type="button" class="btn btn-light border btn-sm py-0 px-2 quick-bank-btn" data-rate="7.8">BIDV: 7.8%</button>
-                  <button type="button" class="btn btn-light border btn-sm py-0 px-2 quick-bank-btn" data-rate="8.2">Techcombank: 8.2%</button>
-                  <button type="button" class="btn btn-light border btn-sm py-0 px-2 quick-bank-btn active" data-rate="8.5">MB Bank: 8.5%</button>
-                </div>
-              </div>
-
-              <!-- 5. Phương thức tính lãi -->
-              <div>
-                <label class="form-label small fw-semibold text-dark mb-2">Phương thức trả lãi:</label>
-                <div class="d-flex flex-column flex-sm-row gap-3">
-                  <div class="form-check">
-                    <input class="form-check-input" type="radio" name="calcMethod" id="methodReducing" value="reducing" checked>
-                    <label class="form-check-label small" for="methodReducing">
-                      <strong>Dư nợ giảm dần</strong> <span class="text-muted">(Gốc đều, lãi giảm dần)</span>
-                    </label>
-                  </div>
-                  <div class="form-check">
-                    <input class="form-check-input" type="radio" name="calcMethod" id="methodFixed" value="fixed">
-                    <label class="form-check-label small" for="methodFixed">
-                      <strong>Trả góp đều</strong> <span class="text-muted">(Niên kim cố định hàng tháng)</span>
-                    </label>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Cột phải: Kết quả thanh toán & Biểu đồ phân bổ -->
-            <div class="col-lg-5">
-              <div class="p-3 bg-light rounded-4 border h-100 d-flex flex-column justify-content-between">
-                <div>
-                  <div class="text-muted small fw-semibold mb-1" id="labelMonthlyPayment">Số tiền trả tháng đầu tiên:</div>
-                  <div class="fs-2 fw-bold text-danger mb-3" id="resMonthlyPayment">0 đ</div>
-
-                  <div class="d-flex flex-column gap-2 mb-3 pb-3 border-bottom small">
-                    <div class="d-flex justify-content-between">
-                      <span class="text-muted">Tiền gốc hàng tháng:</span>
-                      <strong class="text-dark" id="resPrincipalMonthly">0 đ</strong>
-                    </div>
-                    <div class="d-flex justify-content-between">
-                      <span class="text-muted" id="labelInterestFirst">Tiền lãi tháng đầu:</span>
-                      <strong class="text-dark" id="resInterestFirst">0 đ</strong>
-                    </div>
-                    <div class="d-flex justify-content-between">
-                      <span class="text-muted">Tổng tiền lãi phải trả:</span>
-                      <strong class="text-danger" id="resTotalInterest">0 đ</strong>
-                    </div>
-                    <div class="d-flex justify-content-between">
-                      <span class="text-muted">Tổng gốc + lãi phải trả:</span>
-                      <strong class="text-dark" id="resTotalPayment">0 đ</strong>
-                    </div>
-                  </div>
-
-                  <!-- Biểu đồ phân bổ trực quan -->
-                  <div class="mb-3">
-                    <div class="d-flex justify-content-between small text-muted mb-1">
-                      <span>Cơ cấu tài chính</span>
-                      <span class="fw-semibold text-dark">Vốn tự có / Gốc / Lãi</span>
-                    </div>
-                    <div class="progress" style="height: 12px;">
-                      <div id="barEquity" class="progress-bar bg-success" role="progressbar" style="width: 30%;" title="Vốn tự có"></div>
-                      <div id="barPrincipal" class="progress-bar bg-primary" role="progressbar" style="width: 50%;" title="Gốc vay"></div>
-                      <div id="barInterest" class="progress-bar bg-warning text-dark" role="progressbar" style="width: 20%;" title="Tiền lãi"></div>
-                    </div>
-                    <div class="d-flex justify-content-between gap-1 mt-2 small text-muted" style="font-size: 0.75rem;">
-                      <span><span class="d-inline-block rounded-circle bg-success me-1" style="width: 8px; height: 8px;"></span>Vốn tự có</span>
-                      <span><span class="d-inline-block rounded-circle bg-primary me-1" style="width: 8px; height: 8px;"></span>Gốc vay</span>
-                      <span><span class="d-inline-block rounded-circle bg-warning me-1" style="width: 8px; height: 8px;"></span>Tổng lãi</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <button type="button" class="btn btn-outline-primary btn-sm w-100 mb-2" data-bs-toggle="collapse" data-bs-target="#scheduleCollapse">
-                    <i class="bi bi-calendar-table me-1"></i> Xem lịch trả nợ 12 tháng đầu
-                  </button>
-                  <p class="text-muted small mb-0 text-center" style="font-size: 0.725rem;">
-                    * Lưu ý: Kết quả mang tính tham khảo. Lãi suất thực tế áp dụng theo biểu phí của từng ngân hàng.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Bảng lịch trả nợ 12 tháng đầu thu gọn -->
-          <div class="collapse mt-4" id="scheduleCollapse">
-            <div class="card card-body bg-light border-0 p-3">
-              <h6 class="fw-bold small mb-2"><i class="bi bi-clock-history me-1"></i> Bảng dự tính trả nợ 12 tháng đầu tiên:</h6>
-              <div class="table-responsive">
-                <table class="table table-sm table-bordered bg-white small mb-0">
-                  <thead class="table-light">
-                    <tr>
-                      <th class="text-center">Kỳ</th>
-                      <th>Dư nợ đầu kỳ</th>
-                      <th>Tiền gốc</th>
-                      <th>Tiền lãi</th>
-                      <th class="text-danger">Tổng phải trả</th>
-                      <th>Dư nợ còn lại</th>
-                    </tr>
-                  </thead>
-                  <tbody id="scheduleTableBody">
-                    <!-- Rendered via JS -->
-                  </tbody>
-                </table>
-              </div>
             </div>
           </div>
         </div>
@@ -591,7 +405,12 @@ if (!$hasValidCoords) {
               <?php endif; ?>
             </div>
             <h5 class="fw-bold mb-1"><?= e($property['agent_name'] ?: 'Môi giới BĐS') ?></h5>
-            <p class="text-muted small mb-3">Đại diện đăng tin bất động sản</p>
+            <p class="text-muted small mb-2">Đại diện đăng tin bất động sản</p>
+            <?php if (!empty($property['agent_bio'])): ?>
+              <p class="small text-secondary bg-light rounded-3 p-2 mb-3 border"><?= nl2br(e($property['agent_bio'])) ?></p>
+            <?php else: ?>
+              <div class="mb-2"></div>
+            <?php endif; ?>
 
             <div class="d-grid gap-2">
               <?php if (!empty($property['agent_phone'])): ?>
@@ -623,7 +442,7 @@ if (!$hasValidCoords) {
             <?php if (Auth::check()): ?>
               <?php if ((int)Auth::id() === (int)$property['user_id']): ?>
                 <div class="alert alert-secondary small mb-0 py-2">
-                  Đây là tin đăng của bạn. Bạn có thể xem danh sách lịch hẹn khách đặt trong trang quản lý.
+                  Đây là tin đăng của bạn. <?php if (Auth::hasRole('agent')): ?><a href="<?= e(base_url('appointment/agent')) ?>">Xem lịch hẹn khách đặt</a>.<?php endif; ?>
                 </div>
               <?php else: ?>
                 <form method="post" action="<?= e(base_url('appointment/book')) ?>">
@@ -661,15 +480,12 @@ if (!$hasValidCoords) {
             <button type="button" class="btn btn-outline-primary rounded-pill px-3 py-2 fw-medium shadow-sm" data-bs-toggle="modal" data-bs-target="#shareModal"><i class="bi bi-share me-1"></i> Chia sẻ</button>
           </div>
 
-          <!-- Nút So sánh BĐS này & Tính lãi suất vay -->
-          <div class="d-flex gap-2">
-            <button type="button" id="btnDetailCompare" data-compare-id="<?= (int)$property['id'] ?>" class="btn btn-outline-primary btn-sm rounded-pill flex-grow-1 d-flex align-items-center justify-content-center gap-1 py-2 fw-semibold bds-btn-touch" onclick="handleToggleDetailCompare()">
+          <!-- Nút So sánh BĐS này -->
+          <div>
+            <button type="button" id="btnDetailCompare" data-compare-id="<?= (int)$property['id'] ?>" class="btn btn-outline-primary btn-sm rounded-pill w-100 d-flex align-items-center justify-content-center gap-1 py-2 fw-semibold bds-btn-touch" onclick="handleToggleDetailCompare()">
               <i class="bi bi-arrow-left-right"></i>
               <span id="detailCompareText">So sánh tin này</span>
             </button>
-            <a href="#mortgageSection" class="btn btn-outline-success btn-sm rounded-pill d-flex align-items-center justify-content-center gap-1 py-2 px-3 fw-semibold bds-btn-touch" title="Tính khoản vay mua nhà">
-              <i class="bi bi-calculator"></i> Tính vay
-            </a>
           </div>
 
           <?php if (Auth::check()): ?>
@@ -701,7 +517,7 @@ if (!$hasValidCoords) {
         <?php foreach ($similarList as $item): ?>
           <?php
             $simAvatar = !empty($item['cover_url'])
-              ? base_url($item['cover_url'])
+              ? image_url($item['cover_url'])
               : (!empty($item['avatar_url']) ? $item['avatar_url'] : property_avatar_url($item['avatar'] ?? null));
             $simDetailUrl = base_url('property/detail/' . (int)$item['id']);
             $simListingType = $item['listing_type'] ?? 'sale';
@@ -723,7 +539,7 @@ if (!$hasValidCoords) {
                             'area'          => $item['area'] . ' m²',
                             'raw_area'      => (float)$item['area'],
                             'bedrooms'      => (int)($item['bedrooms'] ?? 0),
-                            'district_name' => $item['district_name'] ?? '',
+                            'ward_name'     => $item['ward_name'] ?? '',
                             'listing_type'  => $simListingType,
                             'cover_url'     => $simAvatar,
                             'detail_url'    => $simDetailUrl,
@@ -755,14 +571,14 @@ if (!$hasValidCoords) {
                     <?= e(format_price($item['price'])) ?><?= $simListingType === 'rent' ? '<small class="fs-6 fw-normal text-muted">/tháng</small>' : '' ?>
                   </span>
                 </div>
-                <div class="property-specs pt-2 border-top mb-3">
-                  <span><i class="bi bi-aspect-ratio text-muted"></i> <?= e($item['area']) ?> m²</span>
-                  <span>•</span>
-                  <span><i class="bi bi-door-closed text-muted"></i> <?= (int)($item['bedrooms'] ?? 0) ?> PN</span>
-                  <span>•</span>
-                  <span class="text-truncate" style="max-width: 105px;" title="<?= e($item['district_name'] ?? '') ?>">
-                    <i class="bi bi-geo-alt text-muted"></i> <?= e($item['district_name'] ?? '') ?>
-                  </span>
+                <div class="property-specs pt-2 border-top mb-3 d-block">
+                  <div class="d-flex align-items-center text-muted small mb-1">
+                    <span><i class="bi bi-aspect-ratio text-primary me-1"></i><?= e($item['area']) ?> m²</span>
+                  </div>
+                  <div class="property-location text-truncate text-secondary small d-flex align-items-center" title="<?= htmlspecialchars($item['ward_name'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                    <i class="bi bi-geo-alt-fill text-danger me-1 flex-shrink-0"></i>
+                    <span class="text-truncate"><?= htmlspecialchars($item['ward_name'] ?? '', ENT_QUOTES, 'UTF-8') ?></span>
+                  </div>
                 </div>
                 <a href="<?= e($simDetailUrl) ?>" class="btn btn-outline-primary btn-sm rounded-pill w-100 fw-semibold">
                   Xem chi tiết <i class="bi bi-arrow-right ms-1"></i>
@@ -792,15 +608,29 @@ if (!$hasValidCoords) {
 </div>
 
 <?php
-  $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-  $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-  $shareFullUrl = $scheme . '://' . $host . base_url('property/detail/' . (int)$property['id']);
+  $shareFullUrl = full_url('property/detail/' . (int)$property['id']);
   $shareMailSubject = 'Chia sẻ bất động sản: ' . ($property['title'] ?? '');
   $shareMailBody = ($property['title'] ?? '') . ' - Giá: ' . format_price($property['price']) . ' - Xem chi tiết tại: ' . $shareFullUrl;
+  $vietQrConfig = config('vietqr', []);
+  $vietQrBankId = !empty($vietQrConfig['bank_id']) ? (string)$vietQrConfig['bank_id'] : 'MB';
+  $vietQrAccountNo = !empty($vietQrConfig['account_no']) ? (string)$vietQrConfig['account_no'] : '0902910780';
+  $vietQrAccountName = !empty($vietQrConfig['account_name']) ? (string)$vietQrConfig['account_name'] : 'HA NGOC THIEN';
+  $vietQrTemplate = !empty($vietQrConfig['template']) ? (string)$vietQrConfig['template'] : 'compact2';
+  $vietQrBankNames = [
+      'MB'   => 'Ngân hàng Quân Đội (MBBank)',
+      'VCB'  => 'Ngân hàng Ngoại thương (Vietcombank)',
+      'TCB'  => 'Ngân hàng Kỹ thương (Techcombank)',
+      'ACB'  => 'Ngân hàng Á Châu (ACB)',
+      'BIDV' => 'Ngân hàng Đầu tư & Phát triển (BIDV)',
+      'ICB'  => 'Ngân hàng Công thương (VietinBank)',
+  ];
+  $vietQrBankLabel = $vietQrConfig['bank_name'] ?? ($vietQrBankNames[strtoupper($vietQrBankId)] ?? ('Ngân hàng ' . strtoupper($vietQrBankId)));
   $vietQrDefaultAmount = 5000000;
   $vietQrTransferNote = 'BDS' . (int)$property['id'] . ' DAT COC';
   $vietQrAddInfoEncoded = 'BDS' . (int)$property['id'] . '%20DAT%20COC';
-  $vietQrImgDefault = 'https://img.vietqr.io/image/MB-0988889999-compact2.png?amount=' . $vietQrDefaultAmount . '&addInfo=' . $vietQrAddInfoEncoded . '&accountName=CONG%20TY%20BDS%20VIET';
+  $vietQrAccountNameEncoded = rawurlencode($vietQrAccountName);
+  // Fallback mặc định: https://img.vietqr.io/image/MB-0902910780-compact2.png?amount=...&addInfo=...&accountName=HA%20NGOC%20THIEN
+  $vietQrImgDefault = 'https://img.vietqr.io/image/' . rawurlencode($vietQrBankId) . '-' . rawurlencode($vietQrAccountNo) . '-' . rawurlencode($vietQrTemplate) . '.png?amount=' . $vietQrDefaultAmount . '&addInfo=' . $vietQrAddInfoEncoded . '&accountName=' . $vietQrAccountNameEncoded;
 ?>
 
 <!-- Modal Đặt cọc giữ chỗ BĐS qua VietQR (Napas 247) -->
@@ -859,17 +689,17 @@ if (!$hasValidCoords) {
               <div class="small fw-bold text-dark mb-2 border-bottom pb-2">2. Thông tin tài khoản thụ hưởng:</div>
               <div class="d-flex justify-content-between align-items-center py-1 small">
                 <span class="text-muted">Ngân hàng:</span>
-                <strong class="text-dark">Ngân hàng Quân Đội (MBBank)</strong>
+                <strong class="text-dark"><?= e($vietQrBankLabel) ?></strong>
               </div>
               <div class="d-flex justify-content-between align-items-center py-1 small">
                 <span class="text-muted">Chủ TK:</span>
-                <strong class="text-primary">CÔNG TY BĐS VIỆT</strong>
+                <strong class="text-primary"><?= e($vietQrAccountName === 'CONG TY BDS VIET' ? 'CÔNG TY BĐS VIỆT' : $vietQrAccountName) ?></strong>
               </div>
               <div class="d-flex justify-content-between align-items-center py-1 small">
                 <span class="text-muted">Số tài khoản:</span>
                 <div class="d-flex align-items-center gap-2">
-                  <strong class="text-dark fs-6 font-monospace" id="vietQrAccountNo">0988889999</strong>
-                  <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2" id="btnCopyVietQrStk" onclick="copyVietQrText('0988889999', 'Đã sao chép Số tài khoản 0988889999!')">
+                  <strong class="text-dark fs-6 font-monospace" id="vietQrAccountNo"><?= e($vietQrAccountNo) ?></strong>
+                  <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2" id="btnCopyVietQrStk" onclick="copyVietQrText('<?= e($vietQrAccountNo) ?>', 'Đã sao chép Số tài khoản <?= e($vietQrAccountNo) ?>!')">
                     <i class="bi bi-clipboard me-1"></i>Sao chép STK
                   </button>
                 </div>
@@ -984,7 +814,7 @@ if (!$hasValidCoords) {
           <div class="carousel-inner">
             <?php foreach ($images as $index => $image): ?>
               <div class="carousel-item <?= $index === 0 ? 'active' : '' ?>">
-                <img src="<?= e(base_url($image['image_url'])) ?>" class="gallery-modal-img" alt="Ảnh <?= $index + 1 ?> của <?= e($property['title']) ?>">
+                <img src="<?= e(image_url($image['image_url'])) ?>" class="gallery-modal-img" alt="Ảnh <?= $index + 1 ?> của <?= e($property['title']) ?>">
                 <div class="text-center py-2"><?= $index + 1 ?> / <?= count($images) ?></div>
               </div>
             <?php endforeach; ?>
@@ -1046,14 +876,14 @@ if (!$hasValidCoords) {
   </div>
 </div>
 
-<!-- Thư viện hiển thị bản đồ vị trí và tiện ích xung quanh -->
+<!-- Thư viện hiển thị bản đồ vị trí bất động sản -->
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="<?= e(base_url('assets/js/map.js')) ?>"></script>
+<script src="<?= e(base_url('assets/js/map.js?v=20261110e')) ?>"></script>
 <script>
   function switchGalleryImg(url, el) {
     const mainImg = document.getElementById('mainGalleryImg');
     if (mainImg) mainImg.src = url;
-    document.querySelectorAll('.gallery-thumb').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.gallery-thumb').forEach(function _callback     (t       ){return t.classList.remove('active');});
     if (el) el.classList.add('active');
   }
 
@@ -1065,11 +895,11 @@ if (!$hasValidCoords) {
     const input = document.getElementById('shareModalUrlInput');
     const urlToCopy = (input && input.value) ? input.value : window.location.href;
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(urlToCopy).then(function () {
+      navigator.clipboard.writeText(urlToCopy).then(function _callback2(){
         if (window.BDS && typeof window.BDS.toast === 'function') {
           BDS.toast('Đã sao chép liên kết vào bộ nhớ tạm!', 'success');
         }
-      }).catch(function () {
+      }).catch(function _callback3(){
         if (input) {
           input.select();
           document.execCommand('copy');
@@ -1110,8 +940,8 @@ if (!$hasValidCoords) {
       fbLink.href = 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(currentUrl);
     }
     if (emailLink) {
-      const subject = 'Chia sẻ bất động sản: ' + (currentPropertyData.title || '');
-      const body = (currentPropertyData.title || '') + ' - Giá: ' + (currentPropertyData.price_formatted || '') + '\nXem chi tiết tại: ' + currentUrl;
+      const subject = 'Chia sẻ bất động sản: ' +( currentPropertyData.title || '');
+      const body = (currentPropertyData.title || '') + ' - Giá: ' +( currentPropertyData.price_formatted || '') + '\nXem chi tiết tại: ' + currentUrl;
       emailLink.href = 'mailto:?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
     }
   }
@@ -1120,13 +950,17 @@ if (!$hasValidCoords) {
   // TÍNH NĂNG ĐẶT CỌC GIỮ CHỖ BẰNG VIETQR (NAPAS 247)
   // =========================================================================
   const vietQrPropertyId = <?= (int)$property['id'] ?>;
+  const vietQrBankId = <?= json_for_script($vietQrBankId) ?>;
+  const vietQrAccountNo = <?= json_for_script($vietQrAccountNo) ?>;
+  const vietQrAccountName = <?= json_for_script($vietQrAccountName) ?>;
+  const vietQrTemplate = <?= json_for_script($vietQrTemplate) ?>;
 
   function updateVietQrModal(amount) {
     const cleanAmount = Math.max(100000, Math.round(Number(amount) || 5000000));
     const qrImg = document.getElementById('vietQrImage');
     const amountDisplay = document.getElementById('vietQrAmountDisplay');
     const addInfo = 'BDS' + vietQrPropertyId + '%20DAT%20COC';
-    const qrUrl = 'https://img.vietqr.io/image/MB-0988889999-compact2.png?amount=' + cleanAmount + '&addInfo=' + addInfo + '&accountName=CONG%20TY%20BDS%20VIET';
+    const qrUrl = 'https://img.vietqr.io/image/' + encodeURIComponent(vietQrBankId) + '-' + encodeURIComponent(vietQrAccountNo) + '-' + encodeURIComponent(vietQrTemplate) + '.png?amount=' + cleanAmount + '&addInfo=' + addInfo + '&accountName=' + encodeURIComponent(vietQrAccountName);
 
     if (qrImg) {
       qrImg.src = qrUrl;
@@ -1137,7 +971,7 @@ if (!$hasValidCoords) {
   }
 
   function selectVietQrPreset(amount, btn) {
-    document.querySelectorAll('.vietqr-preset-btn').forEach(function (b) {
+    document.querySelectorAll('.vietqr-preset-btn').forEach(function _callback4(b){
       b.classList.remove('btn-primary', 'active');
       b.classList.add('btn-outline-primary');
     });
@@ -1154,7 +988,7 @@ if (!$hasValidCoords) {
 
   function handleVietQrCustomInput(val) {
     const num = Math.round(Number(val) || 0);
-    document.querySelectorAll('.vietqr-preset-btn').forEach(function (b) {
+    document.querySelectorAll('.vietqr-preset-btn').forEach(function _callback5(b){
       if (Number(b.dataset.amount) === num) {
         b.classList.remove('btn-outline-primary');
         b.classList.add('btn-primary', 'active');
@@ -1171,11 +1005,11 @@ if (!$hasValidCoords) {
   function copyVietQrText(textToCopy, toastMessage) {
     const msg = toastMessage || 'Đã sao chép vào bộ nhớ tạm!';
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(textToCopy).then(function () {
+      navigator.clipboard.writeText(textToCopy).then(function _callback6(){
         if (window.BDS && typeof window.BDS.toast === 'function') {
           BDS.toast(msg, 'success');
         }
-      }).catch(function () {
+      }).catch(function _callback7(){
         fallbackCopyText(textToCopy, msg);
       });
     } else {
@@ -1217,10 +1051,12 @@ if (!$hasValidCoords) {
       price: <?= json_for_script(format_price($property['price']) . (($property['listing_type'] ?? 'sale') === 'rent' ? '/tháng' : '')) ?>,
       price_formatted: <?= json_for_script(format_price($property['price']) . (($property['listing_type'] ?? 'sale') === 'rent' ? '/tháng' : '')) ?>,
       area: <?= json_for_script($property['area'] . ' m²') ?>,
-      district: <?= json_for_script($property['district_name'] ?? '') ?>,
-      district_name: <?= json_for_script($property['district_name'] ?? '') ?>,
-      image: <?= json_for_script(!empty($images[0]['image_url']) ? base_url($images[0]['image_url']) : property_avatar_url($property['avatar'] ?? null)) ?>,
-      avatar_url: <?= json_for_script(!empty($images[0]['image_url']) ? base_url($images[0]['image_url']) : property_avatar_url($property['avatar'] ?? null)) ?>,
+      district: <?= json_for_script($property['district_name'] ?? ($property['ward_name'] ?? '')) ?>,
+      district_name: <?= json_for_script($property['district_name'] ?? ($property['ward_name'] ?? '')) ?>,
+      ward: <?= json_for_script($property['ward_name'] ?? '') ?>,
+      ward_name: <?= json_for_script($property['ward_name'] ?? '') ?>,
+      image: <?= json_for_script(!empty($images[0]['image_url']) ? image_url($images[0]['image_url']) : property_avatar_url($property['avatar'] ?? null)) ?>,
+      avatar_url: <?= json_for_script(!empty($images[0]['image_url']) ? image_url($images[0]['image_url']) : property_avatar_url($property['avatar'] ?? null)) ?>,
       url: <?= json_for_script(base_url('property/detail/' . (int)$property['id'])) ?>
     };
 
@@ -1235,7 +1071,7 @@ if (!$hasValidCoords) {
       const raw = localStorage.getItem(key);
       let list = raw ? JSON.parse(raw) : [];
       if (!Array.isArray(list)) list = [];
-      list = list.filter(function (item) {
+      list = list.filter(function _callback8(item){
         return item && Number(item.id) !== Number(detailItem.id);
       });
       list.unshift(detailItem);
@@ -1252,7 +1088,7 @@ if (!$hasValidCoords) {
       window.BDS.confirm(
         'Bạn có chắc chắn muốn xóa đánh giá này? Hành động này không thể hoàn tác.',
         'Xác nhận xóa đánh giá',
-        function () {
+        function _callback9(){
           form.action = deleteAction;
           form.submit();
         }
@@ -1295,7 +1131,7 @@ if (!$hasValidCoords) {
             window.BDS.confirm(
               'Vui lòng đăng nhập tài khoản để lưu bất động sản yêu thích. Bạn có muốn chuyển đến trang đăng nhập ngay không?',
               'Yêu cầu đăng nhập',
-              function () {
+              function _callback0(){
                 window.location.href = '<?= e(base_url('auth/login')) ?>';
               }
             );
@@ -1322,9 +1158,9 @@ if (!$hasValidCoords) {
     price: <?= (float)($property['price'] ?? 0) ?>,
     price_formatted: <?= json_for_script(format_price($property['price'])) ?>,
     area: <?= (float)($property['area'] ?? 0) ?>,
-    avatar: <?= json_for_script(!empty($images[0]['image_url']) ? base_url($images[0]['image_url']) : property_avatar_url($property['avatar'] ?? null)) ?>,
+    avatar: <?= json_for_script(!empty($images[0]['image_url']) ? image_url($images[0]['image_url']) : property_avatar_url($property['avatar'] ?? null)) ?>,
     listing_type: <?= json_for_script($property['listing_type'] ?? 'sale') ?>,
-    address: <?= json_for_script($property['ward_name'] . ', ' . $property['district_name']) ?>,
+    address: <?= json_for_script($property['ward_name'] . ', ' . $property['province_name']) ?>,
     url: window.location.href
   };
 
@@ -1351,98 +1187,24 @@ if (!$hasValidCoords) {
   }
 
   // =========================================================================
-  // BẢN ĐỒ VỊ TRÍ & TIỆN ÍCH KHU VỰC XUNG QUANH
+  // BẢN ĐỒ VỊ TRÍ BẤT ĐỘNG SẢN
   // =========================================================================
   const mapLat = <?= $propLat ?>;
   const mapLng = <?= $propLng ?>;
   const propTitle = <?= json_for_script($property['title']) ?>;
   const propPriceFormatted = <?= json_for_script(format_price($property['price'])) ?>;
   const propAreaFormatted = <?= json_for_script($property['area'] . ' m²') ?>;
-  const propAddressFormatted = <?= json_for_script(($property['address_detail'] ? $property['address_detail'] . ', ' : '') . $property['ward_name'] . ', ' . $property['district_name']) ?>;
-  const propDistrict = <?= json_for_script($property['district_name'] ?? '') ?>;
+  const propAddressFormatted = <?= json_for_script(($property['address_detail'] ? $property['address_detail'] . ', ' : '') . $property['ward_name'] . ', ' . $property['province_name']) ?>;
 
   let detailMapInstance = null;
-  let activePoiCat = null;
-  let currentPoiItems = [];
 
-  async function handlePoiCategoryClick(catKey, btn) {
-    if (!detailMapInstance || !detailMapInstance.loadPoi) return;
-
-    if (activePoiCat === catKey) {
-      resetNearbyPoi();
-      return;
-    }
-
-    activePoiCat = catKey;
-    document.querySelectorAll('.poi-btn').forEach(b => {
-      b.classList.remove('btn-navy', 'text-white');
-    });
-    btn.classList.add('btn-navy', 'text-white');
-
-    const notice = document.getElementById('poiLoadingNotice');
-    const resetBtn = document.getElementById('btnResetPoi');
-    const resultsWrap = document.getElementById('poiResultsWrap');
-    const itemsList = document.getElementById('poiItemsList');
-    const titleEl = document.getElementById('poiResultTitle');
-    const countEl = document.getElementById('poiResultCount');
-
-    if (notice) notice.classList.remove('d-none');
-    if (resetBtn) resetBtn.classList.remove('d-none');
-
-    const districtName = <?= json_for_script($property['district_name'] ?? '') ?>;
-    const items = await detailMapInstance.loadPoi(catKey, districtName);
-
-    if (notice) notice.classList.add('d-none');
-
-    if (resultsWrap && itemsList) {
-      resultsWrap.classList.remove('d-none');
-      const conf = (detailMapInstance.POI_CONFIG && detailMapInstance.POI_CONFIG[catKey]) ? detailMapInstance.POI_CONFIG[catKey] : { label: 'Tiện ích', icon: '📍' };
-      if (titleEl) titleEl.innerHTML = conf.icon + ' ' + conf.label + ' gần bất động sản:';
-      if (countEl) countEl.textContent = items.length + ' địa điểm';
-
-      itemsList.innerHTML = items.map(it => {
-        const walkMin = Math.max(1, Math.round(it.distance / 75));
-        return '<div class="col-md-6">' +
-          '<div class="p-2 border rounded-3 bg-white h-100 d-flex align-items-center justify-content-between poi-item-card" onclick="panToPoi(' + it.lat + ', ' + it.lng + ')" style="cursor: pointer;">' +
-            '<div class="d-flex align-items-center gap-2 overflow-hidden me-2">' +
-              '<span class="fs-5">' + it.icon + '</span>' +
-              '<div class="text-truncate">' +
-                '<div class="fw-semibold text-dark small text-truncate" title="' + it.name + '">' + it.name + '</div>' +
-                '<div class="text-muted" style="font-size: 0.75rem;">' + it.type + ' • ~' + walkMin + ' phút đi bộ</div>' +
-              '</div>' +
-            '</div>' +
-            '<span class="badge bg-danger-subtle text-danger fw-bold flex-shrink-0">' + it.formattedDistance + '</span>' +
-          '</div>' +
-        '</div>';
-      }).join('');
-    }
-  }
-
-  function panToPoi(poiLat, poiLng) {
-    if (!detailMapInstance || !detailMapInstance.map) return;
-    detailMapInstance.map.setView([poiLat, poiLng], 16, { animate: true });
-    if (detailMapInstance.poiLayer) {
-      detailMapInstance.poiLayer.eachLayer(function (layer) {
-        if (layer.getLatLng) {
-          const pos = layer.getLatLng();
-          if (Math.abs(pos.lat - poiLat) < 0.0001 && Math.abs(pos.lng - poiLng) < 0.0001) {
-            layer.openPopup();
-          }
-        }
-      });
-    }
-  }
-
-  function resetNearbyPoi() {
-    activePoiCat = null;
-    document.querySelectorAll('.poi-btn').forEach(b => b.classList.remove('btn-navy', 'text-white'));
-    const resetBtn = document.getElementById('btnResetPoi');
-    if (resetBtn) resetBtn.classList.add('d-none');
-    const resultsWrap = document.getElementById('poiResultsWrap');
-    if (resultsWrap) resultsWrap.classList.add('d-none');
-    if (detailMapInstance && detailMapInstance.clearPoi) {
-      detailMapInstance.clearPoi();
-    }
+  function escapeHtml(str) {
+    return String(str ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   // CÔNG CỤ TÍNH LÃI SUẤT VAY MUA NHÀ
@@ -1480,7 +1242,7 @@ if (!$hasValidCoords) {
     function calculate() {
       const homePrice = parseFloat(priceInput.value) || 0;
       const ratio = parseFloat(ratioSlider.value) || 70;
-      const loanAmount = homePrice * (ratio / 100);
+      const loanAmount = homePrice *( ratio / 100);
       const years = parseInt(termSlider.value) || 20;
       const months = years * 12;
       const annualRate = parseFloat(interestInput.value) || 8.5;
@@ -1511,7 +1273,7 @@ if (!$hasValidCoords) {
         if (labelMonthly) labelMonthly.textContent = 'Số tiền trả đều mỗi tháng:';
         if (labelInterest) labelInterest.textContent = 'Lãi ước tính tháng 1:';
         if (monthlyRate > 0) {
-          monthlyPayment = (loanAmount * monthlyRate * Math.pow(1 + monthlyRate, months)) / (Math.pow(1 + monthlyRate, months) - 1);
+          monthlyPayment = (loanAmount * monthlyRate * Math.pow(1 + monthlyRate, months)) /( Math.pow(1 + monthlyRate, months) - 1);
           totalPayment = monthlyPayment * months;
           totalInterest = totalPayment - loanAmount;
         } else {
@@ -1575,12 +1337,12 @@ if (!$hasValidCoords) {
     ratioSlider.addEventListener('input', calculate);
     termSlider.addEventListener('input', calculate);
     interestInput.addEventListener('input', calculate);
-    document.querySelectorAll('input[name="calcMethod"]').forEach(r => r.addEventListener('change', calculate));
+    document.querySelectorAll('input[name="calcMethod"]').forEach(function _callback13   (r                  ){return r.addEventListener('change',calculate);});
 
     // Nút chọn nhanh tỷ lệ vay
-    document.querySelectorAll('.quick-ratio-btn').forEach(btn => {
-      btn.addEventListener('click', function () {
-        document.querySelectorAll('.quick-ratio-btn').forEach(b => b.classList.remove('active', 'btn-secondary', 'text-white'));
+    document.querySelectorAll('.quick-ratio-btn').forEach(function _callback14(btn){
+      btn.addEventListener('click', function _callback15(){
+        document.querySelectorAll('.quick-ratio-btn').forEach(function _callback16   (b                                      ){return b.classList.remove('active','btn-secondary','text-white');});
         this.classList.add('active');
         ratioSlider.value = this.dataset.ratio;
         calculate();
@@ -1588,9 +1350,9 @@ if (!$hasValidCoords) {
     });
 
     // Nút chọn nhanh thời hạn vay
-    document.querySelectorAll('.quick-term-btn').forEach(btn => {
-      btn.addEventListener('click', function () {
-        document.querySelectorAll('.quick-term-btn').forEach(b => b.classList.remove('active', 'btn-secondary', 'text-white'));
+    document.querySelectorAll('.quick-term-btn').forEach(function _callback17(btn){
+      btn.addEventListener('click', function _callback18(){
+        document.querySelectorAll('.quick-term-btn').forEach(function _callback19   (b                                      ){return b.classList.remove('active','btn-secondary','text-white');});
         this.classList.add('active');
         termSlider.value = this.dataset.term;
         calculate();
@@ -1598,9 +1360,9 @@ if (!$hasValidCoords) {
     });
 
     // Nút chọn nhanh ngân hàng
-    document.querySelectorAll('.quick-bank-btn').forEach(btn => {
-      btn.addEventListener('click', function () {
-        document.querySelectorAll('.quick-bank-btn').forEach(b => b.classList.remove('active', 'btn-secondary', 'text-white'));
+    document.querySelectorAll('.quick-bank-btn').forEach(function _callback20(btn){
+      btn.addEventListener('click', function _callback21(){
+        document.querySelectorAll('.quick-bank-btn').forEach(function _callback22   (b                                      ){return b.classList.remove('active','btn-secondary','text-white');});
         this.classList.add('active');
         interestInput.value = this.dataset.rate;
         calculate();
@@ -1610,17 +1372,18 @@ if (!$hasValidCoords) {
     calculate();
   }
 
-  document.addEventListener('DOMContentLoaded', function () {
+  document.addEventListener('DOMContentLoaded', function _callback23() {
+    initMortgageCalculator();
     // 1. Image gallery
-    document.querySelectorAll('[data-gallery-url]').forEach(function (thumbnail) {
-      thumbnail.addEventListener('click', function () {
+    document.querySelectorAll('[data-gallery-url]').forEach(function _callback24(thumbnail){
+      thumbnail.addEventListener('click', function _callback25(){
         switchGalleryImg(thumbnail.dataset.galleryUrl, thumbnail);
       });
     });
 
     const galleryModal = document.getElementById('galleryModal');
     if (galleryModal) {
-      galleryModal.addEventListener('show.bs.modal', function () {
+      galleryModal.addEventListener('show.bs.modal', function _callback26(){
         const thumbs = Array.from(document.querySelectorAll('.gallery-thumb'));
         const selected = thumbs.indexOf(document.querySelector('.gallery-thumb.active'));
         const carousel = document.getElementById('propertyGalleryCarousel');
@@ -1628,72 +1391,128 @@ if (!$hasValidCoords) {
       });
     }
 
-    // 2. Khởi tạo bản đồ vị trí & tiện ích khu vực xung quanh
-    const lat = <?= $propLat ?>;
-    const lng = <?= $propLng ?>;
+    // 2. Khởi tạo bản đồ vị trí bất động sản
+    const lat = Number.isFinite(Number(<?= $propLat ?>)) ? Number(<?= $propLat ?>) : 10.776889;
+    const lng = Number.isFinite(Number(<?= $propLng ?>)) ? Number(<?= $propLng ?>) : 106.700806;
     const title = <?= json_for_script($property['title']) ?>;
+    const mapContainerEl = document.getElementById('propertyMap');
 
-    if (document.getElementById('propertyMap') && window.BdsMap && typeof window.BdsMap.initViewer === 'function') {
+    if (mapContainerEl) {
       const popupHtml = '<div style="min-width:200px; max-width:280px; font-family:system-ui, -apple-system, sans-serif; line-height:1.45; padding:3px;">' +
-        '<div style="font-weight:700; font-size:14px; color:#0f172a; margin-bottom:5px;">' + title + '</div>' +
+        '<div style="font-weight:700; font-size:14px; color:#0f172a; margin-bottom:5px;">' + escapeHtml(title) + '</div>' +
         '<div style="margin-bottom:6px;">' +
-          '<span style="color:#dc3545; font-weight:800; font-size:15px;">' + <?= json_for_script(format_price($property['price'])) ?> + '</span>' +
-          '<span style="color:#64748b; font-weight:600; font-size:13px;"> • ' + <?= json_for_script($property['area'] . ' m²') ?> + '</span>' +
+          '<span style="color:#dc3545; font-weight:800; font-size:15px;">' + escapeHtml(propPriceFormatted) + '</span>' +
+          '<span style="color:#64748b; font-weight:600; font-size:13px;"> • ' + escapeHtml(propAreaFormatted) + '</span>' +
         '</div>' +
         '<div style="font-size:12px; color:#64748b; border-top:1px solid #f1f5f9; padding-top:4px; margin-bottom:8px;">' +
-          '📍 ' + <?= json_for_script(($property['address_detail'] ? $property['address_detail'] . ', ' : '') . $property['ward_name'] . ', ' . $property['district_name']) ?> +
+          '📍 ' + escapeHtml(propAddressFormatted) +
         '</div>' +
         '<div class="d-flex gap-1 pt-1 border-top">' +
-          '<a href="https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=%2C%3B' + lat + '%2C' + lng + '" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-success py-0 px-2 text-decoration-none" style="font-size:0.75rem;">' +
+          '<a href="https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=%2C%3B' + encodeURIComponent(lat) + '%2C' + encodeURIComponent(lng) + '" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-success py-0 px-2 text-decoration-none" style="font-size:0.75rem;">' +
             '<i class="bi bi-signpost-2 me-1"></i>Chỉ đường trực tuyến' +
           '</a>' +
-          '<a href="https://www.google.com/maps/dir/?api=1&destination=' + lat + ',' + lng + '" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary py-0 px-2 text-decoration-none" style="font-size:0.75rem;">' +
+          '<a href="https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(lat) + ',' + encodeURIComponent(lng) + '" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary py-0 px-2 text-decoration-none" style="font-size:0.75rem;">' +
             '<i class="bi bi-geo-alt me-1"></i>Google Maps' +
           '</a>' +
         '</div>' +
       '</div>';
 
-      detailMapInstance = window.BdsMap.initViewer({
-        mapId: 'propertyMap',
-        lat: lat,
-        lng: lng,
-        zoom: 15,
-        popupText: popupHtml
-      });
-
-      // Đảm bảo bản đồ vẽ lại đầy đủ gạch (chống khung xám trắng khi render)
-      if (detailMapInstance && detailMapInstance.map) {
-        detailMapInstance.map.invalidateSize();
-        setTimeout(function () { detailMapInstance.map.invalidateSize(); }, 150);
-        setTimeout(function () { detailMapInstance.map.invalidateSize(); }, 500);
-        setTimeout(function () { detailMapInstance.map.invalidateSize(); }, 1000);
-      }
-
-      // Xử lý khi cuộn đến vùng bản đồ bằng IntersectionObserver
-      const mapContainerEl = document.getElementById('propertyMap');
-      if (mapContainerEl && typeof IntersectionObserver !== 'undefined') {
-        const mapObserver = new IntersectionObserver(function(entries) {
-          entries.forEach(function(entry) {
-            if (entry.isIntersecting && detailMapInstance && detailMapInstance.map) {
-              setTimeout(function () { detailMapInstance.map.invalidateSize(); }, 50);
-              setTimeout(function () { detailMapInstance.map.invalidateSize(); }, 200);
-            }
+      try {
+        if (window.BdsMap && typeof window.BdsMap.initViewer === 'function') {
+          detailMapInstance = window.BdsMap.initViewer({
+            mapId: 'propertyMap',
+            lat: lat,
+            lng: lng,
+            zoom: 15,
+            popupText: popupHtml
           });
-        }, { threshold: 0.1 });
-        mapObserver.observe(mapContainerEl);
+        }
+      } catch (viewerErr) {
+        console.warn('Khởi tạo bản đồ qua BdsMap thất bại, chuyển sang chế độ dự phòng:', viewerErr);
+        detailMapInstance = null;
       }
 
-      // Lắng nghe sự kiện click các nút lọc POI
-      document.querySelectorAll('.poi-btn').forEach(btn => {
-        btn.addEventListener('click', function () {
-          const cat = this.dataset.poi;
-          handlePoiCategoryClick(cat, this);
-        });
-      });
-    }
+      // Fallback an toàn nếu BdsMap gặp lỗi hoặc chưa sẵn sàng nhưng L đã nạp
+      if ((!detailMapInstance || !detailMapInstance.map) && typeof L !== 'undefined') {
+        try {
+          if (mapContainerEl._leaflet_id) {
+            delete mapContainerEl._leaflet_id;
+            mapContainerEl.innerHTML = '';
+          }
+          const fallbackMap = L.map('propertyMap', {
+            center: [lat, lng],
+            zoom: 15,
+            scrollWheelZoom: true
+          });
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© Bản đồ trực tuyến'
+          }).addTo(fallbackMap);
+          const fallbackMarker = L.marker([lat, lng], { title: 'Vị trí bất động sản' }).addTo(fallbackMap);
+          try {
+            fallbackMarker.bindPopup(popupHtml).openPopup();
+          } catch (popupErr) {}
+          detailMapInstance = {
+            map: fallbackMap,
+            marker: fallbackMarker,
+            invalidateSize: function () {
+              try { return fallbackMap.invalidateSize(); } catch (e) { return null; }
+            }
+          };
+        } catch (fallbackErr) {
+          console.error('Khởi tạo bản đồ dự phòng thất bại:', fallbackErr);
+          detailMapInstance = null;
+        }
+      }
 
-    // 3. Khởi tạo Mortgage Calculator
-    initMortgageCalculator();
+      // Fallback hiển thị thân thiện nếu hoàn toàn không tải được thư viện bản đồ
+      if (!detailMapInstance || !detailMapInstance.map) {
+        mapContainerEl.innerHTML =
+          '<div class="d-flex flex-column align-items-center justify-content-center h-100 p-4 text-center bg-light text-secondary">' +
+            '<i class="bi bi-geo-alt-fill text-danger fs-1 mb-2"></i>' +
+            '<div class="fw-semibold text-dark mb-1">Không thể hiển thị bản đồ tương tác ngay lúc này</div>' +
+            '<div class="small mb-3">' + escapeHtml(propAddressFormatted) + '</div>' +
+            '<a href="https://www.google.com/maps?q=' + encodeURIComponent(lat + ',' + lng) + '" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-primary rounded-pill px-3">' +
+              '<i class="bi bi-map me-1"></i>Xem vị trí trên bản đồ trực tuyến' +
+            '</a>' +
+          '</div>';
+      } else {
+        const safeInvalidateMap = function _safeInvalidateDetailMap() {
+          try {
+            if (detailMapInstance && detailMapInstance.map && typeof detailMapInstance.map.invalidateSize === 'function') {
+              detailMapInstance.map.invalidateSize();
+            }
+          } catch (e) {}
+        };
+
+        // Đảm bảo bản đồ vẽ lại đầy đủ gạch (chống khung xám/trắng khi render hoặc sau load)
+        safeInvalidateMap();
+        if (typeof detailMapInstance.map.on === 'function') {
+          detailMapInstance.map.on('load', safeInvalidateMap);
+        }
+        if (document.readyState === 'complete') {
+          setTimeout(safeInvalidateMap, 50);
+        } else {
+          window.addEventListener('load', safeInvalidateMap);
+        }
+        setTimeout(safeInvalidateMap, 150);
+        setTimeout(safeInvalidateMap, 500);
+        setTimeout(safeInvalidateMap, 1000);
+
+        // Xử lý khi cuộn đến vùng bản đồ bằng IntersectionObserver
+        if (typeof IntersectionObserver !== 'undefined') {
+          const mapObserver = new IntersectionObserver(function _callback30(entries){
+            entries.forEach(function _callback31(entry){
+              if (entry.isIntersecting) {
+                setTimeout(safeInvalidateMap, 50);
+                setTimeout(safeInvalidateMap, 200);
+              }
+            });
+          }, { threshold: 0.1 });
+          mapObserver.observe(mapContainerEl);
+        }
+      }
+    }
 
     // 4. Đồng bộ nút So sánh tin này
     updateDetailCompareBtn();
@@ -1708,5 +1527,118 @@ if (!$hasValidCoords) {
 
     // 6. Ghi nhận & Hiển thị Lịch sử Bất động sản vừa xem
     initRecentlyViewedDetail();
+  });</script>
+
+<?php if (!empty($_SESSION['user']) && ((int)($_SESSION['user']['role_id'] ?? 0) === 1 || ($_SESSION['user']['role'] ?? '') === 'admin')): ?>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  // 1. Xử lý Toggle Huy hiệu Đã xác thực
+  const btnVerify = document.getElementById('btnAdminVerify');
+  if (btnVerify) {
+    btnVerify.addEventListener('click', async function () {
+      const propId = this.dataset.id;
+      const url = this.dataset.url || ('<?= e(base_url('admin/properties/verify/')) ?>' + propId);
+      this.disabled = true;
+      const originalHtml = this.innerHTML;
+      this.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Đang xử lý...';
+
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json',
+            'X-CSRF-Token': CSRF
+          }
+        });
+        const data = await res.json();
+        if (data && data.success) {
+          const isVerified = Number(data.is_verified) === 1;
+          if (isVerified) {
+            this.className = 'btn btn-sm btn-outline-secondary';
+            this.innerHTML = '<i class="bi bi-patch-minus"></i> Hủy xác thực';
+          } else {
+            this.className = 'btn btn-sm btn-outline-success';
+            this.innerHTML = '<i class="bi bi-patch-check"></i> Cấp xác thực';
+          }
+
+          const badgeWrap = document.getElementById('verifiedBadgeWrapper');
+          if (badgeWrap) {
+            badgeWrap.innerHTML = isVerified
+              ? '<span class="badge badge-verified text-bg-success text-white fs-6">✓ Đã xác thực</span>'
+              : '';
+          }
+
+          const verifyStatusText = document.getElementById('adminCurrentVerify');
+          if (verifyStatusText) {
+            if (isVerified) {
+              verifyStatusText.className = 'badge bg-success';
+              verifyStatusText.textContent = 'Đã xác thực';
+            } else {
+              verifyStatusText.className = 'badge bg-secondary';
+              verifyStatusText.textContent = 'Chưa xác thực';
+            }
+          }
+        } else {
+          alert((data && data.message) ? data.message : 'Có lỗi xảy ra khi cập nhật.');
+          this.innerHTML = originalHtml;
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Lỗi kết nối máy chủ.');
+        this.innerHTML = originalHtml;
+      } finally {
+        this.disabled = false;
+      }
+    });
+  }
+
+  // 2. Xử lý Thay đổi Trạng thái Tin đăng (Duyệt tin, Tạm ẩn tin, Xóa tin)
+  document.querySelectorAll('.btn-admin-status').forEach(btn => {
+    btn.addEventListener('click', async function () {
+      const status = this.dataset.status;
+      if (status === 'deleted' && !confirm('Bạn có chắc chắn muốn xóa tin đăng này? Thao tác này không thể hoàn tác!')) {
+        return;
+      }
+      const propId = this.dataset.id;
+      const url = this.dataset.url || ('<?= e(base_url('admin/properties/changeStatus/')) ?>' + propId);
+      const originalHtml = this.innerHTML;
+      this.disabled = true;
+      this.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Đang xử lý...';
+
+      try {
+        const formData = new FormData();
+        formData.append('status', status);
+
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json',
+            'X-CSRF-Token': CSRF
+          },
+          body: formData
+        });
+        const data = await res.json();
+        if (data && data.success) {
+          if (status === 'deleted') {
+            window.location.href = '<?= e(base_url('admin/properties')) ?>';
+            return;
+          }
+          window.location.reload();
+        } else {
+          alert((data && data.message) ? data.message : 'Không thể cập nhật trạng thái.');
+          this.innerHTML = originalHtml;
+          this.disabled = false;
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Lỗi kết nối máy chủ.');
+        this.innerHTML = originalHtml;
+        this.disabled = false;
+      }
+    });
   });
+});
 </script>
+<?php endif; ?>

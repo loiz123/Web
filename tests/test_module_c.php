@@ -336,7 +336,481 @@ $t->assert((int)$userRev['rating'] === 4, "5.5 Điểm rating sau cập nhật l
 $stmt = $db->prepare("DELETE FROM reviews WHERE property_id = ? AND user_id = ?");
 $stmt->execute([$revPropId, $testUserId]);
 
+// =========================================================================
+// SUITE 6: KIỂM THỬ BẢO MẬT (IDOR/XSS/UPLOADS), EDIT TIN, COMPARE & PHÂN TRANG
+// =========================================================================
+echo "\nSUITE 6: BẢO MẬT (IDOR/XSS/UPLOADS), EDIT LISTING, COMPARE & INDEXES\n";
+
+$propCtrlSrc = file_get_contents(APP . '/controllers/PropertyController.php');
+$agentCtrlSrc = file_get_contents(APP . '/controllers/AgentController.php');
+$searchViewSrc = file_get_contents(APP . '/views/property/search.php');
+$detailViewSrc = file_get_contents(APP . '/views/property/detail.php');
+$compareViewSrc = file_get_contents(APP . '/views/property/compare.php');
+$agentEditViewSrc = file_get_contents(APP . '/views/agent/edit.php');
+$homeViewSrc = file_get_contents(APP . '/views/home/index.php');
+$finderSrc = file_get_contents(APP . '/models/PropertyFinder.php');
+$mapJsSrc = file_get_contents(ROOT . '/public/assets/js/map.js');
+$appJsSrc = file_get_contents(ROOT . '/public/assets/js/app.js');
+$htaccessPath = ROOT . '/public/uploads/.htaccess';
+$schemaSrc = file_get_contents(ROOT . '/database/schema.sql');
+
+$t->assert(
+    substr_count($propCtrlSrc, "(\$prop['status'] ?? '') === 'approved'") >= 2,
+    "6.1 PropertyController::compare() và compareData() chỉ cho phép BĐS status === 'approved' (chặn BOLA/IDOR)"
+);
+$t->assert(
+    strpos($agentCtrlSrc, "if (!\$this->isPost())") !== false
+    && strpos($agentCtrlSrc, "\$this->json(['success' => false, 'message' => 'Phương thức không được hỗ trợ'], 405);") !== false,
+    "6.2 AgentController::status() kiểm tra bắt buộc phương thức POST (trả 405 nếu GET)"
+);
+$t->assert(
+    strpos($searchViewSrc, 'json_for_script($initialMapProperties)') !== false,
+    "6.3 search.php sử dụng json_for_script(\$initialMapProperties) chống XSS breakout thẻ <script>"
+);
+$t->assert(
+    strpos($mapJsSrc, 'escapeHtml(p.title)') !== false
+    && (strpos($mapJsSrc, 'escapeHtml(p.ward_name') !== false || strpos($mapJsSrc, 'escapeHtml(p.district_name)') !== false)
+    && strpos($mapJsSrc, 'escapeHtml(item.name)') !== false
+    && strpos($detailViewSrc, 'escapeHtml(it.name)') !== false
+    && strpos($appJsSrc, 'escapeHtml(p.title)') !== false,
+    "6.4 map.js, detail.php và app.js bọc escapeHtml() đầy đủ chống DOM XSS"
+);
+$t->assert(
+    is_file($htaccessPath)
+    && strpos(file_get_contents($htaccessPath), 'php_flag engine off') !== false
+    && strpos(file_get_contents($htaccessPath), 'Require all denied') !== false,
+    "6.5 File public/uploads/.htaccess tồn tại và chặn thực thi script trong thư mục uploads"
+);
+$t->assert(
+    strpos($compareViewSrc, "\$prop['cover_url'] ?? property_avatar_url(null)") !== false
+    && strpos($compareViewSrc, "\$prop['agent_name'] ?? \$prop['author_name'] ?? 'Môi giới BĐS'") !== false
+    && strpos($compareViewSrc, "\$prop['agent_phone'] ?? \$prop['author_phone'] ?? ''") !== false
+    && strpos($compareViewSrc, 'Không nội thất') !== false
+    && strpos($compareViewSrc, 'Nội thất cơ bản') !== false
+    && strpos($compareViewSrc, 'Đầy đủ nội thất') !== false,
+    "6.6 compare.php hiển thị đúng cover_url, agent_name, agent_phone và nhãn nội thất tiếng Việt"
+);
+$t->assert(
+    strpos($finderSrc, "if (isset(\$rows[0]['total']))") !== false
+    && $finder->countSearch(['keyword' => '__KHONG_TON_TAI_XYZ_99999__']) === 0,
+    "6.7 PropertyFinder::countSearch() dùng isset(\$rows[0]['total']) và trả về 0 chính xác khi không có kết quả"
+);
+$t->assert(
+    strpos($agentEditViewSrc, 'name="ward_id"') !== false
+    && strpos($agentEditViewSrc, 'name="direction"') !== false
+    && strpos($agentEditViewSrc, 'name="legal_status"') !== false
+    && strpos($agentEditViewSrc, 'name="deposit"') !== false
+    && strpos($agentEditViewSrc, 'name="furniture"') !== false
+    && strpos($agentEditViewSrc, 'name="pets_allowed"') !== false
+    && strpos($agentEditViewSrc, 'name="amenities[]"') !== false,
+    "6.8 Form sửa tin agent/edit.php có đầy đủ các trường ward_id, direction, legal_status, deposit, furniture, pets_allowed, amenities[]"
+);
+$t->assert(
+    strpos($homeViewSrc, 'http_build_query(array_merge($filters ?? [], [\'page\' => $i]))') !== false,
+    "6.9 Phân trang trang chủ home/index.php giữ lại bộ lọc \$filters trong query string"
+);
+$t->assert(
+    strpos($schemaSrc, 'idx_prop_status_created') !== false
+    && strpos($schemaSrc, 'idx_prop_status_area') !== false
+    && strpos($schemaSrc, 'idx_prop_img_cover') !== false,
+    "6.10 database/schema.sql đã bổ sung đủ 3 composite indexes tối ưu truy vấn"
+);
+
+// =========================================================================
+// 7. KIỂM THỬ 7 HẠNG MỤC NÂNG CẤP HOÀN THIỆN 15/15 (MỤC 4, 7, 8, 9, 10, 14, 15)
+// =========================================================================
+echo "\nSUITE 7: KIỂM THỬ 7 HẠNG MỤC NÂNG CẤP BỔ SUNG (HOÀN THIỆN 100% 15 KHUYẾT ĐIỂM)\n";
+
+require_once APP . '/core/Auth.php';
+require_once APP . '/models/User.php';
+require_once APP . '/models/Notification.php';
+require_once APP . '/models/Property.php';
+require_once APP . '/helpers/ImageHelper.php';
+require_once APP . '/helpers/Mailer.php';
+
+// 7.1 Quên mật khẩu (SMTP Mailer + OWASP anti-enumeration) & Thu hồi phiên cũ khi đổi mật khẩu
+$authSrc = file_get_contents(APP . '/core/Auth.php');
+$authCtrlSrc = file_get_contents(APP . '/controllers/AuthController.php');
+$forgotViewSrc = file_get_contents(APP . '/views/auth/forgot.php');
+$userModel = new User();
+$testResetToken = $userModel->createPasswordResetToken('agent1@bds.local');
+$foundReset = $userModel->findValidPasswordReset($testResetToken);
+$userModel->deletePasswordResetsForEmail('agent1@bds.local');
+
+$mailer = new Mailer(['enabled' => false, 'host' => 'smtp.gmail.com', 'port' => 587, 'username' => '', 'password' => '', 'from_name' => 'Bất Động Sản']);
+$mailHtml = Mailer::buildPasswordResetHtml('Nguyễn Văn Test', 'http://localhost/batdongsan/public/auth/reset?token=' . $testResetToken, 30);
+$mailer->sendPasswordResetEmail('agent1@bds.local', 'Nguyễn Văn Test', 'http://localhost/batdongsan/public/auth/reset?token=' . $testResetToken, 30);
+$smtpCfg = config('smtp', []);
+
+$t->assert(
+    strpos($authSrc, 'password_signature') !== false
+    && strpos($authSrc, 'pwd_sig') !== false
+    && strpos($authSrc, 'updatePasswordSignature') !== false
+    && strpos($authCtrlSrc, 'function forgot(') !== false
+    && strpos($authCtrlSrc, 'function reset(') !== false
+    && strpos($authCtrlSrc, 'sendPasswordResetEmail') !== false
+    && strpos($forgotViewSrc, '$resetLink') === false
+    && strpos($mailHtml, 'Đặt lại mật khẩu') !== false
+    && strpos($mailHtml, '/auth/reset?token=') !== false
+    && is_array($smtpCfg) && array_key_exists('host', $smtpCfg) && $smtpCfg['host'] === 'smtp.gmail.com'
+    && is_file(ROOT . '/storage/logs/mail.log')
+    && is_file(APP . '/views/auth/forgot.php')
+    && is_file(APP . '/views/auth/reset.php')
+    && $foundReset !== null
+    && ($foundReset['email'] ?? '') === 'agent1@bds.local',
+    "7.1 [Mục 4/15] Quên mật khẩu (SMTP Mailer, password_resets, /auth/forgot, /auth/reset) & Thu hồi phiên cũ qua password_signature hoạt động chuẩn xác"
+);
+
+// 7.2 Vòng đời tin đăng (expired_at + Gia hạn tin) & Chống tăng lượt xem ảo
+$propControllerSrc = file_get_contents(APP . '/controllers/PropertyController.php');
+$agentControllerSrc = file_get_contents(APP . '/controllers/AgentController.php');
+$agentIndexViewSrc = file_get_contents(APP . '/views/agent/index.php');
+$hasExpiredCol = !empty($db->query("SHOW COLUMNS FROM properties LIKE 'expired_at'")->fetchAll());
+
+$t->assert(
+    $hasExpiredCol
+    && strpos($propControllerSrc, "\$_SESSION['viewed_properties'][\$id]") !== false
+    && strpos($agentControllerSrc, 'function renew(') !== false
+    && strpos($agentIndexViewSrc, 'agent/renew/') !== false
+    && strpos($agentIndexViewSrc, 'Gia hạn tin') !== false,
+    "7.2 [Mục 7/15] Vòng đời tin đăng (cột expired_at, nút Gia hạn tin +30 ngày) & Chống tăng lượt xem ảo bằng session"
+);
+
+// 7.3 Hệ thống Thông báo In-app (Notification)
+$notifModel = new Notification();
+$testUserRow = $db->query("SELECT id FROM users ORDER BY id ASC LIMIT 1")->fetch();
+$testUid = (int)($testUserRow['id'] ?? 1);
+$notifId = $notifModel->create($testUid, 'Kiểm thử thông báo', 'Nội dung kiểm thử hệ thống thông báo', 'notification');
+$unreadList = $notifModel->getUnreadForUser($testUid, 10);
+$markedOk = $notifModel->markAsRead($notifId, $testUid);
+$notifModel->markAllAsRead($testUid);
+$db->prepare("DELETE FROM notifications WHERE id = ?")->execute([$notifId]);
+
+$mainLayoutSrc = file_get_contents(APP . '/views/layouts/main.php');
+$styleCssSrc = file_get_contents(ROOT . '/public/assets/css/style.css');
+$apptCtrlSrc = file_get_contents(APP . '/controllers/AppointmentController.php');
+$modModelSrc = file_get_contents(APP . '/models/PropertyModeration.php');
+
+$t->assert(
+    $notifId > 0
+    && !empty($unreadList)
+    && $markedOk
+    && is_file(APP . '/controllers/NotificationController.php')
+    && is_file(APP . '/views/notification/index.php')
+    && strpos($mainLayoutSrc, 'notificationDropdownBtn') !== false
+    && strpos($mainLayoutSrc, 'adminNavDropdown') !== false
+    && strpos($styleCssSrc, 'white-space: nowrap;') !== false
+    && strpos($apptCtrlSrc, 'new Notification()') !== false
+    && strpos($modModelSrc, 'new Notification()') !== false,
+    "7.3 [Mục 8/15] Hệ thống Thông báo In-app & Navbar đồng bộ 1 dòng theo Role (white-space: nowrap)"
+);
+
+// 7.4 Nén và Resize ảnh tự động (WebP) + tạo thumbnail
+$tmpImgPath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'test_bds_large_' . uniqid() . '.jpg';
+$tmpOutDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'test_bds_webp_' . uniqid();
+$gdImg = imagecreatetruecolor(2000, 1200);
+$bgColor = imagecolorallocate($gdImg, 35, 110, 185);
+imagefill($gdImg, 0, 0, $bgColor);
+imagejpeg($gdImg, $tmpImgPath, 92);
+imagedestroy($gdImg);
+
+$processedWebp = ImageHelper::processPropertyImage($tmpImgPath, $tmpOutDir, 1600, 82, true);
+$webpSizeInfo = ($processedWebp && is_file($processedWebp['full_path'])) ? getimagesize($processedWebp['full_path']) : false;
+$thumbSizeInfo = ($processedWebp && !empty($processedWebp['thumb_path']) && is_file($processedWebp['thumb_path'])) ? getimagesize($processedWebp['thumb_path']) : false;
+
+if (is_file($tmpImgPath)) @unlink($tmpImgPath);
+if ($processedWebp) {
+    if (is_file($processedWebp['full_path'])) @unlink($processedWebp['full_path']);
+    if (!empty($processedWebp['thumb_path']) && is_file($processedWebp['thumb_path'])) @unlink($processedWebp['thumb_path']);
+}
+if (is_dir($tmpOutDir)) @rmdir($tmpOutDir);
+
+$t->assert(
+    $processedWebp !== null
+    && $webpSizeInfo !== false
+    && $webpSizeInfo[0] === 1600
+    && $webpSizeInfo['mime'] === 'image/webp'
+    && $thumbSizeInfo !== false
+    && $thumbSizeInfo[0] === 450
+    && $thumbSizeInfo[1] === 300
+    && strpos($agentControllerSrc, 'storePropertyData') !== false,
+    "7.4 [Mục 9/15] Nén và Resize ảnh tự động sang WebP (2000px -> 1600px, quality 82) kèm sinh ảnh thumbnail 450x300px"
+);
+
+// 7.5 Bản đồ Marker Clustering (Leaflet.markercluster)
+$mapJsSrc = file_get_contents(ROOT . '/public/assets/js/map.js');
+$searchViewSrc = file_get_contents(APP . '/views/property/search.php');
+
+$t->assert(
+    strpos($mainLayoutSrc, 'leaflet.markercluster@1.5.3') !== false
+    && strpos($searchViewSrc, 'leaflet.markercluster@1.5.3') !== false
+    && strpos($mapJsSrc, 'L.markerClusterGroup') !== false
+    && strpos($mapJsSrc, 'chunkedLoading: true') !== false
+    && strpos($mapJsSrc, 'spiderfyOnMaxZoom: true') !== false,
+    "7.5 [Mục 10/15] Bản đồ tìm kiếm tích hợp Leaflet.markercluster (chunkedLoading, spiderfyOnMaxZoom)"
+);
+
+// 7.6 Trang lỗi 500 chỉn chu & Global Exception Handler
+$indexFrontSrc = file_get_contents(ROOT . '/public/index.php');
+$error500Path = APP . '/views/errors/500.php';
+$error500Src = is_file($error500Path) ? file_get_contents($error500Path) : '';
+
+$t->assert(
+    is_file($error500Path)
+    && strpos($error500Src, '500') !== false
+    && strpos($indexFrontSrc, 'catch (Throwable $e)') !== false
+    && strpos($indexFrontSrc, "views/errors/500.php") !== false,
+    "7.6 [Mục 14/15] Trang lỗi 500 thân thiện (app/views/errors/500.php) và Global Exception Handler trong public/index.php"
+);
+
+// 7.7 Cập nhật Avatar và Bio cho tài khoản
+$profileCtrlSrc = file_get_contents(APP . '/controllers/ProfileController.php');
+$profileViewSrc = file_get_contents(APP . '/views/profile/index.php');
+$detailViewSrc = file_get_contents(APP . '/views/property/detail.php');
+
+$t->assert(
+    strpos($profileCtrlSrc, 'uploads/avatars') !== false
+    && strpos($profileCtrlSrc, "'bio'") !== false
+    && strpos($profileViewSrc, 'name="avatar"') !== false
+    && strpos($profileViewSrc, 'name="bio"') !== false
+    && strpos($detailViewSrc, 'agent_bio') !== false,
+    "7.7 [Mục 15/15] Cập nhật Avatar (kèm xem trước) và Bio cho tài khoản trong ProfileController & hiển thị trên trang chi tiết tin"
+);
+
+// =========================================================================
+// 8. ĐỊA GIỚI HÀNH CHÍNH 63 TỈNH/THÀNH & BÓC TÁCH ĐỊA CHỈ THÔNG MINH
+// =========================================================================
+echo "\nSUITE 8: ĐỊA GIỚI HÀNH CHÍNH 63 TỈNH/THÀNH & BÓC TÁCH ĐỊA CHỈ THÔNG MINH\n";
+
+require_once APP . '/models/Location.php';
+
+// 8.1 Kiểm tra số lượng tỉnh/thành, 3.308 phường/xã chuẩn từ Wikipedia (0 Thị trấn, 34 tỉnh/thành trực tiếp theo cột Tỉnh Wikipedia) và file seed SQL offline
+$provinceCount  = (int)$db->query("SELECT COUNT(*) FROM provinces")->fetchColumn();
+$districtCount  = (int)$db->query("SELECT COUNT(*) FROM districts")->fetchColumn();
+$wardCount      = (int)$db->query("SELECT COUNT(*) FROM wards")->fetchColumn();
+$phuongCount    = (int)$db->query("SELECT COUNT(*) FROM wards WHERE name LIKE 'Phường %'")->fetchColumn();
+$xaCount        = (int)$db->query("SELECT COUNT(*) FROM wards WHERE name LIKE 'Xã %'")->fetchColumn();
+$thiTranCount   = (int)$db->query("SELECT COUNT(*) FROM wards WHERE name LIKE 'Thị trấn %'")->fetchColumn();
+$coveredProvs   = (int)$db->query("SELECT COUNT(DISTINCT province_id) FROM wards")->fetchColumn();
+$dupWardCount   = (int)$db->query("SELECT COUNT(*) FROM (SELECT province_id, BINARY name FROM wards GROUP BY province_id, BINARY name HAVING COUNT(*) > 1) d")->fetchColumn();
+$seedSqlPath    = ROOT . '/database/seeds/wikipedia_wards_2tier.sql';
+
+$t->assert(
+    $provinceCount >= 63
+    && $wardCount === 3308
+    && $phuongCount === 709
+    && $xaCount === 2599
+    && $thiTranCount === 0
+    && $coveredProvs === 34
+    && $dupWardCount === 0
+    && is_file($seedSqlPath)
+    && filesize($seedSqlPath) > 50000,
+    "8.1 CSDL Địa giới hành chính Việt Nam nạp chuẩn {$wardCount} đơn vị ({$phuongCount} Phường + {$xaCount} Xã, 0 Thị trấn, 0 trùng lặp) trên {$coveredProvs} Tỉnh/Thành trực tiếp theo cột Tỉnh Wikipedia kèm file seed SQL offline",
+    "Provinces={$provinceCount}, Covered={$coveredProvs}, Wards={$wardCount} (Phường={$phuongCount}, Xã={$xaCount}, Thị trấn={$thiTranCount}, Dups={$dupWardCount})"
+);
+
+// 8.2 Kiểm tra phân cấp 2 cấp Tỉnh/Thành -> Phường/Xã gán chuẩn 100% theo cột Tỉnh Wikipedia
+$locModel     = new Location();
+$allProvinces = $locModel->provinces();
+$hcmWards     = $locModel->wardsByProvince(1);
+$hnWards      = $locModel->wardsByProvince(2);
+$dnWards      = $locModel->wardsByProvince(3);
+$bdWards      = $locModel->wardsByProvince(12);
+$glWards      = $locModel->wardsByProvince(20);
+$tnWards      = $locModel->wardsByProvince(55);
+$laWards      = $locModel->wardsByProvince(32);
+$bduWards     = $locModel->wardsByProvince(9);
+$hcmWardNames = array_column($hcmWards, 'name');
+$hnWardNames  = array_column($hnWards, 'name');
+$glWardNames  = array_column($glWards, 'name');
+$tnWardNames  = array_column($tnWards, 'name');
+
+$t->assert(
+    count($allProvinces) === 63
+    && count($hcmWards) === 167
+    && count($hnWards) === 126
+    && count($dnWards) === 93
+    && count($bdWards) === 0
+    && count($glWards) === 135
+    && count($tnWards) === 96
+    && count($laWards) === 0
+    && count($bduWards) === 0
+    && in_array('Phường An Đông', $hcmWardNames, true)
+    && in_array('Xã Phước Hòa', $hcmWardNames, true)
+    && !in_array('Phường An Đông', $hnWardNames, true)
+    && in_array('Phường Ba Đình', $hnWardNames, true)
+    && !in_array('Phường Ba Đình', $hcmWardNames, true)
+    && in_array('Xã Đức Huệ', $tnWardNames, true)
+    && in_array('Phường Quy Nhơn', $glWardNames, true)
+    && in_array('Phường Bồng Sơn', $glWardNames, true)
+    && in_array('Xã Vĩnh Quang', $glWardNames, true)
+    && in_array('Xã Biển Hồ', $glWardNames, true),
+    "8.2 Phân cấp 2 cấp Tỉnh/Thành -> Phường/Xã gán chuẩn 100% theo cột Tỉnh Wikipedia (HCM: " . count($hcmWards) . ", HN: " . count($hnWards) . ", ĐN: " . count($dnWards) . ", Gia Lai: " . count($glWards) . ", Tây Ninh: " . count($tnWards) . ", Bình Định: " . count($bdWards) . ")"
+);
+
+// 8.3 Kiểm tra tính toàn vẹn của 18 tin đăng hiện có & giữ nguyên ward_id 1..18 với danh sách 3.308 phường/xã
+$fixedProvinces = $db->query("SELECT id, name FROM provinces WHERE id IN (1,2,3) ORDER BY id")->fetchAll(PDO::FETCH_KEY_PAIR);
+$validPropertiesCount = (int)$db->query("
+    SELECT COUNT(*)
+    FROM properties p
+    INNER JOIN wards w ON w.id = p.ward_id
+    INNER JOIN provinces pr ON pr.id = w.province_id
+")->fetchColumn();
+$totalPropertiesCount = (int)$db->query("SELECT COUNT(*) FROM properties")->fetchColumn();
+$preservedIds1To18 = (int)$db->query("SELECT COUNT(*) FROM wards WHERE id BETWEEN 1 AND 18")->fetchColumn();
+
+$t->assert(
+    $totalPropertiesCount >= 18
+    && $validPropertiesCount === $totalPropertiesCount
+    && $preservedIds1To18 === 18
+    && ($fixedProvinces[1] ?? '') === 'TP. Hồ Chí Minh'
+    && ($fixedProvinces[2] ?? '') === 'Hà Nội'
+    && ($fixedProvinces[3] ?? '') === 'Đà Nẵng',
+    "8.3 Bảo toàn 100% liên kết khóa ngoại ward_id -> province_id của {$validPropertiesCount}/{$totalPropertiesCount} tin đăng và đủ {$preservedIds1To18}/18 ward_id (1..18)"
+);
+
+// 8.4 Kiểm tra cơ chế Bóc tách địa chỉ thông minh (Smart Address Parser) & Đồng bộ 2 chiều bản đồ Leaflet
+$addressParserPath = ROOT . '/public/assets/js/address-parser.js';
+$addressParserSrc  = is_file($addressParserPath) ? file_get_contents($addressParserPath) : '';
+$agentCreateSrc    = file_get_contents(APP . '/views/agent/create.php');
+$agentEditSrc      = file_get_contents(APP . '/views/agent/edit.php');
+
+$t->assert(
+    is_file($addressParserPath)
+    && strpos($addressParserSrc, 'BdsAddressParser') !== false
+    && strpos($addressParserSrc, 'parseAndPopulate') !== false
+    && strpos($addressParserSrc, 'handleReverseGeocode') !== false
+    && strpos($addressParserSrc, 'addressParseFeedback') !== false
+    && strpos($agentCreateSrc, 'id="addressParseFeedback"') !== false
+    && strpos($agentCreateSrc, 'assets/js/address-parser.js') !== false
+    && strpos($agentEditSrc, 'id="addressParseFeedback"') !== false
+    && strpos($agentEditSrc, 'assets/js/address-parser.js') !== false
+    && strpos($mapJsSrc, 'handleReverseGeocode') !== false
+    && strpos($mapJsSrc, 'geocodeSilent') !== false,
+    "8.4 Tích hợp Smart Address Parsing (address-parser.js), UX Feedback (#addressParseFeedback) và đồng bộ 2 chiều với Leaflet Map (geocodeSilent & handleReverseGeocode)"
+);
+
+// 8.5 Kiểm tra Live Autocomplete trên bản đồ, Fallback đa tầng (không ép Quận 1) và API Hành chính nội bộ
+require_once APP . '/models/Ward.php';
+$geoCtrlSrc = file_get_contents(APP . '/controllers/GeocodeController.php');
+$apiCtrlSrc = file_get_contents(APP . '/controllers/ApiController.php');
+$locModel = new Location();
+$wardModel = new Ward();
+$adminSearchGoVap = $locModel->searchAdministrative('Bình Thạnh', 5);
+$resolvedMergedWard = $locModel->resolveFromAddress('Phường Bình Lợi Trung', 'Thành phố Hồ Chí Minh', 1);
+$resolvedNoDistrict = $locModel->resolveFromAddress('Phường Thảo Điền', 'Thành phố Hồ Chí Minh', 1);
+$resolvedBienHo     = $locModel->resolveFromAddress('Xã Biển Hồ', 'Tỉnh Gia Lai', 20);
+$resolvedVinhQuang  = $locModel->resolveFromAddress('Xã Vĩnh Quang', 'Tỉnh Bình Định', 12);
+$resolvedDucHue     = $locModel->resolveFromAddress('Xã Đức Huệ', 'Tỉnh Tây Ninh', 55);
+$resolvedPhuocHoa   = $locModel->resolveFromAddress('Xã Phước Hòa', 'Thành phố Hồ Chí Minh', 1);
+$resolvedDongTien   = $locModel->resolveFromAddress('Xã Đồng Tiến', 'Tỉnh Thanh Hóa', 49);
+$quangNgaiWardNames = array_column($wardModel->findByProvinceId(44), 'name');
+
+$t->assert(
+    strpos($mapJsSrc, "addEventListener('input'") !== false
+    && strpos($mapJsSrc, 'buildSearchTierQueries') !== false
+    && strpos($mapJsSrc, 'api/locations/search') !== false
+    && strpos($mapJsSrc, 'syncSelectedAddressToForm') !== false
+    && strpos($mapJsSrc, 'mapSearchSuggestions') !== false
+    && strpos($addressParserSrc, 'api/locations/resolve') !== false
+    && strpos($geoCtrlSrc, 'buildSearchCandidateQueries') !== false
+    && strpos($apiCtrlSrc, 'function locations(') !== false
+    && !empty($adminSearchGoVap)
+    && ($resolvedMergedWard['ward']['name'] ?? '') === 'Phường Bình Lợi Trung'
+    && ($resolvedNoDistrict['ward']['name'] ?? '') === 'Phường An Khánh'
+    && ($resolvedBienHo['ward']['name'] ?? '') === 'Xã Biển Hồ'
+    && ($resolvedVinhQuang['ward']['name'] ?? '') === 'Xã Vĩnh Quang'
+    && (int)($resolvedVinhQuang['province_id'] ?? 0) === 20
+    && ($resolvedDucHue['ward']['name'] ?? '') === 'Xã Đức Huệ'
+    && (int)($resolvedDucHue['province_id'] ?? 0) === 55
+    && ($resolvedPhuocHoa['ward']['name'] ?? '') === 'Xã Phước Hòa'
+    && (int)($resolvedPhuocHoa['province_id'] ?? 0) === 1
+    && ($resolvedDongTien['ward']['name'] ?? '') === 'Xã Đồng Tiến'
+    && in_array('Xã Ba Tô', $quangNgaiWardNames, true)
+    && in_array('Xã Ba Tơ', $quangNgaiWardNames, true),
+    "8.5 Live Autocomplete (#mapSearchAddress), Fallback đa tầng không ép Quận 1, API hành chính nội bộ & đồng bộ ngược Tỉnh/Phường/Xã (kể cả Xã Đức Huệ -> Tây Ninh, Xã Phước Hòa -> TP.HCM, Ba Tô/Ba Tơ) hoạt động chính xác"
+);
+
+// 8.6 Kiểm tra UX Writing Guard trên các thành phần giao diện tìm kiếm địa chỉ & đăng tin
+$createSnippetOk = strpos($agentCreateSrc, 'OpenStreetMap') === false
+    && strpos($agentCreateSrc, 'Nominatim') === false
+    && strpos($agentCreateSrc, 'Module C') === false;
+$editSnippetOk = strpos($agentEditSrc, 'OpenStreetMap') === false
+    && strpos($agentEditSrc, 'Nominatim') === false
+    && strpos($agentEditSrc, 'Module C') === false;
+$geoMsgOk = strpos($geoCtrlSrc, 'OpenStreetMap') === false
+    && strpos($geoCtrlSrc, 'Nominatim bị') === false
+    && strpos($geoCtrlSrc, 'Leaflet') === false;
+
+$t->assert(
+    $createSnippetOk && $editSnippetOk && $geoMsgOk,
+    "8.6 Tuân thủ UX Writing Guard: không rò rỉ thuật ngữ kỹ thuật/đồ án trong văn bản giao diện người dùng cuối"
+);
+
+// =========================================================================
+// SUITE 9: TRANG BẢN ĐỒ BẤT ĐỘNG SẢN TRỰC QUAN (PROPERTY MAP) & LIÊN KẾT MENU
+// =========================================================================
+echo "\nSUITE 9: TRANG BẢN ĐỒ BẤT ĐỘNG SẢN TRỰC QUAN (PROPERTY MAP) & LIÊN KẾT MENU\n";
+
+// 9.1 Helper slugify tạo slug tiếng Việt không dấu chuẩn SEO
+$testSlug = slugify('Đất nền biệt thự sinh thái Hải Châu Đà Nẵng 2026!');
+$t->assert(
+    $testSlug === 'dat-nen-biet-thu-sinh-thai-hai-chau-da-nang-2026',
+    "9.1 Helper slugify() tạo slug tiếng Việt không dấu chuẩn SEO",
+    "Kết quả: {$testSlug}"
+);
+
+// 9.2 PropertyFinder::forMap lấy danh sách BĐS approved kèm tọa độ đầy đủ
+$mapProps = $finder->forMap();
+$t->assert(!empty($mapProps), "9.2 PropertyFinder::forMap() trả về danh sách BĐS", "Số lượng: " . count($mapProps));
+
+$allApproved = true;
+$allHaveCoords = true;
+foreach ($mapProps as $mp) {
+    if ($mp['status'] !== 'approved') $allApproved = false;
+    if (empty($mp['latitude']) || empty($mp['longitude'])) $allHaveCoords = false;
+}
+$t->assert($allApproved, "9.2.1 100% tin đăng trên bản đồ đều có status = 'approved'");
+$t->assert($allHaveCoords, "9.2.2 100% tin đăng trên bản đồ đều có tọa độ latitude, longitude hợp lệ");
+
+// 9.3 Action PropertyController::map() tồn tại và hợp lệ
+$propCtrlRefl = new ReflectionClass('PropertyController');
+$t->assert(
+    $propCtrlRefl->hasMethod('map') && $propCtrlRefl->getMethod('map')->isPublic(),
+    "9.3 PropertyController::map() tồn tại và là public action method"
+);
+
+// 9.4 File View app/views/property/map.php hoàn chỉnh, có markercluster, my-location và bộ lọc
+$mapViewPath = APP . '/views/property/map.php';
+$mapViewContent = is_file($mapViewPath) ? file_get_contents($mapViewPath) : '';
+$t->assert(
+    is_file($mapViewPath)
+    && strpos($mapViewContent, 'id="propertyMap"') !== false
+    && strpos($mapViewContent, 'markerClusterGroup') !== false
+    && strpos($mapViewContent, 'btnMyLocation') !== false
+    && strpos($mapViewContent, 'filterProvince') !== false
+    && strpos($mapViewContent, 'filterListingType') !== false
+    && strpos($mapViewContent, 'filterPriceRange') !== false
+    && strpos($mapViewContent, 'mapSidebarList') !== false,
+    "9.4 View app/views/property/map.php tích hợp đầy đủ Leaflet, MarkerCluster, My Location và bộ lọc"
+);
+
+// 9.5 Kiểm tra liên kết footer và menu trỏ chính xác đến property/map
+$layoutContent = file_get_contents(APP . '/views/layouts/main.php');
+$t->assert(
+    strpos($layoutContent, "base_url('property/map')") !== false
+    && strpos($layoutContent, 'Bản đồ bất động sản trực quan') !== false,
+    "9.5 Liên kết 'Bản đồ bất động sản trực quan' trong menu & footer trỏ chính xác đến property/map"
+);
+
+// 9.6 Kiểm tra UX Writing Guard trên view map.php (không lộ stack công nghệ hay thông tin đồ án)
+$mapUxOk = strpos($mapViewContent, 'Module C') === false
+    && strpos($mapViewContent, 'Hà Ngọc Thiện') === false
+    && strpos($mapViewContent, 'UEH') === false;
+$t->assert($mapUxOk, "9.6 View map.php tuân thủ UX Writing Guard (chuẩn tiếng Việt thương mại)");
+
 // TỔNG KẾT BÁO CÁO
 $t->report();
 
 exit($t->hasFailures() ? 1 : 0);
+

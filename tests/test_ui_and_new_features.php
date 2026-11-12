@@ -11,12 +11,13 @@ define('ROOT', dirname(__DIR__));
 define('APP', ROOT . '/app');
 $GLOBALS['config'] = require ROOT . '/config/config.php';
 
-spl_autoload_register(function (string $class): void {
+function autoloadUiTestClass(string $class): void {
     foreach (['core', 'models', 'controllers', 'controllers/admin', 'helpers'] as $dir) {
         $file = APP . "/$dir/$class.php";
         if (is_file($file)) { require $file; return; }
     }
-});
+}
+spl_autoload_register('autoloadUiTestClass');
 require APP . '/helpers/functions.php';
 
 echo "\n--- KIỂM THỬ CÁC TÍNH NĂNG MỚI (MORTGAGE, POI, COMPARE) ---\n";
@@ -42,10 +43,28 @@ assertTest("1.1 Lấy dữ liệu BĐS ID 14 thành công cho so sánh", $prop14
 $amenities14 = $finder->getAmenities(14);
 assertTest("1.2 Lấy danh sách tiện nghi cho BĐS 14 thành công", is_array($amenities14));
 
-// 2. Kiểm tra controller so sánh method tồn tại
+// 2. Kiểm tra controller so sánh method tồn tại & PropertyCompare.getAll
 $propCtrl = new PropertyController();
 assertTest("2.1 PropertyController có method compare", method_exists($propCtrl, 'compare'));
 assertTest("2.2 PropertyController có method compareData", method_exists($propCtrl, 'compareData'));
+$appJsRawForCompare = file_get_contents(ROOT . '/public/assets/js/app.js');
+$compareViewRaw = file_get_contents(ROOT . '/app/views/property/compare.php');
+assertTest(
+    "2.3 PropertyCompare định nghĩa đủ get, getAll, count, add, remove, clear, has, toggle và compare.php tự động redirect theo localStorage",
+    strpos($appJsRawForCompare, 'getAll:') !== false
+    && strpos($appJsRawForCompare, 'count:') !== false
+    && strpos($compareViewRaw, 'window.PropertyCompare.getAll') !== false
+    && strpos($compareViewRaw, 'window.location.replace') !== false
+);
+$vietQrCfg = config('vietqr');
+assertTest(
+    "2.4 Cấu hình VietQR trong config/config.php đầy đủ bank_id, account_no, account_name, template",
+    is_array($vietQrCfg)
+    && ($vietQrCfg['bank_id'] ?? '') === 'MB'
+    && ($vietQrCfg['account_no'] ?? '') === '0902910780'
+    && ($vietQrCfg['account_name'] ?? '') === 'HA NGOC THIEN'
+    && ($vietQrCfg['template'] ?? '') === 'compact2'
+);
 
 // 3. Kiểm tra công thức tính toán Mortgage Calculator (Dư nợ giảm dần & Trả góp đều)
 $homePrice = 2000000000; // 2 tỷ
@@ -104,7 +123,8 @@ assertTest(
 );
 
 // Gọi thực tế HTTP endpoint /geocode/reverse qua localhost (nếu Apache đang chạy) hoặc CLI subprocess
-$reverseJsonRaw = @file_get_contents('http://localhost/batdongsan/public/geocode/reverse?lat=10.776889&lng=106.700806');
+$httpBase = rtrim(getenv('BDS_TEST_HTTP_BASE') ?: 'http://localhost/batdongsan/public', '/');
+$reverseJsonRaw = @file_get_contents($httpBase . '/geocode/reverse?lat=10.776889&lng=106.700806');
 if (!$reverseJsonRaw) {
     $cmd = '"' . PHP_BINARY . '" -r ' . escapeshellarg('
         define("ROOT", ' . var_export(ROOT, true) . ');
@@ -156,7 +176,7 @@ $simList = $propertyModel->getSimilarProperties(
     (float)($prop14['price'] ?? 2000000000),
     4
 );
-assertTest("8.2 getSimilarProperties trả về tối đa 4 BĐS đã duyệt và khác currentId", is_array($simList) && count($simList) > 0 && count($simList) <= 4 && !in_array((int)$prop14['id'], array_map(fn($r) => (int)$r['id'], $simList), true));
+assertTest("8.2 getSimilarProperties trả về tối đa 4 BĐS đã duyệt và khác currentId", is_array($simList) && count($simList) > 0 && count($simList) <= 4 && !in_array((int)$prop14['id'], array_map('intval', array_column($simList, 'id')), true));
 assertTest("8.3 Mỗi BĐS tương tự đều có avatar_url và cover_url", !empty($simList[0]['avatar_url']) && array_key_exists('cover_url', $simList[0]));
 assertTest("8.4 detail.php có khối Bất động sản tương tự trong khu vực (4 cột row-cols-lg-4)", strpos($detailViewContent, 'Bất động sản tương tự trong khu vực') !== false && strpos($detailViewContent, 'row-cols-1 row-cols-md-2 row-cols-lg-4 g-3') !== false);
 
@@ -206,15 +226,15 @@ assertTest(
     && strpos($detailViewContent, 'id="vietQrCustomAmount"') !== false
 );
 assertTest(
-    "12.3 #vietQrModal sinh ảnh mã QR chuẩn VietQR (img.vietqr.io/image/MB-0988889999-compact2.png)",
-    strpos($detailViewContent, 'https://img.vietqr.io/image/MB-0988889999-compact2.png?amount=') !== false
-    && strpos($detailViewContent, '&accountName=CONG%20TY%20BDS%20VIET') !== false
+    "12.3 #vietQrModal sinh ảnh mã QR chuẩn VietQR (img.vietqr.io/image/MB-0902910780-compact2.png)",
+    strpos($detailViewContent, 'https://img.vietqr.io/image/MB-0902910780-compact2.png?amount=') !== false
+    && strpos($detailViewContent, '&accountName=HA%20NGOC%20THIEN') !== false
 );
 assertTest(
-    "12.4 #vietQrModal hiển thị rõ MBBank, STK 0988889999, CÔNG TY BĐS VIỆT, nút Sao chép STK & Sao chép nội dung kèm BDS.toast",
+    "12.4 #vietQrModal hiển thị rõ MBBank, STK 0902910780, HA NGOC THIEN, nút Sao chép STK & Sao chép nội dung kèm BDS.toast",
     strpos($detailViewContent, 'Ngân hàng Quân Đội (MBBank)') !== false
-    && strpos($detailViewContent, '0988889999') !== false
-    && strpos($detailViewContent, 'CÔNG TY BĐS VIỆT') !== false
+    && strpos($detailViewContent, '0902910780') !== false
+    && strpos($detailViewContent, 'HA NGOC THIEN') !== false
     && strpos($detailViewContent, 'Sao chép STK') !== false
     && strpos($detailViewContent, 'Sao chép nội dung') !== false
     && strpos($detailViewContent, 'copyVietQrText') !== false
@@ -252,10 +272,10 @@ assertTest(
     && strpos($renderedSearchHtml, 'border-radius: 12px') !== false
 );
 assertTest(
-    "13.2 search-ajax.js bắt sự kiện focus/click/input với debounce 350ms và gọi GET /batdongsan/public/geocode?q= khi độ dài >= 2 ký tự",
+    "13.2 search-ajax.js dùng đường dẫn geocode theo base URL và debounce 350ms khi độ dài >= 2 ký tự",
     strpos($searchAjaxContent, '350') !== false
     && strpos($searchAjaxContent, 'keyword.length < 2') !== false
-    && strpos($searchAjaxContent, '/batdongsan/public/geocode?q=') !== false
+    && strpos($searchAjaxContent, '${basePrefix}/geocode?q=') !== false
     && strpos($searchAjaxContent, 'encodeURIComponent(keyword)') !== false
 );
 assertTest(
@@ -294,7 +314,8 @@ function httpGetCheck(string $url, array $headers = []): array {
     return ['code' => $code, 'ct' => $ct, 'body' => (string)$body];
 }
 
-$geoForwardResp = httpGetCheck('http://localhost/batdongsan/public/geocode?q=Ha+Noi');
+$httpBase = rtrim(getenv('BDS_TEST_HTTP_BASE') ?: 'http://localhost/batdongsan/public', '/');
+$geoForwardResp = httpGetCheck($httpBase . '/geocode?q=Ha+Noi');
 $geoForwardJson = json_decode($geoForwardResp['body'], true);
 assertTest(
     "14.1 HTTP GET /batdongsan/public/geocode?q=Ha+Noi trả về JSON hợp lệ (success=true, có danh sách display_name)",
@@ -304,7 +325,7 @@ assertTest(
     && !empty($geoForwardJson['data'][0]['display_name'])
 );
 
-$geoReverseResp = httpGetCheck('http://localhost/batdongsan/public/geocode/reverse?lat=21.0285&lng=105.8542');
+$geoReverseResp = httpGetCheck($httpBase . '/geocode/reverse?lat=21.0285&lng=105.8542');
 $geoReverseJson = json_decode($geoReverseResp['body'], true);
 assertTest(
     "14.2 HTTP GET /batdongsan/public/geocode/reverse?lat=21.0285&lng=105.8542 trả về JSON hợp lệ (success=true, có display_name)",
@@ -314,21 +335,21 @@ assertTest(
     && !empty($geoReverseJson['display_name'])
 );
 
-$detail18Resp = httpGetCheck('http://localhost/batdongsan/public/property/detail/18');
+$detailDemoResp = httpGetCheck($httpBase . '/property/detail/1');
 assertTest(
-    "14.3 HTTP GET /batdongsan/public/property/detail/18 có nút VietQR, #vietQrModal, URL img.vietqr.io và đã gỡ bỏ hoàn toàn tính năng In tờ rơi / Brochure A4",
-    $detail18Resp['code'] === 200
-    && strpos($detail18Resp['body'], 'Đặt cọc giữ chỗ qua VietQR') !== false
-    && strpos($detail18Resp['body'], 'id="vietQrModal"') !== false
-    && strpos($detail18Resp['body'], 'https://img.vietqr.io/image/MB-0988889999-compact2.png') !== false
-    && strpos($detail18Resp['body'], 'btnPrintBrochure') === false
-    && strpos($detail18Resp['body'], 'printBrochureSheet') === false
+    "14.3 HTTP GET trang chi tiết tin demo có VietQR và không có chức năng in brochure",
+    $detailDemoResp['code'] === 200
+    && strpos($detailDemoResp['body'], 'Đặt cọc giữ chỗ qua VietQR') !== false
+    && strpos($detailDemoResp['body'], 'id="vietQrModal"') !== false
+    && strpos($detailDemoResp['body'], 'https://img.vietqr.io/image/MB-0902910780-compact2.png') !== false
+    && strpos($detailDemoResp['body'], 'btnPrintBrochure') === false
+    && strpos($detailDemoResp['body'], 'printBrochureSheet') === false
     && strpos($styleCssContent, 'print-brochure') === false
 );
 
-$searchPageResp = httpGetCheck('http://localhost/batdongsan/public/property/search');
+$searchPageResp = httpGetCheck($httpBase . '/property/search');
 $searchAjaxResp = httpGetCheck(
-    'http://localhost/batdongsan/public/property/search?keyword=Th%E1%BA%A3o+%C4%90i%E1%BB%81n&page=1',
+    $httpBase . '/property/search?keyword=Th%E1%BA%A3o+%C4%90i%E1%BB%81n&page=1',
     ['Accept: application/json', 'X-Requested-With: XMLHttpRequest']
 );
 $searchAjaxJson = json_decode($searchAjaxResp['body'], true);

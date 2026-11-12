@@ -46,8 +46,27 @@ class ReportController extends Controller
             return;
         }
 
-        $id = $model->submit($propertyId, (int)Auth::id(), $reason);
+        $description = trim((string)($_POST['description'] ?? ''));
+
+        $id = $model->submit($propertyId, (int)Auth::id(), $reason, $description);
         if ($id > 0) {
+            // Tự động bắn thông báo cho TẤT CẢ Admin (WHERE role = 'admin')
+            try {
+                $db = Database::connection();
+                $admins = $db->query("SELECT u.id, u.email FROM users u JOIN roles r ON r.id = u.role_id WHERE r.name = 'admin'")->fetchAll();
+                foreach ($admins as $admin) {
+                    Notification::create(
+                        (int)$admin['id'],
+                        'Báo cáo vi phạm mới',
+                        'Có báo cáo vi phạm mới cho tin ' . ($property['title'] ?? ('#' . $propertyId)) . ': ' . $reason,
+                        'admin/reports',
+                        'warning'
+                    );
+                }
+            } catch (Throwable $e) {
+                error_log('Notification error on report submit: ' . $e->getMessage());
+            }
+
             $this->respond('Đã gửi báo cáo. Ban quản trị sẽ xem xét sớm.', true, 200, $propertyId, ['id' => $id]);
         } else {
             $this->respond('Không thể gửi báo cáo. Vui lòng thử lại sau.', false, 500, $propertyId);

@@ -2,8 +2,8 @@
  * Điều khiển Lọc Đa Tiêu Chí, Phân Trang AJAX, Skeleton Loading & Quản Lý Bộ Lọc Đã Lưu
  * Chuẩn UX Thương Mại BĐS Việt (Zero Layout Shift, Skeleton Shimmer, Toast & Modal Confirm)
  */
-document.addEventListener('DOMContentLoaded', function () {
-  const form = document.getElementById('searchFilterForm');
+document.addEventListener('DOMContentLoaded', function _callback(){
+  const form = document.getElementById('propertySearchForm');
   const propertiesGrid = document.getElementById('propertiesGrid');
   const paginationContainer = document.getElementById('paginationContainer');
   const totalCountBadge = document.getElementById('totalCountBadge');
@@ -19,6 +19,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
   let currentViewMode = 'grid'; // 'grid' | 'map' | 'split'
   let searchMapInstance = null;
+  let searchRequest = 0;
+  let searchAbortController = null;
+  let lastResults = propertiesGrid?.innerHTML || '';
 
   function escapeHtml(str) {
     return String(str ?? '')
@@ -73,7 +76,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   function setViewMode(mode) {
     currentViewMode = mode;
-    [btnViewGrid, btnViewMap, btnViewSplit].forEach(btn => btn?.classList.remove('active'));
+    [btnViewGrid, btnViewMap, btnViewSplit].forEach(function _callback2         (btn     ){return btn?.classList.remove('active');});
 
     if (mode === 'grid') {
       btnViewGrid?.classList.add('active');
@@ -90,7 +93,7 @@ document.addEventListener('DOMContentLoaded', function () {
         mapColumn.classList.remove('d-none');
       }
       const mapObj = getOrInitMap();
-      setTimeout(() => mapObj?.invalidateSize(), 150);
+      setTimeout(function _callback3(){return mapObj?.invalidateSize();},150);
     } else if (mode === 'split') {
       btnViewSplit?.classList.add('active');
       if (listColumn) {
@@ -102,19 +105,24 @@ document.addEventListener('DOMContentLoaded', function () {
         mapColumn.classList.remove('d-none');
       }
       const mapObj = getOrInitMap();
-      setTimeout(() => mapObj?.invalidateSize(), 150);
+      setTimeout(function _callback4(){return mapObj?.invalidateSize();},150);
     }
   }
 
-  btnViewGrid?.addEventListener('click', () => setViewMode('grid'));
-  btnViewMap?.addEventListener('click', () => setViewMode('map'));
-  btnViewSplit?.addEventListener('click', () => setViewMode('split'));
+  btnViewGrid?.addEventListener('click', function _callback5(){return setViewMode('grid');});
+  btnViewMap?.addEventListener('click', function _callback6(){return setViewMode('map');});
+  btnViewSplit?.addEventListener('click', function _callback7(){return setViewMode('split');});
 
   /**
    * Thực hiện lọc & phân trang bằng AJAX kèm Skeleton Loading và Fade-in mượt mà
    */
   async function performSearch(page = 1, updateUrl = true) {
-    if (!form) return;
+    if (!form || !propertiesGrid) return;
+
+    const request = ++searchRequest;
+    searchAbortController?.abort();
+    searchAbortController = new AbortController();
+    const previousResults = lastResults;
 
     const formData = new FormData(form);
     const params = new URLSearchParams();
@@ -134,6 +142,7 @@ document.addEventListener('DOMContentLoaded', function () {
     try {
       const searchUrl = `${BASE_URL}/property/search?${params.toString()}`;
       const res = await fetch(searchUrl, {
+        signal: searchAbortController.signal,
         headers: {
           'Accept': 'application/json',
           'X-Requested-With': 'XMLHttpRequest'
@@ -142,17 +151,19 @@ document.addEventListener('DOMContentLoaded', function () {
 
       if (!res.ok) throw new Error('Không thể tải dữ liệu tìm kiếm.');
       const data = await res.json();
+      if (request !== searchRequest) return;
 
       if (data.success && data.data) {
         const payload = data.data;
 
         // 1. Thay thế Skeleton bằng danh sách tin thật với hiệu ứng fade-in mượt mà
         if (propertiesGrid) {
+          lastResults = payload.html;
           propertiesGrid.innerHTML = payload.html;
           propertiesGrid.classList.remove('bds-fade-in');
           void propertiesGrid.offsetWidth; // trigger reflow
           propertiesGrid.classList.add('bds-fade-in');
-          propertiesGrid.querySelectorAll(':scope > div').forEach((col, idx) => {
+          propertiesGrid.querySelectorAll(':scope > div').forEach(function _callback8(col,idx){
             col.classList.add('bds-fade-in');
             col.style.animationDelay = `${Math.min(idx * 35, 210)}ms`;
           });
@@ -179,7 +190,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         if (mapMarkerCountBadge) {
-          const markerCount = (payload.properties || []).filter(p => p.latitude && p.longitude).length;
+          const markerCount = (payload.properties || []).filter(function _callback9(p){return p.latitude&&p.longitude;}).length;
           mapMarkerCountBadge.textContent = `${markerCount} vị trí có tọa độ`;
         }
 
@@ -194,14 +205,18 @@ document.addEventListener('DOMContentLoaded', function () {
         }
       }
     } catch (err) {
+      if (err.name === 'AbortError' || request !== searchRequest) return;
+      if (propertiesGrid) propertiesGrid.innerHTML = previousResults;
       console.error('Lỗi tìm kiếm AJAX:', err);
       if (window.BDS && typeof window.BDS.toast === 'function') {
         window.BDS.toast('Đã xảy ra lỗi khi tải danh sách bất động sản. Vui lòng thử lại.', 'danger', 'Lỗi kết nối');
       }
     } finally {
-      if (propertiesGrid) propertiesGrid.style.opacity = '1';
-      submitSpinner?.classList.add('d-none');
-      if (btnSubmitSearch) btnSubmitSearch.disabled = false;
+      if (request === searchRequest) {
+        if (propertiesGrid) propertiesGrid.style.opacity = '1';
+        submitSpinner?.classList.add('d-none');
+        if (btnSubmitSearch) btnSubmitSearch.disabled = false;
+      }
     }
   }
 
@@ -258,7 +273,7 @@ document.addEventListener('DOMContentLoaded', function () {
       return;
     }
 
-    suggestionsBox.innerHTML = items.map(item => {
+    suggestionsBox.innerHTML = items.map(function _callback0(item){
       const displayName = String(item.display_name || '').trim();
       if (!displayName) return '';
       return `
@@ -285,8 +300,8 @@ document.addEventListener('DOMContentLoaded', function () {
   function getPopularSuggestions(keyword) {
     const kw = (keyword || '').trim().toLowerCase();
     if (!kw) return DEFAULT_POPULAR_LOCATIONS;
-    const matched = DEFAULT_POPULAR_LOCATIONS.filter(item =>
-      String(item.display_name || '').toLowerCase().includes(kw)
+    const matched = DEFAULT_POPULAR_LOCATIONS.filter(function _callback1
+            (                                        item){return String(item.display_name||'').toLowerCase().includes(kw);}
     );
     return matched.length ? matched : DEFAULT_POPULAR_LOCATIONS;
   }
@@ -299,13 +314,13 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     autocompleteAbortCtrl = new AbortController();
 
-    const endpoint = '/batdongsan/public/geocode?q=' + encodeURIComponent(keyword);
-    const requestUrl = (typeof BASE_URL === 'string' && BASE_URL && !BASE_URL.endsWith('/batdongsan/public'))
-      ? `${BASE_URL}/geocode?q=${encodeURIComponent(keyword)}`
-      : endpoint;
+    const basePrefix = (typeof BASE_URL === 'string' && BASE_URL) ? BASE_URL.replace(/\/+$/, '') : '/batdongsan/public';
+    const endpoint = basePrefix
+      ? `${basePrefix}/geocode?q=${encodeURIComponent(keyword)}`
+      : `/batdongsan/public/geocode?q=${encodeURIComponent(keyword)}`;
 
     try {
-      const response = await fetch(requestUrl, {
+      const response = await fetch(endpoint, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
@@ -320,7 +335,7 @@ document.addEventListener('DOMContentLoaded', function () {
       }
 
       const res = await response.json();
-      const items = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
+      const items = Array.isArray(res) ? res :( Array.isArray(res?.data) ? res.data : []);
 
       if (!items.length) {
         hideAddressSuggestions();
@@ -347,7 +362,7 @@ document.addEventListener('DOMContentLoaded', function () {
   keywordInput?.addEventListener('focus', handleOpenAddressSuggestions);
   keywordInput?.addEventListener('click', handleOpenAddressSuggestions);
 
-  keywordInput?.addEventListener('input', function () {
+  keywordInput?.addEventListener('input', function _callback10(){
     clearTimeout(autocompleteTimer);
     const keyword = (keywordInput.value || '').trim();
     if (keyword.length < 2) {
@@ -359,24 +374,24 @@ document.addEventListener('DOMContentLoaded', function () {
       }
       return;
     }
-    autocompleteTimer = setTimeout(function () {
+    autocompleteTimer = setTimeout(function _callback11(){
       fetchAddressSuggestions(keyword);
     }, 350);
   });
 
-  keywordInput?.addEventListener('keydown', function (e) {
+  keywordInput?.addEventListener('keydown', function _callback12(e){
     if (e.key === 'Escape') {
       hideAddressSuggestions();
     }
   });
 
-  suggestionsBox?.addEventListener('mousedown', function (e) {
+  suggestionsBox?.addEventListener('mousedown', function _callback13(e){
     if (e.target.closest('.search-suggestion-item')) {
       e.preventDefault();
     }
   });
 
-  suggestionsBox?.addEventListener('click', function (e) {
+  suggestionsBox?.addEventListener('click', function _callback14(e){
     const itemBtn = e.target.closest('.search-suggestion-item');
     if (!itemBtn || !keywordInput) return;
     e.preventDefault();
@@ -390,13 +405,13 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 
-  document.addEventListener('keydown', function (e) {
+  document.addEventListener('keydown', function _callback15(e){
     if (e.key === 'Escape') {
       hideAddressSuggestions();
     }
   });
 
-  document.addEventListener('click', function (e) {
+  document.addEventListener('click', function _callback16(e){
     if (!suggestionsBox || suggestionsBox.classList.contains('d-none')) return;
     const clickedInsideInput = keywordInput && keywordInput.contains(e.target);
     const clickedInsideDropdown = suggestionsBox.contains(e.target);
@@ -405,20 +420,20 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 
-  form?.addEventListener('submit', function (e) {
+  form?.addEventListener('submit', function _callback17(e){
     if (!propertiesGrid) return;
     e.preventDefault();
     performSearch(1, true);
   });
 
-  ['#filterSortBy', '#filterBedrooms', '#filterListingType', '#filterTypeId', '#filterPriceRange', '#filterAreaRange'].forEach(sel => {
-    document.querySelector(sel)?.addEventListener('change', () => {
+  ['#filterSortBy', '#filterBedrooms', '#filterListingType', '#filterTypeId', '#filterPriceRange', '#filterAreaRange'].forEach(function _callback18(sel){
+    document.querySelector(sel)?.addEventListener('change', function _callback19(){
       if (!propertiesGrid) return;
       performSearch(1, true);
     });
   });
 
-  paginationContainer?.addEventListener('click', function (e) {
+  paginationContainer?.addEventListener('click', function _callback20(e){
     const link = e.target.closest('a[data-page]');
     if (!link) return;
     e.preventDefault();
@@ -428,36 +443,55 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 
-  window.addEventListener('popstate', function () {
+  window.addEventListener('popstate', async function _callback21(){
     if (!form) return;
     const currentParams = new URLSearchParams(window.location.search);
-    for (const [k, v] of currentParams.entries()) {
-      const el = form.elements[k];
-      if (el) el.value = v;
-    }
+    await restoreFilters(Object.fromEntries(currentParams));
     const page = parseInt(currentParams.get('page') || '1', 10);
     performSearch(page, false);
   });
 
   const toggleBtn = document.getElementById('toggleCustomRangesBtn');
   const customCollapse = document.getElementById('customRangesCollapse');
-  toggleBtn?.addEventListener('click', () => {
+  toggleBtn?.addEventListener('click', function _callback22(){
     customCollapse?.classList.toggle('d-none');
   });
 
-  function resetAllFilters() {
+  function clearFilters() {
     if (!form) return;
     form.reset();
-    document.querySelectorAll('#searchFilterForm select').forEach(sel => sel.value = '');
-    document.querySelectorAll('#searchFilterForm input[type="text"], #searchFilterForm input[type="number"]').forEach(inp => inp.value = '');
-    performSearch(1, true);
+    form.querySelectorAll('select').forEach(function _callback23(sel){ sel.value = sel.name === 'sort' ? 'newest' : ''; });
+    form.querySelectorAll('input[type="text"], input[type="number"]').forEach(function _callback24(inp){ inp.value = ''; });
+    const ward = form.elements.ward_id;
+    if (ward) {
+      ward.dataset.selected = '';
+      fillSelect(ward, [], ward.dataset.placeholder || 'Phường/Xã');
+      ward.disabled = false;
+    }
+  }
+
+  async function restoreFilters(filters) {
+    clearFilters();
+    for (const [key, value] of Object.entries(filters)) {
+      if (key === 'district_id' || key === 'ward_id') continue;
+      const element = form.elements[key];
+      if (element) element.value = value;
+    }
+    if (typeof BdsLocation !== 'undefined') {
+      await BdsLocation.load(form.elements.ward_id, 'wards', form.elements.province_id?.value, filters.ward_id);
+    }
+  }
+
+  function resetAllFilters() {
+    clearFilters();
+    if (propertiesGrid) performSearch(1, true);
     if (window.BDS && typeof window.BDS.toast === 'function') {
       window.BDS.toast('Đã đặt lại toàn bộ tiêu chí lọc tìm kiếm.', 'info', 'Đặt lại bộ lọc');
     }
   }
 
-  document.getElementById('btnResetFilter')?.addEventListener('click', resetAllFilters);
-  document.addEventListener('click', function (e) {
+  document.getElementById('btnResetFilters')?.addEventListener('click', resetAllFilters);
+  document.addEventListener('click', function _callback25(e){
     if (e.target.matches('.btn-reset-filters')) {
       resetAllFilters();
     }
@@ -490,8 +524,8 @@ document.addEventListener('DOMContentLoaded', function () {
     } catch {}
   }
 
-  btnSaveFilterModal?.addEventListener('click', () => {
-    const kw = document.getElementById('filterKeyword')?.value || '';
+  btnSaveFilterModal?.addEventListener('click', function _callback26(){
+    const kw = keywordInput?.value || '';
     const defName = kw
       ? `Bộ lọc: "${kw}"`
       : `Bộ lọc ${new Date().toLocaleDateString('vi-VN')} ${new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`;
@@ -499,7 +533,7 @@ document.addEventListener('DOMContentLoaded', function () {
     modalSaveFilter?.show();
   });
 
-  btnConfirmSaveFilter?.addEventListener('click', async () => {
+  btnConfirmSaveFilter?.addEventListener('click', async function _callback27(){
     const name = (saveFilterNameInput?.value || '').trim();
     if (!name) {
       if (window.BDS) window.BDS.toast('Vui lòng nhập tên gợi nhớ cho bộ lọc tìm kiếm.', 'warning', 'Thiếu tên bộ lọc');
@@ -593,9 +627,12 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   const localList = getLocalSavedFilters();
-  localList.forEach(item => renderSavedFilterItem(item));
+  (window.INITIAL_SAVED_FILTERS || []).slice().reverse().forEach(function renderAccountFilter(item) {
+    renderSavedFilterItem({ ...item, id: String(item.id), filters: item.filter_data || {}, is_db: true });
+  });
+  localList.forEach(function _callback28         (item){return renderSavedFilterItem(item);});
 
-  savedFiltersList?.addEventListener('click', function (e) {
+  savedFiltersList?.addEventListener('click', async function _callback29(e){
     const applyLink = e.target.closest('.btn-apply-saved-filter');
     const deleteBtn = e.target.closest('.btn-delete-saved-filter');
 
@@ -606,11 +643,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
       try {
         const filterObj = JSON.parse(li.dataset.filters);
-        form.reset();
-        for (const [k, v] of Object.entries(filterObj)) {
-          const el = form.elements[k];
-          if (el) el.value = v;
-        }
+        await restoreFilters(filterObj);
         performSearch(1, true);
         if (window.BDS) {
           window.BDS.toast('Đã khôi phục và áp dụng bộ lọc tìm kiếm.', 'info', 'Áp dụng bộ lọc');
@@ -627,17 +660,17 @@ document.addEventListener('DOMContentLoaded', function () {
       window.BDS.confirm(
         'Bạn có chắc chắn muốn xóa bộ lọc tìm kiếm đã lưu này khỏi danh sách không?',
         'Xác nhận xóa bộ lọc',
-        function () {
+        function _callback30(){
           if (id.startsWith('local_')) {
             let list = getLocalSavedFilters();
-            list = list.filter(x => String(x.id) !== id);
+            list = list.filter(function _callback31(x){return String(x.id)!==id;});
             setLocalSavedFilters(list);
             itemEl?.remove();
             if (window.BDS) {
               window.BDS.toast('Đã xóa bộ lọc tìm kiếm khỏi trình duyệt.', 'info', 'Đã xóa bộ lọc');
             }
           } else {
-            api('property/deleteSavedSearch/' + id, { method: 'POST' }).then(res => {
+            api('property/deleteSavedSearch/' + id, { method: 'POST' }).then(function _callback32(res){
               if (res.success) {
                 itemEl?.remove();
                 if (window.BDS) {
@@ -646,7 +679,7 @@ document.addEventListener('DOMContentLoaded', function () {
               } else if (window.BDS) {
                 window.BDS.toast(res.message || 'Không thể xóa bộ lọc tìm kiếm.', 'danger', 'Lỗi xóa bộ lọc');
               }
-            }).catch(() => {
+            }).catch(function _callback33(){
               if (window.BDS) {
                 window.BDS.toast('Không thể kết nối đến máy chủ.', 'danger', 'Lỗi kết nối');
               }

@@ -65,19 +65,21 @@
 
     <!-- Script tự động kiểm tra localStorage nếu người dùng truy cập trực tiếp /property/compare -->
     <script>
-      document.addEventListener('DOMContentLoaded', function() {
+      document.addEventListener('DOMContentLoaded', function _callback(){
         if (window.PropertyCompare) {
-          const list = window.PropertyCompare.getAll();
-          if (list && list.length > 0) {
-            const ids = list.map(item => item.id).join(',');
-            const currentUrl = new URL(window.location.href);
-            if (!currentUrl.searchParams.get('ids')) {
-              window.location.href = '<?= e(base_url('property/compare')) ?>?ids=' + ids;
-            }
+          const list = typeof window.PropertyCompare.getAll === 'function'
+            ? window.PropertyCompare.getAll()
+            : window.PropertyCompare.get();
+          const ids = (Array.isArray(list) ? list : [])
+            .map(function _callback2(item){return Number(item&&item.id?item.id:item);})
+            .filter(function _callback3(id){return Number.isFinite(id)&&id>0;});
+          const currentUrl = new URL(window.location.href);
+          if (ids.length > 0 && !currentUrl.searchParams.get('ids')) {
+            currentUrl.searchParams.set('ids', ids.join(','));
+            window.location.replace(currentUrl.toString());
           }
         }
-      });
-    </script>
+      });</script>
 
   <?php else: ?>
     <!-- Bảng so sánh chi tiết đối đầu -->
@@ -86,6 +88,7 @@
       $prices = array_column($properties, 'price');
       $areas = array_column($properties, 'area');
       $minPrice = !empty($prices) ? min($prices) : 0;
+      $sameListingType = count(array_unique(array_column($properties, 'listing_type'))) === 1;
       $maxArea = !empty($areas) ? max($areas) : 0;
       $colCount = count($properties);
       $colWidthPercent = round(80 / $colCount, 2);
@@ -109,7 +112,7 @@
 
                   <!-- Ảnh đại diện BĐS -->
                   <div class="position-relative mb-2 rounded-3 overflow-hidden shadow-sm" style="height: 160px;">
-                    <img src="<?= e(property_avatar_url($prop['avatar'] ?? null)) ?>" 
+                    <img src="<?= e(property_avatar_url($prop['cover_url'] ?? property_avatar_url(null))) ?>" 
                          alt="<?= e($prop['title']) ?>" 
                          class="w-100 h-100 object-fit-cover">
                     <span class="badge position-absolute top-0 start-0 m-2 <?= ($prop['listing_type'] ?? '') === 'rent' ? 'bg-primary' : 'bg-danger' ?>">
@@ -148,9 +151,9 @@
             <tr>
               <td class="fw-semibold text-muted bg-light">Mức giá niêm yết</td>
               <?php foreach ($properties as $prop): ?>
-                <?php $isBestPrice = ((float)$prop['price'] === (float)$minPrice && $colCount > 1); ?>
-                <td class="text-center <?= $isBestPrice ? 'bg-success-subtle' : '' ?>">
-                  <div class="fs-5 fw-bold text-danger"><?= e(format_price($prop['price'])) ?></div>
+                <?php $isBestPrice = ($sameListingType && (float)$prop['price'] === (float)$minPrice && $colCount > 1); ?>
+                <td class="text-center text-nowrap <?= $isBestPrice ? 'bg-success-subtle' : '' ?>">
+                  <div class="fs-5 fw-bold text-danger text-nowrap" style="white-space: nowrap !important; font-variant-numeric: tabular-nums;"><?= e(format_price($prop['price'])) ?><?= ($prop['listing_type'] ?? '') === 'rent' ? '/tháng' : '' ?></div>
                   <?php if ($isBestPrice): ?>
                     <span class="badge bg-success small"><i class="bi bi-star-fill me-1"></i>Giá tốt nhất</span>
                   <?php endif; ?>
@@ -167,7 +170,7 @@
                 ?>
                 <td class="text-center">
                   <?php if ($unitRate): ?>
-                    <span class="fw-semibold text-dark">~<?= $unitRate ?> tr/m²</span>
+                    <span class="fw-semibold text-dark">~<?= $unitRate ?> tr/m²<?= ($prop['listing_type'] ?? '') === 'rent' ? '/tháng' : '' ?></span>
                   <?php else: ?>
                     <span class="text-muted">—</span>
                   <?php endif; ?>
@@ -227,9 +230,20 @@
             </tr>
             <tr>
               <td class="fw-semibold text-muted bg-light">Tình trạng nội thất</td>
+              <?php
+                $furnitureLabels = [
+                    'none'  => 'Không nội thất',
+                    'basic' => 'Nội thất cơ bản',
+                    'full'  => 'Đầy đủ nội thất',
+                ];
+              ?>
               <?php foreach ($properties as $prop): ?>
                 <td class="text-center">
-                  <?= !empty($prop['furniture']) ? e($prop['furniture']) : '<span class="text-muted">Cơ bản</span>' ?>
+                  <?php
+                    $furnVal = $prop['furniture'] ?? '';
+                    $furnLabel = $furnitureLabels[$furnVal] ?? $furnVal;
+                  ?>
+                  <?= $furnLabel !== '' ? e($furnLabel) : '<span class="text-muted">Nội thất cơ bản</span>' ?>
                 </td>
               <?php endforeach; ?>
             </tr>
@@ -262,7 +276,9 @@
               <td class="fw-semibold text-muted bg-light">Khu vực / Địa chỉ</td>
               <?php foreach ($properties as $prop): ?>
                 <td class="text-center small">
-                  <?= e($prop['ward_name'] ?? '') ?>, <?= e($prop['district_name'] ?? '') ?>, <?= e($prop['province_name'] ?? '') ?>
+                  <?= e(implode(', ', array_unique(array_filter([
+                      $prop['ward_name'] ?? '', $prop['district_name'] ?? '', $prop['province_name'] ?? '',
+                  ])))) ?>
                 </td>
               <?php endforeach; ?>
             </tr>
@@ -317,11 +333,12 @@
             <tr>
               <td class="fw-semibold text-muted bg-light">Người đăng / Môi giới</td>
               <?php foreach ($properties as $prop): ?>
+                <?php $contactPhone = $prop['agent_phone'] ?? $prop['author_phone'] ?? ''; ?>
                 <td class="text-center">
-                  <div class="fw-bold"><?= e($prop['author_name'] ?? 'Môi giới uy tín') ?></div>
-                  <?php if (!empty($prop['author_phone'])): ?>
-                    <a href="tel:<?= e($prop['author_phone']) ?>" class="btn btn-outline-success btn-sm mt-1">
-                      <i class="bi bi-telephone me-1"></i> <?= e($prop['author_phone']) ?>
+                  <div class="fw-bold"><?= e($prop['agent_name'] ?? $prop['author_name'] ?? 'Môi giới BĐS') ?></div>
+                  <?php if ($contactPhone !== ''): ?>
+                    <a href="tel:<?= e($contactPhone) ?>" class="btn btn-outline-success btn-sm mt-1">
+                      <i class="bi bi-telephone me-1"></i> <?= e($contactPhone) ?>
                     </a>
                   <?php endif; ?>
                 </td>
@@ -341,7 +358,7 @@
     }
     const currentUrl = new URL(window.location.href);
     const rawIds = currentUrl.searchParams.get('ids') || '';
-    const idArr = rawIds.split(',').filter(x => x && parseInt(x) !== parseInt(id));
+    const idArr = rawIds.split(',').filter(function _callback(x){return x&&parseInt(x)!==parseInt(id);});
     if (idArr.length > 0) {
       currentUrl.searchParams.set('ids', idArr.join(','));
       window.location.href = currentUrl.toString();
@@ -358,5 +375,4 @@
       }
       window.location.href = '<?= e(base_url('property/compare')) ?>';
     }
-  }
-</script>
+  }</script>

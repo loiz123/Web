@@ -75,4 +75,94 @@ class AuthController extends Controller
         flash('info', 'Bạn đã đăng xuất.');
         $this->redirect('');
     }
+
+    public function forgot(): void
+    {
+        if (Auth::check()) $this->redirect('');
+
+        if ($this->isPost()) {
+            $this->verifyCsrf();
+            $email = strtolower(trim((string)($_POST['email'] ?? '')));
+
+            if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                flash('danger', 'Vui lòng nhập địa chỉ email hợp lệ.');
+                $_SESSION['old'] = ['email' => $email];
+            } else {
+                $mailer = new Mailer();
+                if (!$mailer->isEnabled()) {
+                    // Cùng thông báo cho mọi email, trước khi tra cứu tài khoản.
+                    flash('warning', 'Chức năng gửi email hiện chưa sẵn sàng. Vui lòng thử lại sau hoặc liên hệ hỗ trợ.');
+                    $_SESSION['old'] = ['email' => $email];
+                } else {
+                    $users = new User();
+                    $user = $users->findByEmail($email);
+                    if ($user && $user['status'] === 'active') {
+                        $token = $users->createPasswordResetToken($email);
+                        $fullResetUrl = full_url('auth/reset?token=' . urlencode($token));
+                        $sent = $mailer->sendPasswordResetEmail(
+                            $email,
+                            (string)($user['full_name'] ?? 'Quý khách'),
+                            $fullResetUrl,
+                            30
+                        );
+                        if (!$sent) {
+                            $users->deletePasswordResetToken($token);
+                            error_log('Password reset delivery failed: ' . $mailer->getLastError());
+                        }
+                    }
+                    unset($_SESSION['old']);
+                    // Không tiết lộ tài khoản có tồn tại hoặc khẳng định thư đã vào Inbox.
+                    flash('success', 'Yêu cầu đã được tiếp nhận. Nếu email thuộc tài khoản đang hoạt động và dịch vụ gửi thư khả dụng, bạn sẽ nhận được liên kết đặt lại mật khẩu. Vui lòng kiểm tra cả thư rác; nếu chưa nhận được, hãy thử lại sau hoặc liên hệ hỗ trợ.');
+                }
+            }
+        }
+
+        $this->view('auth/forgot', [
+            'title' => 'Quên mật khẩu',
+        ]);
+        unset($_SESSION['old']);
+    }
+
+    public function reset(string $tokenParam = ''): void
+    {
+        if (Auth::check()) $this->redirect('');
+        $token = trim((string)($_GET['token'] ?? ($_POST['token'] ?? $tokenParam)));
+        $users = new User();
+        $resetRow = $users->findValidPasswordReset($token);
+
+        if (!$resetRow) {
+            flash('danger', 'Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn (30 phút). Vui lòng gửi lại yêu cầu.');
+            $this->redirect('auth/forgot');
+            return;
+        }
+
+        if ($this->isPost()) {
+            $this->verifyCsrf();
+            $pass    = (string)($_POST['password'] ?? '');
+            $confirm = (string)($_POST['password_confirm'] ?? '');
+            $errors  = User::validatePassword($pass, $confirm);
+
+            if ($errors) {
+                foreach ($errors as $err) flash('danger', $err);
+            } else {
+                $user = $users->findByEmail($resetRow['email']);
+                if (!$user) {
+                    flash('danger', 'Tài khoản không tồn tại.');
+                    $this->redirect('auth/forgot');
+                    return;
+                }
+                $users->setPassword((int)$user['id'], $pass);
+                $users->deletePasswordResetsForEmail($resetRow['email']);
+                flash('success', 'Đặt lại mật khẩu thành công. Vui lòng đăng nhập bằng mật khẩu mới.');
+                $this->redirect('auth/login');
+                return;
+            }
+        }
+
+        $this->view('auth/reset', [
+            'title' => 'Đặt lại mật khẩu mới',
+            'token' => $token,
+            'email' => $resetRow['email'],
+        ]);
+    }
 }

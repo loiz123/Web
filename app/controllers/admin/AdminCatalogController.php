@@ -1,14 +1,13 @@
 <?php
-// URL: /admin/catalog   [A]  Quản lý danh mục: loại BĐS, tiện ích, tỉnh/thành, quận/huyện, phường/xã
+// URL: /admin/catalog   [A]  Quản lý danh mục: loại BĐS, tiện ích, tỉnh/thành, phường/xã
 class AdminCatalogController extends Controller
 {
     // Danh sách tab hợp lệ (whitelist) -> nhãn, lớp Model, độ dài tên tối đa, cột cha
     private const TABS = [
-        'types'     => ['label' => 'Loại BĐS',    'noun' => 'loại BĐS', 'class' => 'PropertyType', 'max' => 50,  'parent' => null],
-        'amenities' => ['label' => 'Tiện ích',    'noun' => 'tiện ích', 'class' => 'Amenity',      'max' => 100, 'parent' => null],
+        'types'     => ['label' => 'Loại BĐS',    'noun' => 'loại BĐS',   'class' => 'PropertyType', 'max' => 50,  'parent' => null],
+        'amenities' => ['label' => 'Tiện ích',    'noun' => 'tiện ích',   'class' => 'Amenity',      'max' => 100, 'parent' => null],
         'provinces' => ['label' => 'Tỉnh/Thành',  'noun' => 'tỉnh/thành', 'class' => 'Province',     'max' => 100, 'parent' => null],
-        'districts' => ['label' => 'Quận/Huyện',  'noun' => 'quận/huyện', 'class' => 'District',     'max' => 100, 'parent' => 'province_id'],
-        'wards'     => ['label' => 'Phường/Xã',   'noun' => 'phường/xã', 'class' => 'Ward',         'max' => 100, 'parent' => 'district_id'],
+        'wards'     => ['label' => 'Phường/Xã',   'noun' => 'phường/xã',  'class' => 'Ward',         'max' => 100, 'parent' => 'province_id'],
     ];
 
     public function __construct() { $this->requireRole('admin'); }
@@ -17,10 +16,9 @@ class AdminCatalogController extends Controller
     {
         $tab = $this->tab($_GET['tab'] ?? '');
         $fProvince = (int)($_GET['province'] ?? 0);
-        $fDistrict = (int)($_GET['district'] ?? 0);
 
         $model = new (self::TABS[$tab]['class'])();
-        $rows = $model->adminList(['province_id' => $fProvince, 'district_id' => $fDistrict]);
+        $rows = $model->adminList(['province_id' => $fProvince]);
 
         $this->view('admin/catalog', [
             'title'      => 'Quản lý danh mục',
@@ -29,7 +27,6 @@ class AdminCatalogController extends Controller
             'rows'       => $rows,
             'provinces'  => (new Location())->provinces(),
             'fProvince'  => $fProvince,
-            'fDistrict'  => $fDistrict,
         ]);
     }
 
@@ -51,9 +48,9 @@ class AdminCatalogController extends Controller
             $error = 'Không tìm thấy mục cần sửa.';
         } elseif ($cfg['parent']) {
             $parentId = (int)($_POST[$cfg['parent']] ?? 0);
-            $parentModel = $cfg['parent'] === 'province_id' ? new Province() : new District();
+            $parentModel = new Province();
             if (!$parentId || !$parentModel->find($parentId)) {
-                $error = $cfg['parent'] === 'province_id' ? 'Vui lòng chọn Tỉnh/Thành.' : 'Vui lòng chọn Quận/Huyện.';
+                $error = 'Vui lòng chọn Tỉnh/Thành phố.';
             }
         }
         if (!$error && $model->nameExists($name, $parentId, $id)) {
@@ -105,7 +102,6 @@ class AdminCatalogController extends Controller
     {
         $q = ['tab' => $tab];
         if ((int)($_POST['f_province'] ?? 0)) $q['province'] = (int)$_POST['f_province'];
-        if ((int)($_POST['f_district'] ?? 0)) $q['district'] = (int)$_POST['f_district'];
         $this->redirect('admin/catalog?' . http_build_query($q));
     }
 }

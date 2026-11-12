@@ -1,5 +1,5 @@
 -- Routine (stored procedure) mẫu. Import SAU seed.sql.
--- Lưu ý: một số free hosting KHÔNG cho tạo routine -> đặt use_routines=false trong config.
+-- Ứng dụng yêu cầu MySQL cho phép tạo và gọi stored procedure.
 USE batdongsan;
 DROP PROCEDURE IF EXISTS sp_latest_properties;
 DROP PROCEDURE IF EXISTS sp_search_properties;

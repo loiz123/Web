@@ -1,19 +1,40 @@
 <?php
-// [D] Quốc: thống kê cho dashboard admin. Dùng routine, tự chuyển sang SQL thường khi use_routines = false
-// hoặc khi routine chưa được import trên máy này.
+// [D] Thống kê cho dashboard admin.
 class AdminStats extends Model
 {
     protected string $table = 'properties';
 
     private const STATUSES = ['pending', 'approved', 'rejected', 'hidden', 'closed'];
 
+    public function counts(): array
+    {
+        try {
+            $r = $this->call('sp_dashboard_counts')[0] ?? [];
+        } catch (\Throwable $e) {
+            $r = [
+                'users_total' => (int)$this->query('SELECT COUNT(*) FROM users')->fetchColumn(),
+                'properties_total' => (int)$this->query("SELECT COUNT(*) FROM properties WHERE status = 'approved'")->fetchColumn(),
+                'pending_total' => (int)$this->query("SELECT COUNT(*) FROM properties WHERE status = 'pending'")->fetchColumn(),
+                'reports_total' => (int)$this->query("SELECT COUNT(*) FROM reports WHERE status IN ('open', 'pending')")->fetchColumn(),
+            ];
+        }
+        $approvedCount = (int)$this->query("SELECT COUNT(*) FROM properties WHERE status = 'approved'")->fetchColumn();
+        return [
+            'Người dùng' => (int)($r['users_total'] ?? 0),
+            'Tin đã duyệt' => $approvedCount,
+            'Tin chờ duyệt' => (int)($r['pending_total'] ?? 0),
+            'Báo cáo mới' => (int)($r['reports_total'] ?? 0),
+        ];
+    }
+
     /** @return array<string,int> đủ 5 trạng thái, trạng thái không có tin thì bằng 0 */
     public function propertiesByStatus(): array
     {
-        $rows = $this->fetchStats(
-            'sp_stats_properties_by_status',
-            'SELECT status, COUNT(*) AS total FROM properties GROUP BY status'
-        );
+        try {
+            $rows = $this->call('sp_dashboard_by_status');
+        } catch (\Throwable $e) {
+            $rows = $this->query('SELECT status, COUNT(*) AS total FROM properties GROUP BY status')->fetchAll();
+        }
         $result = array_fill_keys(self::STATUSES, 0);
         foreach ($rows as $r) {
             if (isset($result[$r['status']])) $result[$r['status']] = (int)$r['total'];
@@ -21,37 +42,45 @@ class AdminStats extends Model
         return $result;
     }
 
-    /** @return array<int,array{district:string,province:string,total:int,approved:int}> */
-    public function propertiesByDistrict(): array
+    /**
+     * Thống kê tin đăng theo Tỉnh/Thành phố (GROUP BY provinces.id, provinces.name)
+     * @return array<int,array{province_id:int,province:string,district:string,total:int,approved:int,pending:int,hidden:int}>
+     */
+    public function propertiesByProvince(): array
     {
-        $rows = $this->fetchStats(
-            'sp_stats_properties_by_district',
-            "SELECT d.id, d.name AS district_name, pv.name AS province_name,
-                    COUNT(pr.id) AS total, SUM(pr.status = 'approved') AS approved
-             FROM districts d
-             JOIN provinces pv ON pv.id = d.province_id
-             JOIN wards w ON w.district_id = d.id
-             JOIN properties pr ON pr.ward_id = w.id
-             GROUP BY d.id, d.name, pv.name
-             ORDER BY total DESC, d.name"
-        );
-        return array_map(fn(array $r): array => [
-            'district' => $r['district_name'],
-            'province' => $r['province_name'],
-            'total'    => (int)$r['total'],
-            'approved' => (int)$r['approved'],
-        ], $rows);
+        $rows = $this->query(
+            "SELECT pv.id AS province_id,
+                    pv.name AS province_name,
+                    COUNT(pr.id) AS total,
+                    COUNT(pr.id) AS approved,
+                    0 AS pending,
+                    0 AS hidden
+             FROM properties pr
+             JOIN wards w ON w.id = pr.ward_id
+             JOIN provinces pv ON pv.id = w.province_id
+             WHERE pr.status = 'approved'
+             GROUP BY pv.id, pv.name
+             ORDER BY approved DESC, pv.name ASC"
+        )->fetchAll();
+
+        $result = [];
+        foreach ($rows as $r) {
+            $result[] = [
+                'province_id' => (int)$r['province_id'],
+                'province'    => (string)$r['province_name'],
+                'district'    => (string)$r['province_name'],
+                'total'       => (int)$r['total'],
+                'approved'    => (int)$r['approved'],
+                'pending'     => (int)$r['pending'],
+                'hidden'      => (int)$r['hidden'],
+            ];
+        }
+        return $result;
     }
 
-    private function fetchStats(string $procedure, string $sql): array
+    /** @return array<int,array{province_id:int,province:string,district:string,total:int,approved:int,pending:int,hidden:int}> */
+    public function propertiesByDistrict(): array
     {
-        if (config('use_routines')) {
-            try {
-                return $this->call($procedure);
-            } catch (PDOException $e) {
-                // Routine chưa được import: dùng SQL thường để trang vẫn chạy.
-            }
-        }
-        return $this->query($sql)->fetchAll();
+        return $this->propertiesByProvince();
     }
 }

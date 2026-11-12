@@ -16,11 +16,21 @@ class SavedSearch extends Model
         }
 
         // Lọc bỏ các key rỗng trước khi lưu JSON
-        $cleanFilters = array_filter($filters, function ($val) {
-            return $val !== null && $val !== '';
-        });
+        $cleanFilters = [];
+        foreach ($filters as $key => $value) {
+            if ($value !== null && $value !== '') $cleanFilters[$key] = $value;
+        }
 
         $json = json_encode($cleanFilters, JSON_UNESCAPED_UNICODE);
+
+        if (config('use_routines')) {
+            try {
+                $rows = $this->call('sp_saved_search_create', [$userId, $cleanName, $json]);
+                return (int)($rows[0]['id'] ?? 0);
+            } catch (PDOException $e) {
+                if ((int)($e->errorInfo[1] ?? 0) !== 1305) throw $e;
+            }
+        }
 
         $this->query(
             "INSERT INTO saved_searches (user_id, name, filters, created_at) VALUES (?, ?, ?, NOW())",
@@ -35,6 +45,19 @@ class SavedSearch extends Model
      */
     public function getByUser(int $userId): array
     {
+        if (config('use_routines')) {
+            try {
+                $rows = $this->call('sp_saved_search_list', [$userId]);
+                foreach ($rows as &$row) {
+                    $row['filter_data'] = json_decode($row['filters'], true) ?: [];
+                }
+                unset($row);
+                return $rows;
+            } catch (PDOException $e) {
+                if ((int)($e->errorInfo[1] ?? 0) !== 1305) throw $e;
+            }
+        }
+
         $rows = $this->query(
             "SELECT * FROM saved_searches WHERE user_id = ? ORDER BY created_at DESC",
             [$userId]
@@ -53,6 +76,19 @@ class SavedSearch extends Model
      */
     public function findOwned(int $id, int $userId): ?array
     {
+        if (config('use_routines')) {
+            try {
+                $row = $this->call('sp_saved_search_find', [$id, $userId])[0] ?? null;
+                if ($row) {
+                    $row['filter_data'] = json_decode($row['filters'], true) ?: [];
+                    return $row;
+                }
+                return null;
+            } catch (PDOException $e) {
+                if ((int)($e->errorInfo[1] ?? 0) !== 1305) throw $e;
+            }
+        }
+
         $row = $this->query(
             "SELECT * FROM saved_searches WHERE id = ? AND user_id = ? LIMIT 1",
             [$id, $userId]
@@ -71,6 +107,15 @@ class SavedSearch extends Model
      */
     public function deleteOwned(int $id, int $userId): bool
     {
+        if (config('use_routines')) {
+            try {
+                $rows = $this->call('sp_saved_search_delete', [$id, $userId]);
+                return (int)($rows[0]['affected'] ?? 0) > 0;
+            } catch (PDOException $e) {
+                if ((int)($e->errorInfo[1] ?? 0) !== 1305) throw $e;
+            }
+        }
+
         return $this->query(
             "DELETE FROM saved_searches WHERE id = ? AND user_id = ?",
             [$id, $userId]

@@ -75,22 +75,16 @@ $selectedAmenities = is_array($values['amenities'] ?? null) ? $values['amenities
     <input id="direction" name="direction" maxlength="30" class="form-control" value="<?= e($values['direction'] ?? '') ?>">
   </div>
 
-  <div class="col-12 col-md-4">
+  <div class="col-12 col-md-6">
     <label for="province" class="form-label">Tỉnh/Thành phố</label>
-    <select id="province" name="province_id" class="form-select" data-selected="<?= e($values['province_id'] ?? '') ?>" required>
+    <select id="province" name="province_id" class="form-select" data-target="#ward" data-level="wards" data-selected="<?= e($values['province_id'] ?? '') ?>" required>
       <option value="">Chọn tỉnh/thành phố</option>
       <?php foreach ($provinces as $province): ?>
         <option value="<?= (int)$province['id'] ?>" <?= (string)($values['province_id'] ?? '') === (string)$province['id'] ? 'selected' : '' ?>><?= e($province['name']) ?></option>
       <?php endforeach; ?>
     </select>
   </div>
-  <div class="col-12 col-md-4">
-    <label for="district" class="form-label">Quận/Huyện</label>
-    <select id="district" name="district_id" class="form-select" data-selected="<?= e($values['district_id'] ?? '') ?>" required>
-      <option value="">Chọn quận/huyện</option>
-    </select>
-  </div>
-  <div class="col-12 col-md-4">
+  <div class="col-12 col-md-6">
     <label for="ward" class="form-label">Phường/Xã</label>
     <select id="ward" name="ward_id" class="form-select" data-selected="<?= e($values['ward_id'] ?? '') ?>" required>
       <option value="">Chọn phường/xã</option>
@@ -98,7 +92,8 @@ $selectedAmenities = is_array($values['amenities'] ?? null) ? $values['amenities
   </div>
   <div class="col-12 col-md-6">
     <label for="address-detail" class="form-label">Địa chỉ chi tiết</label>
-    <input id="address-detail" name="address_detail" maxlength="200" class="form-control" required value="<?= e($values['address_detail'] ?? '') ?>">
+    <input id="address-detail" name="address_detail" maxlength="200" class="form-control" placeholder="Số nhà, tên đường..." required value="<?= e($values['address_detail'] ?? '') ?>">
+    <small class="text-success d-flex align-items-center gap-1 mt-1 d-none" id="addressParseFeedback"><i class="bi bi-geo-alt-fill"></i> Đã tự động nhận diện: Phường ..., Tỉnh/Thành ...</small>
   </div>
   <div class="col-12 col-md-6">
     <label for="legal-status" class="form-label">Pháp lý</label>
@@ -114,27 +109,15 @@ $selectedAmenities = is_array($values['amenities'] ?? null) ? $values['amenities
       </div>
       <div class="card-body p-3">
         <div class="input-group mb-2">
-          <input type="text" id="mapSearchAddress" class="form-control" placeholder="Nhập địa chỉ tìm nhanh trên bản đồ (VD: Nguyễn Huệ, Bến Nghé, Quận 1, TP.HCM)...">
+          <input type="text" id="mapSearchAddress" class="form-control" placeholder="Nhập địa chỉ tìm nhanh trên bản đồ...">
           <button type="button" class="btn btn-outline-primary" id="btnSearchMapAddress">🔍 Tìm vị trí</button>
         </div>
         <div id="mapStatus" class="alert alert-info py-2 small mb-2">
-          💡 Bấm trực tiếp lên bản đồ hoặc kéo biểu tượng điểm ghim để lưu tọa độ chính xác cho bất động sản.
+          💡 Bấm trực tiếp lên bản đồ hoặc kéo biểu tượng điểm ghim để chọn vị trí chính xác cho bất động sản.
         </div>
-        <div id="agentMapPicker" style="height: 320px; width: 100%; border-radius: 6px;" class="border mb-2"></div>
-        <div class="row g-2">
-          <div class="col-6">
-            <div class="input-group input-group-sm">
-              <span class="input-group-text">Vĩ độ (Lat)</span>
-              <input type="text" id="latitudeInput" name="latitude" class="form-control bg-white" required value="<?= e($values['latitude'] ?? '') ?>" placeholder="10.776889">
-            </div>
-          </div>
-          <div class="col-6">
-            <div class="input-group input-group-sm">
-              <span class="input-group-text">Kinh độ (Lng)</span>
-              <input type="text" id="longitudeInput" name="longitude" class="form-control bg-white" required value="<?= e($values['longitude'] ?? '') ?>" placeholder="106.700806">
-            </div>
-          </div>
-        </div>
+        <div id="agentMapPicker" style="min-height: 460px; height: 460px; width: 100%; border-radius: 8px;" class="border"></div>
+        <input type="hidden" id="latitude" name="latitude" value="<?= e($values['latitude'] ?? '') ?>">
+        <input type="hidden" id="longitude" name="longitude" value="<?= e($values['longitude'] ?? '') ?>">
       </div>
     </div>
   </div>
@@ -166,35 +149,142 @@ $selectedAmenities = is_array($values['amenities'] ?? null) ? $values['amenities
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="<?= e(base_url('assets/js/map.js')) ?>"></script>
+<script src="<?= e(base_url('assets/js/map.js?v=20261110d')) ?>"></script>
+<script src="<?= e(base_url('assets/js/address-parser.js?v=20261110d')) ?>"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', function _callback(){
   var form = document.getElementById('agent-create-form');
-  var latitudeInput = document.getElementById('latitudeInput');
-  var longitudeInput = document.getElementById('longitudeInput');
+  var latitudeInput = document.getElementById('latitude');
+  var longitudeInput = document.getElementById('longitude');
   var mapStatus = document.getElementById('mapStatus');
-  if (window.BdsMap) {
-    window.BdsMap.initPicker({
-      mapId: 'agentMapPicker',
-      latInput: '#latitudeInput',
-      lngInput: '#longitudeInput',
-      addressInput: '#mapSearchAddress',
-      searchBtn: '#btnSearchMapAddress',
-      statusEl: '#mapStatus',
-      defaultLat: <?= !empty($values['latitude']) ? (float)$values['latitude'] : '10.776889' ?>,
-      defaultLng: <?= !empty($values['longitude']) ? (float)$values['longitude'] : '106.700806' ?>,
-      defaultZoom: 15
-    });
+  var defaultLat = <?= !empty($values['latitude']) ? (float)$values['latitude'] : '10.776889' ?>;
+  var defaultLng = <?= !empty($values['longitude']) ? (float)$values['longitude'] : '106.700806' ?>;
+  var mapInstance = null;
+
+  try {
+    if (window.BdsMap && typeof window.BdsMap.initPicker === 'function') {
+      var picker = window.BdsMap.initPicker({
+        mapId: 'agentMapPicker',
+        latInput: '#latitude',
+        lngInput: '#longitude',
+        addressInput: '#mapSearchAddress',
+        searchBtn: '#btnSearchMapAddress',
+        statusEl: '#mapStatus',
+        defaultLat: defaultLat,
+        defaultLng: defaultLng,
+        defaultZoom: 15
+      });
+      if (picker && picker.map) {
+        mapInstance = picker.map;
+      }
+    }
+  } catch (err) {
+    console.warn('Lỗi khi khởi tạo BdsMap.initPicker, kích hoạt chế độ dự phòng:', err);
   }
+
+  // Fallback an toàn: Khởi tạo trực tiếp nếu BdsMap chưa sẵn sàng nhưng Leaflet (L) đã tải
+  if (!mapInstance && typeof L !== 'undefined' && document.getElementById('agentMapPicker')) {
+    try {
+      var mapContainer = document.getElementById('agentMapPicker');
+      if (mapContainer._leaflet_id) {
+        delete mapContainer._leaflet_id;
+        mapContainer.innerHTML = '';
+      }
+
+      if (L.Icon && L.Icon.Default) {
+        try {
+          delete L.Icon.Default.prototype._getIconUrl;
+          L.Icon.Default.mergeOptions({
+            iconRetinaUrl: 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+            iconUrl: 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/images/marker-icon.png',
+            shadowUrl: 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/images/marker-shadow.png'
+          });
+        } catch (iconErr) {}
+      }
+
+      var curLat = parseFloat(latitudeInput ? latitudeInput.value : '') || defaultLat;
+      var curLng = parseFloat(longitudeInput ? longitudeInput.value : '') || defaultLng;
+
+      mapInstance = L.map('agentMapPicker', {
+        center: [curLat, curLng],
+        zoom: 15,
+        scrollWheelZoom: true
+      });
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; Dữ liệu bản đồ nền'
+      }).addTo(mapInstance);
+
+      var marker = L.marker([curLat, curLng], {
+        draggable: true,
+        title: 'Kéo điểm ghim hoặc bấm lên bản đồ để chọn vị trí'
+      }).addTo(mapInstance);
+
+      function updateCoordsFallback(lat, lng, showSuccess) {
+        var fLat = parseFloat(Number(lat).toFixed(7));
+        var fLng = parseFloat(Number(lng).toFixed(7));
+        if (latitudeInput) latitudeInput.value = fLat;
+        if (longitudeInput) longitudeInput.value = fLng;
+        marker.setLatLng([fLat, fLng]);
+        marker.bindPopup('<strong>Vị trí đã chọn</strong><br><span class="small text-muted">Kéo điểm ghim để điều chỉnh chính xác</span>');
+        if (showSuccess) {
+          marker.openPopup();
+          if (mapStatus) {
+            mapStatus.className = 'alert alert-success py-2 small mb-2';
+            mapStatus.textContent = 'Đã cập nhật vị trí đã chọn trên bản đồ.';
+          }
+        }
+      }
+
+      updateCoordsFallback(curLat, curLng, false);
+
+      marker.on('dragend', function(e) {
+        var pos = e.target.getLatLng();
+        updateCoordsFallback(pos.lat, pos.lng, true);
+      });
+
+      mapInstance.on('click', function(e) {
+        updateCoordsFallback(e.latlng.lat, e.latlng.lng, true);
+      });
+    } catch (fallbackErr) {
+      console.error('Không thể khởi tạo bản đồ dự phòng:', fallbackErr);
+    }
+  }
+
+  // Gọi map.invalidateSize() sau khi load và các mốc thời gian (150ms, 500ms, 1000ms) để chống màn hình xám/trắng
+  if (mapInstance) {
+    var triggerInvalidate = function() {
+      try {
+        if (mapInstance && typeof mapInstance.invalidateSize === 'function') {
+          mapInstance.invalidateSize();
+        }
+      } catch (e) {}
+    };
+    triggerInvalidate();
+    setTimeout(triggerInvalidate, 150);
+    setTimeout(triggerInvalidate, 500);
+    setTimeout(triggerInvalidate, 1000);
+    window.addEventListener('resize', triggerInvalidate);
+    if (document.readyState === 'complete') {
+      setTimeout(triggerInvalidate, 50);
+    } else {
+      window.addEventListener('load', triggerInvalidate);
+    }
+  }
+
   if (form) {
-    form.addEventListener('submit', function (event) {
-      if (latitudeInput.value === '10.776889' && longitudeInput.value === '106.700806') {
+    form.addEventListener('submit', function _callback2(event){
+      var latVal = latitudeInput ? String(latitudeInput.value || '').trim() : '';
+      var lngVal = longitudeInput ? String(longitudeInput.value || '').trim() : '';
+      if (!latVal || !lngVal || (latVal === '10.776889' && lngVal === '106.700806')) {
         event.preventDefault();
-        mapStatus.className = 'alert alert-warning py-2 small mb-2';
-        mapStatus.textContent = 'Vui lòng bấm lên bản đồ hoặc kéo điểm ghim để chọn tọa độ.';
-        mapStatus.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (mapStatus) {
+          mapStatus.className = 'alert alert-warning py-2 small mb-2';
+          mapStatus.textContent = 'Vui lòng bấm lên bản đồ hoặc kéo điểm ghim để chọn vị trí bất động sản.';
+          mapStatus.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
       }
     });
   }
-});
-</script>
+});</script>
