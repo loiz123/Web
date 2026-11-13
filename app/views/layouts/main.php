@@ -22,7 +22,8 @@ if ($user) {
   <meta name="base-url" content="<?= e(rtrim(base_url(), '/')) ?>">
   <meta name="csrf" content="<?= e(csrf_token()) ?>">
   <title><?= e(($title ?? '') ? $title . ' | ' : '') ?>BĐS Việt - Cổng Thông Tin Bất Động Sản Trực Tuyến</title>
-
+  <link rel="icon" type="image/png"
+        href="<?= e(base_url('image/favicon.png?v=' . filemtime(ROOT . '/public/image/favicon.png'))) ?>">
   <!-- Google Font: Plus Jakarta Sans -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
