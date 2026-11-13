@@ -4,17 +4,11 @@ class Location extends Model
 {
     protected string $table = 'provinces';
 
-    public function provinces(): array { return $this->query('SELECT id, name FROM provinces ORDER BY CASE WHEN id IN (1, 2, 3) THEN id ELSE 999 END, name')->fetchAll(); }
-    public function districtsByProvince(int $id): array { return $this->query('SELECT id, name FROM districts WHERE province_id = ? ORDER BY name', [$id])->fetchAll(); }
+    public function provinces(): array { return $this->routine('sp_rt_location_provinces_1', [])->fetchAll(); }
+    public function districtsByProvince(int $id): array { return $this->routine('sp_rt_location_districts_by_province_1', [$id])->fetchAll(); }
     public function wardsByDistrict(int $id): array
     {
-        $wards = $this->query(
-            'SELECT id, name FROM wards 
-             WHERE district_id = ? 
-               AND name NOT REGEXP "^(Phường|Xã|Thị trấn)[[:space:]]+[0-9]+"
-             ORDER BY name ASC, id ASC',
-            [$id]
-        )->fetchAll();
+        $wards = $this->routine('sp_rt_location_wards_by_district_1', [$id])->fetchAll();
         $uniqueWards = [];
         $seenNames = [];
         foreach ($wards as $ward) {
@@ -34,13 +28,7 @@ class Location extends Model
 
     public function wardsByProvince(int $provinceId): array
     {
-        $wards = $this->query(
-            'SELECT id, name, province_id
-             FROM wards
-             WHERE province_id = ?
-             ORDER BY name ASC',
-            [$provinceId]
-        )->fetchAll();
+        $wards = $this->routine('sp_rt_location_wards_by_province_1', [$provinceId])->fetchAll();
 
         $uniqueWards = [];
         $seenNames = [];
@@ -68,17 +56,10 @@ class Location extends Model
     public function isValidWard(int $provinceId, int $districtOrWardId, ?int $wardId = null): bool
     {
         if ($wardId !== null) {
-            return (bool)$this->query(
-                'SELECT w.id FROM wards w
-                 WHERE w.id = ? AND w.province_id = ? AND (w.district_id = ? OR ? = 0)',
-                [$wardId, $provinceId, $districtOrWardId, $districtOrWardId]
-            )->fetch();
+            return (bool)$this->routine('sp_rt_location_is_valid_ward_1', [$wardId, $provinceId, $districtOrWardId, $districtOrWardId])->fetch();
         }
 
-        return (bool)$this->query(
-            'SELECT id FROM wards WHERE id = ? AND province_id = ?',
-            [$districtOrWardId, $provinceId]
-        )->fetch();
+        return (bool)$this->routine('sp_rt_location_is_valid_ward_2', [$districtOrWardId, $provinceId])->fetch();
     }
 
     /**
@@ -365,10 +346,8 @@ class Location extends Model
         }
 
         // 2. Tìm Quận/Huyện (xử lý được cả chữ đ -> d và viết tắt không dấu)
-        $sqlDist = "SELECT d.id AS district_id, d.name AS district_name, p.id AS province_id, p.name AS province_name
-                    FROM districts d
-                    JOIN provinces p ON p.id = d.province_id";
-        $allDistricts = $this->query($sqlDist)->fetchAll();
+
+        $allDistricts = $this->routine('sp_rt_location_search_administrative_1', [])->fetchAll();
 
         foreach ($allDistricts as $d) {
             $dNorm = $this->normalizeVietnamese($d['district_name']);
@@ -444,16 +423,8 @@ class Location extends Model
                 $likeParam = '%' . str_replace(['%', '_'], ['\\%', '\\_'], (string)$numOnly) . '%';
             }
 
-            $sqlWard = "SELECT w.id AS ward_id, w.name AS ward_name,
-                               w.province_id, p.name AS province_name,
-                               d.id AS district_id, d.name AS district_name
-                        FROM wards w
-                        JOIN provinces p ON p.id = w.province_id
-                        LEFT JOIN districts d ON d.id = w.district_id
-                        WHERE REPLACE(REPLACE(LOWER(w.name), 'Đ', 'd'), 'đ', 'd') LIKE ?
-                          AND w.name NOT REGEXP '^(Phường|Xã|Thị trấn)[[:space:]]+[0-9]+'
-                        LIMIT 150";
-            $wardRows = $this->query($sqlWard, [$likeParam])->fetchAll();
+
+            $wardRows = $this->routine('sp_rt_location_search_administrative_2', [$likeParam])->fetchAll();
 
             foreach ($wardRows as $w) {
                 $wNorm = $this->normalizeVietnamese((string)($w['ward_name'] ?? ''));
@@ -599,14 +570,7 @@ class Location extends Model
             if (empty($pids)) {
                 return [];
             }
-            $placeholders = implode(',', array_fill(0, count($pids), '?'));
-            return $this->query(
-                "SELECT w.id AS ward_id, w.name AS ward_name, w.province_id, w.district_id, d.name AS district_name
-                 FROM wards w
-                 LEFT JOIN districts d ON d.id = w.district_id
-                 WHERE w.province_id IN ({$placeholders})",
-                $pids
-            )->fetchAll();
+            return $this->call('sp_location_wards_for_provinces', [implode(',', $pids)]);
         };
 
         $primaryWards = $fetchWardsForPids([$pid]);

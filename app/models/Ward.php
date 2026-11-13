@@ -7,48 +7,37 @@ class Ward extends CatalogModel
 
     public function usageCount(int $id): int
     {
-        return (int)$this->query('SELECT COUNT(*) FROM properties WHERE ward_id = ?', [$id])->fetchColumn();
+        return (int)$this->routine('sp_rt_ward_usage_count_1', [$id])->fetchColumn();
     }
 
     public function findByProvinceId(int $provinceId): array
     {
-        return $this->query('SELECT MIN(id) AS id, MIN(name) AS name, MIN(province_id) AS province_id FROM wards WHERE province_id = ? GROUP BY BINARY name ORDER BY MIN(name) ASC', [$provinceId])->fetchAll();
+        return $this->routine('sp_rt_ward_find_by_province_id_1', [$provinceId])->fetchAll();
     }
 
     /** $filter: province_id (tùy chọn). Giới hạn 300 dòng cho gọn trang. */
     public function adminList(array $filter = []): array
     {
-        $sql = 'SELECT w.id, w.name, w.province_id AS parent_id, pr.name AS parent_name,
-            NULL AS grand_id, NULL AS grand_name, NULL AS extra,
-            (SELECT COUNT(*) FROM properties p WHERE p.ward_id = w.id) AS used
-            FROM wards w
-            LEFT JOIN provinces pr ON pr.id = w.province_id';
-        $where = []; $args = [];
-        if (!empty($filter['province_id'])) {
-            $where[] = 'w.province_id = ?';
-            $args[] = (int)$filter['province_id'];
-        }
-        if ($where) $sql .= ' WHERE ' . implode(' AND ', $where);
-        return $this->query($sql . ' ORDER BY pr.name, w.name LIMIT 300', $args)->fetchAll();
+        return $this->call('sp_ward_admin_list', [(int)($filter['province_id'] ?? 0)]);
     }
 
     public function find(int $id): ?array
     {
-        return $this->query('SELECT id, name, province_id, district_id FROM wards WHERE id = ?', [$id])->fetch() ?: null;
+        return $this->routine('sp_rt_ward_find_1', [$id])->fetch() ?: null;
     }
 
     public function create(array $data): int
     {
-        $this->query('INSERT INTO wards (name, province_id, district_id) VALUES (?, ?, NULL)', [
+        $this->routine('sp_rt_ward_create_1', [
             $data['name'],
             $data['province_id'] ?? null
         ]);
-        return (int)$this->query('SELECT LAST_INSERT_ID()')->fetchColumn();
+        return (int)Database::lastInsertId();
     }
 
     public function update(int $id, array $data): bool
     {
-        $this->query('UPDATE wards SET name = ?, province_id = ? WHERE id = ?', [
+        $this->routine('sp_rt_ward_update_1', [
             $data['name'],
             $data['province_id'] ?? null,
             $id
@@ -58,18 +47,12 @@ class Ward extends CatalogModel
 
     public function delete(int $id): bool
     {
-        $stmt = $this->query('DELETE FROM wards WHERE id = ?', [$id]);
+        $stmt = $this->routine('sp_rt_ward_delete_1', [$id]);
         return $stmt->rowCount() > 0;
     }
 
     public function nameExists(string $name, ?int $parentId = null, int $exceptId = 0): bool
     {
-        $sql = 'SELECT COUNT(*) FROM wards WHERE BINARY name = ? AND id <> ?';
-        $args = [$name, $exceptId];
-        if ($parentId !== null) {
-            $sql .= ' AND province_id = ?';
-            $args[] = $parentId;
-        }
-        return (int)$this->query($sql, $args)->fetchColumn() > 0;
+        return (int)($this->call('sp_ward_name_exists', [$name, $parentId, $exceptId])[0]['total'] ?? 0) > 0;
     }
 }

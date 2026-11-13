@@ -75,3 +75,8 @@ Render Free [chặn cổng SMTP 25/465/587](https://render.com/docs/free). Ứng
 Kiểm tra cấu hình bằng `php scripts/check_mail.php`. Lệnh chỉ gửi thư kiểm tra khi thêm `--to=email-cua-ban@example.com`. Sau đó thử yêu cầu quên mật khẩu, mở link, đặt mật khẩu mới rồi đăng nhập lại. API nhận thư chưa bảo đảm thư vào Inbox; kiểm tra cả thư rác và trạng thái gửi trong Resend.
 
 Khi chưa cấu hình, trang quên mật khẩu báo dịch vụ chưa sẵn sàng và không tạo token. Nếu nhà cung cấp từ chối gửi, token mới bị thu hồi và lỗi được ghi vào server log. Nhật ký mail không ghi link/token đặt lại mật khẩu. Nếu dùng hosting cho phép SMTP, có thể chọn `MAIL_TRANSPORT=smtp` cùng các biến `SMTP_ENABLED`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` sẵn có.
+# Cập nhật database hiện có: toàn bộ truy cập dữ liệu qua procedure
+
+Chọn đúng database online trong phpMyAdmin → **Import** → chọn [procedures-online.sql](procedures-online.sql) → thực thi. Import file này trước khi triển khai code mới. Không cần chạy schema.sql hoặc seed.sql trên database đang có dữ liệu. File chỉ tạo/thay thế procedure, không xóa bảng hoặc dữ liệu, không chứa DEFINER cố định và không chọn tên database.
+
+Hướng dẫn, truy vấn kiểm tra và phạm vi thay đổi: [chuyen-toan-bo-sang-procedure.md](../docs/chuyen-toan-bo-sang-procedure.md).

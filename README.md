@@ -2,7 +2,7 @@
 
 ## Chạy trên máy (XAMPP / Laragon, PHP >= 8.0)
 1. Copy thư mục vào `htdocs` (hoặc `www`). Bật Apache + MySQL.
-2. phpMyAdmin → Import lần lượt: `database/schema.sql` → `database/seed.sql` → `database/procedures.sql` → `database/procedures/quoc.sql` → `database/procedures/hai.sql`; chọn database `batdongsan` rồi import tiếp `location_reads.sql`, `appointment.sql`, `account_and_saved_search.sql`, `interactions.sql`, `property_images.sql`, `report.sql`, `dashboard.sql`, `admin_users.sql`, `moderation.sql`, `catalog.sql`, `property_detail.sql`, `property_agent.sql`, `property_search.sql` trong `database/procedures/`.
+2. Với database mới: phpMyAdmin → import `database/schema.sql` → `database/seed.sql` → chọn database `batdongsan` và import **`deploy/procedures-online.sql`**. File tổng hợp cài toàn bộ procedure, bao gồm các procedure runtime mới. Database đã có dữ liệu chỉ cần import file procedure tổng hợp; không import lại schema/seed.
 3. Copy `config/config.local.example.php` thành `config/config.local.php`, sửa user/pass DB. (File này không commit.)
 4. Mở `http://localhost/batdongsan/public/`.
 
@@ -11,7 +11,8 @@ Với cơ sở dữ liệu đã tạo trước khi có cột `properties.slug`, 
 Tài khoản demo (mật khẩu `Admin@123`): `admin@demo.local`, `agent@demo.local`, `customer@demo.local`.
 
 ## Deploy free hosting
-- Cần MySQL cho phép tạo và gọi stored procedure; import các file procedure như phần chạy trên máy. Ứng dụng yêu cầu procedure và không tự chuyển sang SQL thường.
+- Cần MySQL cho phép tạo và gọi stored procedure. Chọn database hosting trong phpMyAdmin rồi import `deploy/procedures-online.sql` trước khi cập nhật code. File không chọn cứng tên database, không tạo/xóa bảng và không nhập dữ liệu mẫu.
+- Toàn bộ đọc/ghi dữ liệu khi ứng dụng chạy trong `app/` đi qua `Database::call()` với câu lệnh `CALL` có tham số. Không còn SQL trực tiếp hoặc nhánh SQL fallback. Thiếu procedure sẽ báo lỗi cài đặt. Xem [hướng dẫn chuyển đổi](docs/chuyen-toan-bo-sang-procedure.md).
 - Upload toàn bộ project; file `.htaccess` ở gốc tự chuyển request vào `public/`. Nếu link bị lệch, điền `'base_url'` trong config.local.php.
 
 ## Cấu trúc
@@ -30,6 +31,7 @@ app/helpers/       functions.php (e(), base_url(), csrf_field(), flash()...)
 ## Quy ước
 - URL: `/controller/action/param` → `ControllerController::action(param)`. `/admin/users/lock/3` → `AdminUsersController::lock(3)` (file trong `controllers/admin/`).
 - Model gọi stored procedure bằng `$this->call('sp_ten', [...])`; mỗi chức năng dữ liệu có procedure tương ứng.
+- `$this->routine('sp_ten', [...])` trả kết quả đã buffer qua `RoutineResult` khi cần fetch/fetchColumn/rowCount. `Database` luôn đóng hết các result set của CALL trước thao tác tiếp theo.
 - Luôn dùng prepared statement. Mọi form POST có `<?= csrf_field() ?>`; AJAX gửi header `X-CSRF-Token` (hàm `api()` trong `assets/js/app.js` đã làm sẵn).
 - AJAX trả JSON qua `$this->json($data, $success, $message)` → `{success, message, data}`.
 - Chặn quyền: `$this->requireRole('agent')` ở constructor hoặc đầu action.

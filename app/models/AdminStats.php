@@ -8,33 +8,17 @@ class AdminStats extends Model
 
     public function counts(): array
     {
-        try {
-            $r = $this->call('sp_dashboard_counts')[0] ?? [];
-        } catch (\Throwable $e) {
-            $r = [
-                'users_total' => (int)$this->query('SELECT COUNT(*) FROM users')->fetchColumn(),
-                'properties_total' => (int)$this->query("SELECT COUNT(*) FROM properties WHERE status = 'approved'")->fetchColumn(),
-                'pending_total' => (int)$this->query("SELECT COUNT(*) FROM properties WHERE status = 'pending'")->fetchColumn(),
-                'reports_total' => (int)$this->query("SELECT COUNT(*) FROM reports WHERE status IN ('open', 'pending')")->fetchColumn(),
-            ];
-        }
-        $approvedCount = (int)$this->query("SELECT COUNT(*) FROM properties WHERE status = 'approved'")->fetchColumn();
-        return [
-            'Người dùng' => (int)($r['users_total'] ?? 0),
-            'Tin đã duyệt' => $approvedCount,
+        $r = $this->call('sp_dashboard_counts')[0] ?? [];
+        return ['Người dùng' => (int)($r['users_total'] ?? 0),
+            'Tin đã duyệt' => (int)($r['approved_total'] ?? 0),
             'Tin chờ duyệt' => (int)($r['pending_total'] ?? 0),
-            'Báo cáo mới' => (int)($r['reports_total'] ?? 0),
-        ];
+            'Báo cáo mới' => (int)($r['reports_total'] ?? 0)];
     }
 
     /** @return array<string,int> đủ 5 trạng thái, trạng thái không có tin thì bằng 0 */
     public function propertiesByStatus(): array
     {
-        try {
-            $rows = $this->call('sp_dashboard_by_status');
-        } catch (\Throwable $e) {
-            $rows = $this->query('SELECT status, COUNT(*) AS total FROM properties GROUP BY status')->fetchAll();
-        }
+        $rows = $this->call('sp_dashboard_by_status');
         $result = array_fill_keys(self::STATUSES, 0);
         foreach ($rows as $r) {
             if (isset($result[$r['status']])) $result[$r['status']] = (int)$r['total'];
@@ -48,20 +32,7 @@ class AdminStats extends Model
      */
     public function propertiesByProvince(): array
     {
-        $rows = $this->query(
-            "SELECT pv.id AS province_id,
-                    pv.name AS province_name,
-                    COUNT(pr.id) AS total,
-                    COUNT(pr.id) AS approved,
-                    0 AS pending,
-                    0 AS hidden
-             FROM properties pr
-             JOIN wards w ON w.id = pr.ward_id
-             JOIN provinces pv ON pv.id = w.province_id
-             WHERE pr.status = 'approved'
-             GROUP BY pv.id, pv.name
-             ORDER BY approved DESC, pv.name ASC"
-        )->fetchAll();
+        $rows = $this->routine('sp_rt_admin_stats_properties_by_province_1', [])->fetchAll();
 
         $result = [];
         foreach ($rows as $r) {

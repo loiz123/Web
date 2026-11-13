@@ -159,15 +159,13 @@ class AgentController extends Controller
             $osmWardName = trim(urldecode(substr($rawWard, 9)));
             if ($osmWardName !== '' && $provinceId) {
                 $dbConn = Database::connection();
-                $wStmt = $dbConn->prepare("SELECT id FROM wards WHERE province_id = ? AND name = ? LIMIT 1");
-                $wStmt->execute([(int)$provinceId, $osmWardName]);
+                $wStmt = Database::routine('sp_rt_agent_controller_validate_listing_input_1', [(int)$provinceId, $osmWardName]);
                 $wRow = $wStmt->fetch();
                 if ($wRow) {
                     $wardId = (int)$wRow['id'];
                 } else {
-                    $insW = $dbConn->prepare("INSERT INTO wards (province_id, district_id, name) VALUES (?, 0, ?)");
-                    $insW->execute([(int)$provinceId, $osmWardName]);
-                    $wardId = (int)$dbConn->lastInsertId();
+                    $insW = Database::routine('sp_rt_agent_controller_validate_listing_input_2', [(int)$provinceId, $osmWardName]);
+                    $wardId = (int)Database::lastInsertId();
                 }
             }
         }

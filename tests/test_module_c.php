@@ -391,9 +391,9 @@ $t->assert(
     "6.6 compare.php hiển thị đúng cover_url, agent_name, agent_phone và nhãn nội thất tiếng Việt"
 );
 $t->assert(
-    strpos($finderSrc, "if (isset(\$rows[0]['total']))") !== false
-    && $finder->countSearch(['keyword' => '__KHONG_TON_TAI_XYZ_99999__']) === 0,
-    "6.7 PropertyFinder::countSearch() dùng isset(\$rows[0]['total']) và trả về 0 chính xác khi không có kết quả"
+    $finder->countSearch(['keyword' => '__KHONG_TON_TAI_XYZ_99999__']) === 0
+    && $finder->search(['keyword' => '__KHONG_TON_TAI_XYZ_99999__']) === [],
+    "6.7 Tổng và danh sách tìm kiếm đều rỗng khi không có kết quả"
 );
 $t->assert(
     strpos($agentEditViewSrc, 'name="ward_id"') !== false

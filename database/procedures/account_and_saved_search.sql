@@ -13,7 +13,9 @@ END$$
 DROP PROCEDURE IF EXISTS sp_user_session$$
 CREATE PROCEDURE sp_user_session(IN p_id INT)
 BEGIN
-  SELECT u.id, u.full_name, u.email, u.status, r.name AS role_name FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = p_id;
+  SELECT u.id, u.full_name, u.email, u.password_hash, u.avatar, u.bio, u.status, u.role_id,
+         r.name AS role_name
+  FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = p_id;
 END$$
 DROP PROCEDURE IF EXISTS sp_user_register$$
 CREATE PROCEDURE sp_user_register(IN p_name VARCHAR(100), IN p_email VARCHAR(100), IN p_phone VARCHAR(15), IN p_hash VARCHAR(255), IN p_role VARCHAR(20))

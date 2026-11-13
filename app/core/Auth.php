@@ -53,12 +53,7 @@ class Auth
     public static function validate(): void
     {
         if (!self::check()) return;
-        $stmt = Database::connection()->prepare(
-            'SELECT u.id, u.full_name, u.email, u.password_hash, u.avatar, u.bio, u.status, u.role_id, r.name AS role_name
-             FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = ?'
-        );
-        $stmt->execute([self::id()]);
-        $u = $stmt->fetch();
+        $u = (new User())->sessionUser((int)self::id());
         if ($u && $u['status'] !== 'locked') {
             $sessionSig = $_SESSION['user']['pwd_sig'] ?? ($_SESSION['password_signature'] ?? null);
             $currentSig = self::passwordSignature((string)($u['password_hash'] ?? ''));

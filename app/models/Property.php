@@ -22,37 +22,10 @@ class Property extends Model
 
     public function listingsForUser(int $userId, ?string $status = null): array
     {
-        if (config('use_routines')) {
-            try {
-                return $this->call('sp_agent_property_list', [$userId, $status]);
-            } catch (PDOException $error) {
-                $code = (int)($error->errorInfo[1] ?? 0);
-                if ($code !== 1305) {
-                    throw $error;
-                }
-            }
-        }
-        return $this->listingsForUserSql($userId, $status);
+        return $this->call('sp_agent_property_list', [$userId, $status]);
     }
 
-    private function listingsForUserSql(int $userId, ?string $status): array
-    {
-        $sql = "SELECT p.id, p.title, p.status, p.listing_type, p.price, p.area, p.created_at,
-                       p.expired_at, p.reject_reason,
-                       t.name AS type_name,
-                       (SELECT image_url FROM property_images i
-                        WHERE i.property_id = p.id ORDER BY i.is_cover DESC, i.id LIMIT 1) AS cover_url
-                FROM properties p
-                JOIN property_types t ON t.id = p.type_id
-                WHERE p.user_id = ?";
-        $params = [$userId];
-        if ($status !== null) {
-            $sql .= ' AND p.status = ?';
-            $params[] = $status;
-        }
-        $sql .= ' ORDER BY p.created_at DESC, p.id DESC';
-        return $this->query($sql, $params)->fetchAll();
-    }
+
 
     /**
      * Gia hạn thời gian hiển thị của tin đăng thêm $days ngày (mặc định 30 ngày).
@@ -60,29 +33,13 @@ class Property extends Model
     public function renewOwnedListing(int $id, int $userId, int $days = 30): bool
     {
         $days = max(1, min(365, $days));
-        $stmt = $this->query(
-            "UPDATE properties
-             SET expired_at = CASE
-                 WHEN expired_at IS NOT NULL AND expired_at > NOW() THEN DATE_ADD(expired_at, INTERVAL {$days} DAY)
-                 ELSE DATE_ADD(NOW(), INTERVAL {$days} DAY)
-             END
-             WHERE id = ? AND user_id = ?",
-            [$id, $userId]
-        );
+        $stmt = $this->routine('sp_rt_property_renew_owned_listing_1', [...[$id, $userId], $days, $days]);
         return $stmt->rowCount() > 0;
     }
 
     public function findOwned(int $id, int $userId): ?array
     {
-        $row = $this->query(
-            'SELECT p.*, w.province_id, w.district_id, pr.name AS province_name, w.name AS ward_name
-             FROM properties p
-             LEFT JOIN wards w ON w.id = p.ward_id
-             LEFT JOIN provinces pr ON pr.id = w.province_id
-             LEFT JOIN districts d ON d.id = w.district_id
-             WHERE p.id = ? AND p.user_id = ?',
-            [$id, $userId]
-        )->fetch();
+        $row = $this->routine('sp_rt_property_find_owned_1', [$id, $userId])->fetch();
         return $row ?: null;
     }
 
@@ -90,22 +47,16 @@ class Property extends Model
     {
         return array_map(
             'intval',
-            $this->query(
-                'SELECT amenity_id FROM property_amenities WHERE property_id = ? ORDER BY amenity_id ASC',
-                [$propertyId]
-            )->fetchAll(PDO::FETCH_COLUMN)
+            $this->routine('sp_rt_property_amenity_ids_for_listing_1', [$propertyId])->fetchAll(PDO::FETCH_COLUMN)
         );
     }
 
     public function syncAmenities(int $propertyId, array $amenityIds): void
     {
-        $this->query('DELETE FROM property_amenities WHERE property_id = ?', [$propertyId]);
+        $this->routine('sp_rt_property_sync_amenities_1', [$propertyId]);
         $uniqueIds = array_values(array_unique(array_filter(array_map('intval', $amenityIds), fn($v) => $v > 0)));
         foreach ($uniqueIds as $amenityId) {
-            $this->query(
-                'INSERT INTO property_amenities (property_id, amenity_id) VALUES (?, ?)',
-                [$propertyId, $amenityId]
-            );
+            $this->routine('sp_rt_property_sync_amenities_2', [$propertyId, $amenityId]);
         }
     }
 
@@ -148,20 +99,12 @@ class Property extends Model
 
         $this->db->beginTransaction();
         try {
-            $this->query(
-                "UPDATE properties
-                 SET type_id = ?, ward_id = ?, title = ?, description = ?, listing_type = ?, price = ?, deposit = ?,
-                     area = ?, bedrooms = ?, bathrooms = ?, direction = ?, legal_status = ?, furniture = ?,
-                     pets_allowed = ?, address_detail = ?, latitude = ?, longitude = ?,
-                     status = 'pending', reject_reason = NULL
-                 WHERE id = ? AND user_id = ?",
-                [
+            $this->routine('sp_rt_property_update_owned_listing_1', [
                     (int)$data['type_id'], $wardId, $data['title'], $data['description'], $data['listing_type'],
                     (float)$data['price'], $deposit, (float)$data['area'], (int)$data['bedrooms'], (int)$data['bathrooms'],
                     $direction, $legalStatus, $furniture, $petsAllowed,
                     $data['address_detail'], $lat, $lng, $id, $userId,
-                ]
-            );
+                ]);
 
             if ($amenityIds === null && isset($data['amenities']) && is_array($data['amenities'])) {
                 $amenityIds = $data['amenities'];
@@ -173,11 +116,7 @@ class Property extends Model
             if (!empty($deleteImageIds)) {
                 $cleanDelIds = array_values(array_filter(array_map('intval', $deleteImageIds), fn($v) => $v > 0));
                 if (!empty($cleanDelIds)) {
-                    $marks = implode(',', array_fill(0, count($cleanDelIds), '?'));
-                    $this->query(
-                        "DELETE FROM property_images WHERE property_id = ? AND id IN ($marks)",
-                        [$id, ...$cleanDelIds]
-                    );
+                    $this->call('sp_property_images_remove_ids', [$id, implode(',', $cleanDelIds)]);
                 }
             }
 
@@ -192,27 +131,18 @@ class Property extends Model
             }
 
             if ($coverImageId !== null && $coverImageId > 0) {
-                $hasCoverTarget = (bool)$this->query(
-                    'SELECT id FROM property_images WHERE id = ? AND property_id = ?',
-                    [$coverImageId, $id]
-                )->fetchColumn();
+                $hasCoverTarget = (bool)$this->routine('sp_rt_property_update_owned_listing_2', [$coverImageId, $id])->fetchColumn();
                 if ($hasCoverTarget) {
-                    $this->query('UPDATE property_images SET is_cover = 0 WHERE property_id = ?', [$id]);
-                    $this->query('UPDATE property_images SET is_cover = 1 WHERE id = ? AND property_id = ?', [$coverImageId, $id]);
+                    $this->routine('sp_rt_property_update_owned_listing_3', [$id]);
+                    $this->routine('sp_rt_property_update_owned_listing_4', [$coverImageId, $id]);
                 }
             }
 
-            $hasCover = (bool)$this->query(
-                'SELECT id FROM property_images WHERE property_id = ? AND is_cover = 1 LIMIT 1',
-                [$id]
-            )->fetchColumn();
+            $hasCover = (bool)$this->routine('sp_rt_property_update_owned_listing_5', [$id])->fetchColumn();
             if (!$hasCover) {
-                $firstImgId = (int)$this->query(
-                    'SELECT id FROM property_images WHERE property_id = ? ORDER BY id ASC LIMIT 1',
-                    [$id]
-                )->fetchColumn();
+                $firstImgId = (int)$this->routine('sp_rt_property_update_owned_listing_6', [$id])->fetchColumn();
                 if ($firstImgId > 0) {
-                    $this->query('UPDATE property_images SET is_cover = 1 WHERE id = ?', [$firstImgId]);
+                    $this->routine('sp_rt_property_update_owned_listing_7', [$firstImgId]);
                 }
             }
 
@@ -270,73 +200,7 @@ class Property extends Model
      */
     public function getSimilarProperties(int $currentId, int $districtId, int $typeId, float $price, int $limit = 4): array
     {
-        $limit = max(1, (int)$limit);
-        $sql = "SELECT p.id, p.title, p.listing_type, p.price, p.area, p.bedrooms, p.bathrooms,
-                       p.direction, p.is_verified, p.latitude, p.longitude, p.created_at, p.address_detail,
-                       t.id AS type_id, t.name AS type_name,
-                       w.id AS ward_id, w.name AS ward_name,
-                       d.id AS district_id, d.name AS district_name,
-                       pr.id AS province_id, pr.name AS province_name,
-                       (SELECT image_url FROM property_images i
-                        WHERE i.property_id = p.id ORDER BY i.is_cover DESC, i.id ASC LIMIT 1) AS cover_url
-                FROM properties p
-                JOIN property_types t ON t.id = p.type_id
-                JOIN wards w ON w.id = p.ward_id
-                LEFT JOIN provinces pr ON pr.id = w.province_id
-                LEFT JOIN districts d ON d.id = w.district_id
-                WHERE p.status = 'approved'
-                  AND p.id != :currentId
-                  AND (w.id = :wardIdFilter OR d.id = :districtIdFilter OR p.type_id = :typeIdFilter)
-                ORDER BY
-                    (CASE
-                        WHEN (w.id = :wardIdOrder OR d.id = :districtIdOrder) AND p.type_id = :typeIdOrder THEN 0
-                        WHEN (w.id = :wardIdSecond OR d.id = :districtIdSecond) THEN 1
-                        WHEN p.type_id = :typeIdSecond THEN 2
-                        ELSE 3
-                    END) ASC,
-                    ABS(p.price - :price) ASC,
-                    p.created_at DESC
-                LIMIT {$limit}";
-
-        $rows = $this->query($sql, [
-            ':currentId'        => $currentId,
-            ':wardIdFilter'     => $districtId,
-            ':districtIdFilter' => $districtId,
-            ':typeIdFilter'     => $typeId,
-            ':wardIdOrder'      => $districtId,
-            ':districtIdOrder'  => $districtId,
-            ':typeIdOrder'      => $typeId,
-            ':wardIdSecond'     => $districtId,
-            ':districtIdSecond' => $districtId,
-            ':typeIdSecond'     => $typeId,
-            ':price'            => $price,
-        ])->fetchAll();
-
-        // Nếu ít kết quả hơn $limit thì lấy bổ sung các tin đã duyệt khác có mức giá gần nhất
-        if (count($rows) < $limit) {
-            $excludeIds = array_merge([$currentId], array_map(fn($r) => (int)$r['id'], $rows));
-            $placeholders = implode(',', array_fill(0, count($excludeIds), '?'));
-            $needed = $limit - count($rows);
-            $fallbackSql = "SELECT p.id, p.title, p.listing_type, p.price, p.area, p.bedrooms, p.bathrooms,
-                                   p.direction, p.is_verified, p.latitude, p.longitude, p.created_at, p.address_detail,
-                                   t.id AS type_id, t.name AS type_name,
-                                   w.id AS ward_id, w.name AS ward_name,
-                                   d.id AS district_id, d.name AS district_name,
-                                   pr.id AS province_id, pr.name AS province_name,
-                                   (SELECT image_url FROM property_images i
-                                    WHERE i.property_id = p.id ORDER BY i.is_cover DESC, i.id ASC LIMIT 1) AS cover_url
-                            FROM properties p
-                            JOIN property_types t ON t.id = p.type_id
-                            JOIN wards w ON w.id = p.ward_id
-                            LEFT JOIN provinces pr ON pr.id = w.province_id
-                            LEFT JOIN districts d ON d.id = w.district_id
-                            WHERE p.status = 'approved'
-                              AND p.id NOT IN ({$placeholders})
-                            ORDER BY ABS(p.price - ?) ASC, p.created_at DESC
-                            LIMIT {$needed}";
-            $fallbackRows = $this->query($fallbackSql, [...$excludeIds, $price])->fetchAll();
-            $rows = array_merge($rows, $fallbackRows);
-        }
+        $rows = $this->call('sp_property_similar_full', [$currentId, $districtId, $typeId, $price, max(1, $limit)]);
 
         foreach ($rows as &$row) {
             $row['avatar'] = $row['cover_url'] ?? null;

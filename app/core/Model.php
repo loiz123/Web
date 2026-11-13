@@ -1,126 +1,37 @@
 <?php
-// Lớp cha cho mọi Model. Model con khai báo $table và $fillable.
+// Data access is exclusively through named stored procedures.
 abstract class Model
 {
     protected string $table;
     protected string $primaryKey = 'id';
-    protected array $fillable = [];       // chỉ các cột này được phép ghi qua create()/update()
+    protected array $fillable = [];
     protected PDO $db;
 
     public function __construct() { $this->db = Database::connection(); }
+    protected function call(string $procedure, array $args = []): array { return Database::call($procedure, $args); }
+    protected function routine(string $procedure, array $args = []): RoutineResult { return Database::routine($procedure, $args); }
 
-    protected function query(string $sql, array $params = []): PDOStatement
+    private function modelProcedure(string $operation): string
     {
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute($params);
-        return $stmt;
+        $tables = ['roles','users','provinces','districts','wards','property_types','amenities','properties',
+            'property_images','property_amenities','saved_searches','favorites','reviews','viewing_appointments',
+            'reports','password_resets','notifications'];
+        if (!in_array($this->table, $tables, true)) throw new LogicException('Unsupported model table.');
+        return 'sp_model_' . $this->table . '_' . $operation;
     }
-
-    /** Gọi stored procedure: call('sp_name', [a, b]) -> mảng dòng kết quả */
-    protected function call(string $procedure, array $args = []): array
-    {
-        try {
-            $marks = implode(',', array_fill(0, count($args), '?'));
-            $stmt = $this->db->prepare("CALL $procedure($marks)");
-            $stmt->execute(array_values($args));
-            $rows = $stmt->fetchAll();
-            $stmt->closeCursor();
-            return $rows;
-        } catch (PDOException $e) {
-            if ($e->getCode() === '42000' || str_contains($e->getMessage(), '1305') || str_contains($e->getMessage(), 'does not exist')) {
-                return $this->fallbackCall($procedure, $args);
-            }
-            throw $e;
-        }
-    }
-
-    /** Fallback an toàn khi stored procedure chưa tồn tại trên DB (lỗi 1305) */
-    protected function fallbackCall(string $procedure, array $args = []): array
-    {
-        $allowedTables = ['property_types', 'amenities', 'provinces', 'districts', 'wards'];
-
-        switch ($procedure) {
-            case 'sp_catalog_sorted':
-                $table = (string)($args[0] ?? '');
-                if (in_array($table, $allowedTables, true)) {
-                    return $this->query("SELECT id, name FROM {$table} ORDER BY name ASC")->fetchAll();
-                }
-                return [];
-
-            case 'sp_catalog_find':
-                $table = (string)($args[0] ?? '');
-                $id = (int)($args[1] ?? 0);
-                if (in_array($table, $allowedTables, true)) {
-                    return $this->query("SELECT * FROM {$table} WHERE id = ?", [$id])->fetchAll();
-                }
-                return [];
-
-            case 'sp_location_provinces':
-                return $this->query("SELECT id, name FROM provinces ORDER BY name")->fetchAll();
-
-            case 'sp_location_districts':
-                return $this->query(
-                    "SELECT id, name FROM districts WHERE province_id = ? ORDER BY name",
-                    [(int)($args[0] ?? 0)]
-                )->fetchAll();
-
-            case 'sp_location_wards':
-                return $this->query(
-                    "SELECT id, name FROM wards WHERE district_id = ? ORDER BY name",
-                    [(int)($args[0] ?? 0)]
-                )->fetchAll();
-
-            case 'sp_location_province_by_district':
-                return $this->query(
-                    "SELECT province_id FROM districts WHERE id = ?",
-                    [(int)($args[0] ?? 0)]
-                )->fetchAll();
-
-            case 'sp_location_valid_ward':
-                $provinceId = (int)($args[0] ?? 0);
-                $districtId = (int)($args[1] ?? 0);
-                $wardId = (int)($args[2] ?? 0);
-                return $this->query(
-                    "SELECT w.id FROM wards w
-                     LEFT JOIN districts d ON d.id = w.district_id
-                     JOIN provinces pr ON pr.id = w.province_id
-                     WHERE w.id = ? AND pr.id = ? AND (? = 0 OR d.id = ?)",
-                    [$wardId, $provinceId, $districtId, $districtId]
-                )->fetchAll();
-
-            default:
-                return [];
-        }
-    }
-
-    public function all(): array { return $this->query("SELECT * FROM {$this->table}")->fetchAll(); }
-
-    public function find(int $id): ?array
-    {
-        $row = $this->query("SELECT * FROM {$this->table} WHERE {$this->primaryKey} = ?", [$id])->fetch();
-        return $row ?: null;
-    }
-
+    public function all(): array { return $this->call($this->modelProcedure('all')); }
+    public function find(int $id): ?array { return $this->call($this->modelProcedure('find'), [$id])[0] ?? null; }
     public function create(array $data): int
     {
         $data = array_intersect_key($data, array_flip($this->fillable));
-        $cols = implode(',', array_keys($data));
-        $marks = implode(',', array_fill(0, count($data), '?'));
-        $this->query("INSERT INTO {$this->table} ($cols) VALUES ($marks)", array_values($data));
-        return (int)$this->db->lastInsertId();
+        return (int)($this->call($this->modelProcedure('create'), [json_encode((object)$data, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE)])[0]['id'] ?? 0);
     }
-
     public function update(int $id, array $data): bool
     {
         $data = array_intersect_key($data, array_flip($this->fillable));
         if (!$data) return false;
-        $set = implode(',', array_map(fn($c) => "$c = ?", array_keys($data)));
-        $this->query("UPDATE {$this->table} SET $set WHERE {$this->primaryKey} = ?", [...array_values($data), $id]);
+        $this->call($this->modelProcedure('update'), [$id, json_encode((object)$data, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE)]);
         return true;
     }
-
-    public function delete(int $id): bool
-    {
-        return $this->query("DELETE FROM {$this->table} WHERE {$this->primaryKey} = ?", [$id])->rowCount() > 0;
-    }
+    public function delete(int $id): bool { return (int)($this->call($this->modelProcedure('delete'), [$id])[0]['affected'] ?? 0) > 0; }
 }

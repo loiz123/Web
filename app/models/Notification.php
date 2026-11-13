@@ -11,12 +11,9 @@ class Notification
         $this->db = Database::connection();
     }
 
-    protected function query(string $sql, array $params = []): PDOStatement
-    {
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute($params);
-        return $stmt;
-    }
+
+
+    protected function routine(string $procedure, array $args = []): RoutineResult { return Database::routine($procedure, $args); }
 
     /**
      * Tạo thông báo mới. Hỗ trợ cả 2 dạng gọi:
@@ -51,11 +48,7 @@ class Notification
         $cleanLink = ($link !== null && trim($link) !== '') ? trim($link) : null;
         $cleanType = trim($type) !== '' ? trim($type) : 'info';
 
-        $stmt = $db->prepare(
-            'INSERT INTO notifications (user_id, title, message, link, type, is_read, created_at)
-             VALUES (?, ?, ?, ?, ?, 0, ?)'
-        );
-        $stmt->execute([
+        $stmt = Database::routine('sp_rt_notification_create_1', [
             $userId,
             mb_substr(trim($title), 0, 255),
             trim($message),
@@ -64,7 +57,7 @@ class Notification
             $now,
         ]);
 
-        return (int)$db->lastInsertId();
+        return (int)Database::lastInsertId();
     }
 
     /**
@@ -87,13 +80,7 @@ class Notification
     {
         $limit = max(1, min(100, $limit));
         try {
-            return $this->query(
-                "SELECT * FROM notifications
-                 WHERE user_id = ? AND is_read = 0
-                 ORDER BY created_at DESC, id DESC
-                 LIMIT {$limit}",
-                [$userId]
-            )->fetchAll();
+            return $this->routine('sp_rt_notification_get_unread_for_user_1', [...[$userId], $limit])->fetchAll();
         } catch (Throwable $e) {
             return [];
         }
@@ -105,10 +92,7 @@ class Notification
     public function countUnreadForUser(int $userId): int
     {
         try {
-            return (int)$this->query(
-                'SELECT COUNT(*) FROM notifications WHERE user_id = ? AND is_read = 0',
-                [$userId]
-            )->fetchColumn();
+            return (int)$this->routine('sp_rt_notification_count_unread_for_user_1', [$userId])->fetchColumn();
         } catch (Throwable $e) {
             return 0;
         }
@@ -121,13 +105,7 @@ class Notification
     {
         $limit = max(1, min(200, $limit));
         try {
-            return $this->query(
-                "SELECT * FROM notifications
-                 WHERE user_id = ?
-                 ORDER BY is_read ASC, created_at DESC, id DESC
-                 LIMIT {$limit}",
-                [$userId]
-            )->fetchAll();
+            return $this->routine('sp_rt_notification_get_all_for_user_1', [...[$userId], $limit])->fetchAll();
         } catch (Throwable $e) {
             return [];
         }
@@ -138,10 +116,7 @@ class Notification
      */
     public function findForUser(int $id, int $userId): ?array
     {
-        $row = $this->query(
-            'SELECT * FROM notifications WHERE id = ? AND user_id = ? LIMIT 1',
-            [$id, $userId]
-        )->fetch();
+        $row = $this->routine('sp_rt_notification_find_for_user_1', [$id, $userId])->fetch();
         return $row ?: null;
     }
 
@@ -151,15 +126,9 @@ class Notification
     public function markAsRead(int $id, ?int $userId = null): bool
     {
         if ($userId !== null) {
-            return $this->query(
-                'UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?',
-                [$id, $userId]
-            )->rowCount() > 0;
+            return $this->routine('sp_rt_notification_mark_as_read_1', [$id, $userId])->rowCount() > 0;
         }
-        return $this->query(
-            'UPDATE notifications SET is_read = 1 WHERE id = ?',
-            [$id]
-        )->rowCount() > 0;
+        return $this->routine('sp_rt_notification_mark_as_read_2', [$id])->rowCount() > 0;
     }
 
     /**
@@ -167,20 +136,17 @@ class Notification
      */
     public function markAllAsRead(int $userId): int
     {
-        return $this->query(
-            'UPDATE notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0',
-            [$userId]
-        )->rowCount();
+        return $this->routine('sp_rt_notification_mark_all_as_read_1', [$userId])->rowCount();
     }
 
     public function find(int $id): ?array
     {
-        $row = $this->query('SELECT * FROM notifications WHERE id = ?', [$id])->fetch();
+        $row = $this->routine('sp_rt_notification_find_1', [$id])->fetch();
         return $row ?: null;
     }
 
     public function delete(int $id): bool
     {
-        return $this->query('DELETE FROM notifications WHERE id = ?', [$id])->rowCount() > 0;
+        return $this->routine('sp_rt_notification_delete_1', [$id])->rowCount() > 0;
     }
 }
