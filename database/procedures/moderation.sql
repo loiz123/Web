@@ -14,7 +14,7 @@ CREATE PROCEDURE sp_moderation_apply(IN p_id INT, IN p_action VARCHAR(10), IN p_
 BEGIN
  DECLARE v_affected INT DEFAULT 0;
  IF p_action='approve' THEN
-  UPDATE properties SET status='approved',reject_reason=NULL WHERE id=p_id AND status IN ('pending','hidden','rejected','closed');
+  UPDATE properties SET status='approved',reject_reason=NULL,expired_at=COALESCE(expired_at,DATE_ADD(NOW(),INTERVAL 30 DAY)),expired_at=COALESCE(expired_at,DATE_ADD(NOW(),INTERVAL 30 DAY)) WHERE id=p_id AND status IN ('pending','hidden','rejected','closed');
  ELSEIF p_action='reject' AND p_reason IS NOT NULL AND TRIM(p_reason)<>'' THEN
   UPDATE properties SET status='rejected',reject_reason=TRIM(p_reason) WHERE id=p_id AND status IN ('pending','approved');
  ELSEIF p_action='delete' THEN

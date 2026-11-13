@@ -8,61 +8,16 @@ class PropertyModeration extends Model
     {
         $page = max(1, $page);
         $perPage = max(1, min(50, $perPage));
-        $offset = ($page - 1) * $perPage;
-
-        if ($status === 'all') {
-            $total = (int)$this->query('SELECT COUNT(*) FROM properties')->fetchColumn();
-            $items = $this->query(
-                'SELECT p.id, p.title, p.listing_type, p.price, p.area, p.address_detail, p.status, p.reject_reason, p.is_verified, p.created_at, u.full_name AS agent_name
-                 FROM properties p
-                 JOIN users u ON u.id = p.user_id
-                 ORDER BY p.created_at DESC, p.id DESC
-                 LIMIT ' . (int)$perPage . ' OFFSET ' . (int)$offset
-            )->fetchAll();
-
-            return ['items' => $items, 'total' => $total, 'page' => $page];
-        }
-
-        if (!in_array($status, ['pending', 'approved', 'rejected', 'hidden', 'closed'], true)) {
-            $status = 'pending';
-        }
-
-        if (config('use_routines')) {
-            try {
-                $total = (int)($this->call('sp_moderation_count', [$status])[0]['total'] ?? 0);
-                $items = $this->call('sp_moderation_list', [$status, $perPage, $offset]);
-                return ['items' => $items, 'total' => $total, 'page' => $page];
-            } catch (PDOException $e) {
-                $code = (int)($e->errorInfo[1] ?? 0);
-                if ($code !== 1305) {
-                    throw $e;
-                }
-            }
-        }
-
-        $total = (int)$this->query('SELECT COUNT(*) FROM properties WHERE status = ?', [$status])->fetchColumn();
-        $items = $this->query(
-            'SELECT p.id, p.title, p.listing_type, p.price, p.area, p.address_detail, p.status, p.reject_reason, p.is_verified, p.created_at, u.full_name AS agent_name
-             FROM properties p
-             JOIN users u ON u.id = p.user_id
-             WHERE p.status = ?
-             ORDER BY p.created_at DESC, p.id DESC
-             LIMIT ' . (int)$perPage . ' OFFSET ' . (int)$offset,
-            [$status]
-        )->fetchAll();
-
-        return ['items' => $items, 'total' => $total, 'page' => $page];
+        $status = in_array($status, ['all','pending','approved','rejected','hidden','closed'], true) ? $status : 'pending';
+        return ['items' => $this->call('sp_moderation_page', [$status, $perPage, ($page - 1) * $perPage]),
+            'total' => (int)($this->call('sp_moderation_total', [$status])[0]['total'] ?? 0), 'page' => $page];
     }
 
     /** Số tin theo trạng thái (cho dashboard & các tab quản lý tin). */
     public function countByStatus(): array
     {
         $result = ['pending' => 0, 'approved' => 0, 'rejected' => 0, 'hidden' => 0, 'closed' => 0];
-        try {
-            $rows = $this->call('sp_dashboard_by_status');
-        } catch (\Throwable $e) {
-            $rows = $this->query('SELECT status, COUNT(*) AS total FROM properties GROUP BY status')->fetchAll();
-        }
+        $rows = $this->call('sp_dashboard_by_status');
         foreach ($rows as $row) {
             if (isset($row['status'])) {
                 $result[$row['status']] = (int)$row['total'];
@@ -74,84 +29,19 @@ class PropertyModeration extends Model
     /** @return array{ok: bool, message: string} */
     public function moderate(int $id, string $action, string $reason = ''): array
     {
-        if (!in_array($action, ['approve', 'reject', 'delete'], true)) {
-            return ['ok' => false, 'message' => 'Hành động không hợp lệ.'];
-        }
+        if (!in_array($action, ['approve','reject','delete'], true)) return ['ok'=>false,'message'=>'Hành động không hợp lệ.'];
         $reason = mb_substr(trim($reason), 0, 255);
-        if ($action === 'reject' && $reason === '') {
-            return ['ok' => false, 'message' => 'Vui lòng nhập lý do từ chối.'];
+        if ($action === 'reject' && $reason === '') return ['ok'=>false,'message'=>'Vui lòng nhập lý do từ chối.'];
+        $prop = (new Property())->find($id);
+        $res = $this->call('sp_moderation_apply', [$id, $action, $reason])[0] ?? [];
+        $ok = (int)($res['affected'] ?? 0) > 0;
+        if ($ok && $prop && in_array($action, ['approve','reject'], true)) {
+            $this->notifyAgentModeration((int)$prop['user_id'], $id, (string)$prop['title'], $action, $reason);
         }
-
-        $prop = $this->query('SELECT id, user_id, title, status FROM properties WHERE id = ? LIMIT 1', [$id])->fetch();
-        $result = null;
-
-        if (config('use_routines') && (!$prop || ($prop['status'] ?? '') === 'pending' || $action === 'delete')) {
-            try {
-                $res = $this->call('sp_moderation_apply', [$id, $action, $reason])[0] ?? [];
-                if ((int)($res['affected'] ?? 0) > 0) {
-                    if ($action === 'approve') {
-                        $this->query(
-                            'UPDATE properties SET expired_at = COALESCE(expired_at, DATE_ADD(NOW(), INTERVAL 30 DAY)) WHERE id = ?',
-                            [$id]
-                        );
-                    }
-                    $result = ['ok' => true, 'message' => $this->successMessage($action)];
-                } else {
-                    $result = [
-                        'ok' => false,
-                        'message' => !empty($res['exists_after'])
-                            ? 'Chỉ duyệt hoặc từ chối được tin đang chờ duyệt.'
-                            : 'Tin không tồn tại hoặc đã bị xóa.'
-                    ];
-                }
-            } catch (PDOException $e) {
-                $code = (int)($e->errorInfo[1] ?? 0);
-                if ($code === 1644) {
-                    return ['ok' => false, 'message' => (string)($e->errorInfo[2] ?? 'Không thực hiện được.')];
-                }
-                if ($code !== 1305) {
-                    throw $e;
-                }
-            }
-        }
-
-        if ($result === null) {
-            $result = $this->moderateSql($id, $action, $reason);
-        }
-
-        if (!empty($result['ok']) && $prop && in_array($action, ['approve', 'reject'], true)) {
-            $this->notifyAgentModeration((int)$prop['user_id'], (int)$prop['id'], (string)$prop['title'], $action, $reason);
-        }
-
-        return $result;
+        return ['ok'=>$ok,'message'=>$ok ? $this->successMessage($action) : 'Tin không tồn tại hoặc không thể đổi trạng thái hiện tại.'];
     }
 
-    private function moderateSql(int $id, string $action, string $reason): array
-    {
-        $exists = (bool)$this->query('SELECT 1 FROM properties WHERE id = ?', [$id])->fetchColumn();
-        if (!$exists) {
-            return ['ok' => false, 'message' => 'Tin không tồn tại hoặc đã bị xóa.'];
-        }
 
-        if ($action === 'approve') {
-            $stmt = $this->query(
-                "UPDATE properties SET status = 'approved', reject_reason = NULL, expired_at = COALESCE(expired_at, DATE_ADD(NOW(), INTERVAL 30 DAY)) WHERE id = ? AND status IN ('pending', 'hidden', 'rejected', 'closed')",
-                [$id]
-            );
-        } elseif ($action === 'reject') {
-            $stmt = $this->query(
-                "UPDATE properties SET status = 'rejected', reject_reason = ? WHERE id = ? AND status IN ('pending', 'approved')",
-                [$reason, $id]
-            );
-        } else {
-            $stmt = $this->query('DELETE FROM properties WHERE id = ?', [$id]);
-        }
-
-        if ($stmt->rowCount() > 0) {
-            return ['ok' => true, 'message' => $this->successMessage($action)];
-        }
-        return ['ok' => false, 'message' => 'Chỉ duyệt hoặc từ chối được tin đang chờ duyệt.'];
-    }
 
     private function notifyAgentModeration(int $agentId, int $propertyId, string $title, string $action, string $reason): void
     {
@@ -185,8 +75,7 @@ class PropertyModeration extends Model
     public static function toggleVerified(int $propertyId): array
     {
         $db = Database::connection();
-        $stmt = $db->prepare('SELECT id, user_id, title, is_verified FROM properties WHERE id = ? LIMIT 1');
-        $stmt->execute([$propertyId]);
+        $stmt = Database::routine('sp_rt_property_moderation_toggle_verified_1', [$propertyId]);
         $prop = $stmt->fetch();
 
         if (!$prop) {
@@ -196,8 +85,7 @@ class PropertyModeration extends Model
         $currentVal = (int)($prop['is_verified'] ?? 0);
         $newVal = $currentVal === 1 ? 0 : 1;
 
-        $upStmt = $db->prepare('UPDATE properties SET is_verified = ? WHERE id = ?');
-        $upStmt->execute([$newVal, $propertyId]);
+        $upStmt = Database::routine('sp_rt_property_moderation_toggle_verified_2', [$newVal, $propertyId]);
 
         // Tạo thông báo in-app tự động cho chủ tin (user_id của tin đó) qua model Notification::create(...)
         try {
@@ -245,8 +133,7 @@ class PropertyModeration extends Model
         }
 
         $db = Database::connection();
-        $stmt = $db->prepare('SELECT id, user_id, title, status FROM properties WHERE id = ? LIMIT 1');
-        $stmt->execute([$propertyId]);
+        $stmt = Database::routine('sp_rt_property_moderation_update_status_1', [$propertyId]);
         $prop = $stmt->fetch();
 
         if (!$prop) {
@@ -254,8 +141,7 @@ class PropertyModeration extends Model
         }
 
         if ($status === 'deleted') {
-            $delStmt = $db->prepare('DELETE FROM properties WHERE id = ?');
-            $delStmt->execute([$propertyId]);
+            $delStmt = Database::routine('sp_rt_property_moderation_update_status_2', [$propertyId]);
 
             try {
                 $userId = (int)$prop['user_id'];
@@ -280,26 +166,19 @@ class PropertyModeration extends Model
         }
 
         if ($status === 'approved') {
-            $upStmt = $db->prepare(
-                "UPDATE properties SET status = 'approved', reject_reason = NULL, expired_at = COALESCE(expired_at, DATE_ADD(NOW(), INTERVAL 30 DAY)) WHERE id = ?"
-            );
-            $upStmt->execute([$propertyId]);
+            $upStmt = Database::routine('sp_rt_property_moderation_update_status_3', [$propertyId]);
             $msg = 'Đã duyệt và công khai tin đăng thành công.';
         } elseif ($status === 'rejected') {
-            $upStmt = $db->prepare("UPDATE properties SET status = 'rejected' WHERE id = ?");
-            $upStmt->execute([$propertyId]);
+            $upStmt = Database::routine('sp_rt_property_moderation_update_status_4', [$propertyId]);
             $msg = 'Đã từ chối tin đăng.';
         } elseif ($status === 'hidden') {
-            $upStmt = $db->prepare("UPDATE properties SET status = 'hidden' WHERE id = ?");
-            $upStmt->execute([$propertyId]);
+            $upStmt = Database::routine('sp_rt_property_moderation_update_status_5', [$propertyId]);
             $msg = 'Đã tạm ẩn tin đăng.';
         } elseif ($status === 'pending') {
-            $upStmt = $db->prepare("UPDATE properties SET status = 'pending' WHERE id = ?");
-            $upStmt->execute([$propertyId]);
+            $upStmt = Database::routine('sp_rt_property_moderation_update_status_6', [$propertyId]);
             $msg = 'Đã chuyển tin về trạng thái chờ duyệt.';
         } else {
-            $upStmt = $db->prepare("UPDATE properties SET status = ? WHERE id = ?");
-            $upStmt->execute([$status, $propertyId]);
+            $upStmt = Database::routine('sp_rt_property_moderation_update_status_7', [$status, $propertyId]);
             $msg = "Đã cập nhật trạng thái tin thành {$status}.";
         }
 

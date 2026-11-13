@@ -6,10 +6,15 @@ declare(strict_types=1);
  * Chạy qua CLI: php scripts/import_all_procedures_local.php
  */
 
-$dbName = 'batdongsan';
-$dsn = "mysql:host=127.0.0.1;dbname={$dbName};charset=utf8mb4";
-$username = 'root';
-$password = '';
+define('ROOT', dirname(__DIR__));
+$GLOBALS['config'] = require ROOT . '/config/config.php';
+require ROOT . '/app/helpers/functions.php';
+$c = config('db');
+$dbName = (string)(getenv('BDS_TEST_DB') ?: $c['name']);
+if (!preg_match('/^[a-zA-Z0-9_]+$/D', $dbName)) throw new RuntimeException('Invalid database name.');
+$dsn = "mysql:host={$c['host']};port={$c['port']};dbname={$dbName};charset=utf8mb4";
+$username = $c['user'];
+$password = $c['pass'];
 
 try {
     $pdo = new PDO($dsn, $username, $password, [
@@ -24,6 +29,7 @@ try {
 $procedureDir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'database' . DIRECTORY_SEPARATOR . 'procedures';
 $files = glob($procedureDir . DIRECTORY_SEPARATOR . '*.sql') ?: [];
 sort($files);
+array_unshift($files, dirname(__DIR__) . '/database/procedures.sql');
 
 if (empty($files)) {
     fwrite(STDERR, "[ERROR] Không tìm thấy file SQL nào trong: {$procedureDir}" . PHP_EOL);
@@ -80,6 +86,7 @@ function parseProcedureSqlStatements(string $sql): array
 
 $totalStatements = 0;
 $createdCount = 0;
+$expectedProcedures = [];
 
 foreach ($files as $file) {
     $basename = basename($file);
@@ -89,6 +96,9 @@ foreach ($files as $file) {
         exit(1);
     }
 
+    $content = preg_replace('/^\s*USE\s+[^;]+;\s*$/mi', '', $content) ?? $content;
+    preg_match_all('/CREATE\s+PROCEDURE\s+(\w+)/i', $content, $procedureMatches);
+    $expectedProcedures = array_merge($expectedProcedures, $procedureMatches[1]);
     $statements = parseProcedureSqlStatements($content);
     $fileCreated = 0;
 
@@ -125,10 +135,11 @@ $routines = $routinesStmt->fetchAll(PDO::FETCH_COLUMN);
 echo PHP_EOL . "Tổng kết: đã xử lý " . count($files) . " file, {$totalStatements} câu lệnh, tạo {$createdCount} procedure." . PHP_EOL;
 echo "Số procedure hiện có trong schema '{$dbName}': " . count($routines) . PHP_EOL;
 
-if (!in_array('sp_catalog_sorted', $routines, true)) {
-    fwrite(STDERR, "[ERROR] Thiếu procedure bắt buộc: sp_catalog_sorted" . PHP_EOL);
+$missing = array_values(array_diff(array_unique($expectedProcedures), $routines));
+if ($missing !== []) {
+    fwrite(STDERR, "[ERROR] Thiếu procedure bắt buộc: " . implode(', ', $missing) . PHP_EOL);
     exit(1);
 }
 
-echo "[VERIFIED] sp_catalog_sorted đã tồn tại trong {$dbName}." . PHP_EOL;
+echo "[VERIFIED] Đã có đầy đủ " . count(array_unique($expectedProcedures)) . " procedure bắt buộc trong {$dbName}." . PHP_EOL;
 echo "Danh sách ROUTINE_NAME: " . implode(', ', $routines) . PHP_EOL;

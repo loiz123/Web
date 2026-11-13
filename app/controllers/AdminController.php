@@ -88,10 +88,10 @@ class AdminController extends Controller
 
         $db = Database::connection();
         $counts = [
-            'total'     => (int)$db->query("SELECT COUNT(*) FROM reports")->fetchColumn(),
-            'pending'   => (int)$db->query("SELECT COUNT(*) FROM reports WHERE status IN ('open', 'pending')")->fetchColumn(),
-            'resolved'  => (int)$db->query("SELECT COUNT(*) FROM reports WHERE status = 'resolved'")->fetchColumn(),
-            'dismissed' => (int)$db->query("SELECT COUNT(*) FROM reports WHERE status = 'dismissed'")->fetchColumn(),
+            'total'     => (int)Database::routine('sp_rt_admin_controller_reports_1', [])->fetchColumn(),
+            'pending'   => (int)Database::routine('sp_rt_admin_controller_reports_2', [])->fetchColumn(),
+            'resolved'  => (int)Database::routine('sp_rt_admin_controller_reports_3', [])->fetchColumn(),
+            'dismissed' => (int)Database::routine('sp_rt_admin_controller_reports_4', [])->fetchColumn(),
         ];
 
         $this->view('admin/reports', [

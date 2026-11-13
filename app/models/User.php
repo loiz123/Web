@@ -29,40 +29,15 @@ class User extends Model
 
     public function updateProfile(int $id, string $name, string $phone, ?string $bio = null, ?string $avatar = null): void
     {
-        if ($bio === null && $avatar === null && config('use_routines')) {
-            try {
-                $this->call('sp_user_update_profile', [$id, $name, $phone !== '' ? $phone : null]);
-                return;
-            } catch (PDOException $e) {
-                if ((int)($e->errorInfo[1] ?? 0) !== 1305) throw $e;
-            }
-        }
-
-        $data = [
-            'full_name' => $name,
-            'phone' => $phone !== '' ? $phone : null,
-        ];
-        if ($bio !== null) {
-            $data['bio'] = $bio !== '' ? $bio : null;
-        }
-        if ($avatar !== null) {
-            $data['avatar'] = $avatar !== '' ? $avatar : null;
-        }
-        $this->update($id, $data);
+        $this->call('sp_user_profile_full', [$id, $name, $phone !== '' ? $phone : null,
+            $bio !== null ? 1 : 0, $bio !== '' ? $bio : null,
+            $avatar !== null ? 1 : 0, $avatar !== '' ? $avatar : null]);
     }
 
     public function setPassword(int $id, string $password): string
     {
         $hash = password_hash($password, PASSWORD_DEFAULT);
-        if (config('use_routines')) {
-            try {
-                $this->call('sp_user_set_password', [$id, $hash]);
-                return $hash;
-            } catch (PDOException $e) {
-                if ((int)($e->errorInfo[1] ?? 0) !== 1305) throw $e;
-            }
-        }
-        $this->update($id, ['password_hash' => $hash]);
+        $this->call('sp_user_set_password', [$id, $hash]);
         return $hash;
     }
 
@@ -74,32 +49,26 @@ class User extends Model
         $now = date('Y-m-d H:i:s');
         $expiresAt = date('Y-m-d H:i:s', time() + 1800); // 30 phút
 
-        $this->query('DELETE FROM password_resets WHERE email = ?', [$email]);
-        $this->query(
-            'INSERT INTO password_resets (email, token, expires_at, created_at) VALUES (?, ?, ?, ?)',
-            [$email, $token, $expiresAt, $now]
-        );
+        $this->routine('sp_rt_user_create_password_reset_token_1', [$email]);
+        $this->routine('sp_rt_user_create_password_reset_token_2', [$email, $token, $expiresAt, $now]);
         return $token;
     }
 
     public function findValidPasswordReset(string $token): ?array
     {
         if ($token === '') return null;
-        $row = $this->query(
-            'SELECT * FROM password_resets WHERE token = ? AND expires_at >= ? ORDER BY created_at DESC LIMIT 1',
-            [$token, date('Y-m-d H:i:s')]
-        )->fetch();
+        $row = $this->routine('sp_rt_user_find_valid_password_reset_1', [$token, date('Y-m-d H:i:s')])->fetch();
         return $row ?: null;
     }
 
     public function deletePasswordResetsForEmail(string $email): void
     {
-        $this->query('DELETE FROM password_resets WHERE email = ?', [$email]);
+        $this->routine('sp_rt_user_delete_password_resets_for_email_1', [$email]);
     }
 
     public function deletePasswordResetToken(string $token): void
     {
-        $this->query('DELETE FROM password_resets WHERE token = ?', [$token]);
+        $this->routine('sp_rt_user_delete_password_reset_token_1', [$token]);
     }
 
     // ---------- Kiểm tra dữ liệu dùng chung cho đăng ký và hồ sơ ----------

@@ -1,0 +1,317 @@
+[
+  {
+    "procedure": "sp_rt_admin_controller_reports_1",
+    "file": "app/controllers/AdminController.php",
+    "method": "reports"
+  },
+  {
+    "procedure": "sp_rt_admin_controller_reports_2",
+    "file": "app/controllers/AdminController.php",
+    "method": "reports"
+  },
+  {
+    "procedure": "sp_rt_admin_controller_reports_3",
+    "file": "app/controllers/AdminController.php",
+    "method": "reports"
+  },
+  {
+    "procedure": "sp_rt_admin_controller_reports_4",
+    "file": "app/controllers/AdminController.php",
+    "method": "reports"
+  },
+  {
+    "procedure": "sp_rt_agent_controller_validate_listing_input_1",
+    "file": "app/controllers/AgentController.php",
+    "method": "validateListingInput"
+  },
+  {
+    "procedure": "sp_rt_agent_controller_validate_listing_input_2",
+    "file": "app/controllers/AgentController.php",
+    "method": "validateListingInput"
+  },
+  {
+    "procedure": "sp_rt_report_controller_submit_1",
+    "file": "app/controllers/ReportController.php",
+    "method": "submit"
+  },
+  {
+    "procedure": "sp_rt_admin_stats_properties_by_province_1",
+    "file": "app/models/AdminStats.php",
+    "method": "propertiesByProvince"
+  },
+  {
+    "procedure": "sp_rt_appointment_find_with_property_1",
+    "file": "app/models/Appointment.php",
+    "method": "findWithProperty"
+  },
+  {
+    "procedure": "sp_rt_location_provinces_1",
+    "file": "app/models/Location.php",
+    "method": "provinces"
+  },
+  {
+    "procedure": "sp_rt_location_districts_by_province_1",
+    "file": "app/models/Location.php",
+    "method": "districtsByProvince"
+  },
+  {
+    "procedure": "sp_rt_location_wards_by_district_1",
+    "file": "app/models/Location.php",
+    "method": "wardsByDistrict"
+  },
+  {
+    "procedure": "sp_rt_location_wards_by_province_1",
+    "file": "app/models/Location.php",
+    "method": "wardsByProvince"
+  },
+  {
+    "procedure": "sp_rt_location_is_valid_ward_1",
+    "file": "app/models/Location.php",
+    "method": "isValidWard"
+  },
+  {
+    "procedure": "sp_rt_location_is_valid_ward_2",
+    "file": "app/models/Location.php",
+    "method": "isValidWard"
+  },
+  {
+    "procedure": "sp_rt_location_search_administrative_1",
+    "file": "app/models/Location.php",
+    "method": "searchAdministrative"
+  },
+  {
+    "procedure": "sp_rt_location_search_administrative_2",
+    "file": "app/models/Location.php",
+    "method": "searchAdministrative"
+  },
+  {
+    "procedure": "sp_rt_notification_create_1",
+    "file": "app/models/Notification.php",
+    "method": "create"
+  },
+  {
+    "procedure": "sp_rt_notification_get_unread_for_user_1",
+    "file": "app/models/Notification.php",
+    "method": "getUnreadForUser"
+  },
+  {
+    "procedure": "sp_rt_notification_count_unread_for_user_1",
+    "file": "app/models/Notification.php",
+    "method": "countUnreadForUser"
+  },
+  {
+    "procedure": "sp_rt_notification_get_all_for_user_1",
+    "file": "app/models/Notification.php",
+    "method": "getAllForUser"
+  },
+  {
+    "procedure": "sp_rt_notification_find_for_user_1",
+    "file": "app/models/Notification.php",
+    "method": "findForUser"
+  },
+  {
+    "procedure": "sp_rt_notification_mark_as_read_1",
+    "file": "app/models/Notification.php",
+    "method": "markAsRead"
+  },
+  {
+    "procedure": "sp_rt_notification_mark_as_read_2",
+    "file": "app/models/Notification.php",
+    "method": "markAsRead"
+  },
+  {
+    "procedure": "sp_rt_notification_mark_all_as_read_1",
+    "file": "app/models/Notification.php",
+    "method": "markAllAsRead"
+  },
+  {
+    "procedure": "sp_rt_notification_find_1",
+    "file": "app/models/Notification.php",
+    "method": "find"
+  },
+  {
+    "procedure": "sp_rt_notification_delete_1",
+    "file": "app/models/Notification.php",
+    "method": "delete"
+  },
+  {
+    "procedure": "sp_rt_property_renew_owned_listing_1",
+    "file": "app/models/Property.php",
+    "method": "renewOwnedListing"
+  },
+  {
+    "procedure": "sp_rt_property_find_owned_1",
+    "file": "app/models/Property.php",
+    "method": "findOwned"
+  },
+  {
+    "procedure": "sp_rt_property_amenity_ids_for_listing_1",
+    "file": "app/models/Property.php",
+    "method": "amenityIdsForListing"
+  },
+  {
+    "procedure": "sp_rt_property_sync_amenities_1",
+    "file": "app/models/Property.php",
+    "method": "syncAmenities"
+  },
+  {
+    "procedure": "sp_rt_property_sync_amenities_2",
+    "file": "app/models/Property.php",
+    "method": "syncAmenities"
+  },
+  {
+    "procedure": "sp_rt_property_update_owned_listing_1",
+    "file": "app/models/Property.php",
+    "method": "updateOwnedListing"
+  },
+  {
+    "procedure": "sp_rt_property_update_owned_listing_2",
+    "file": "app/models/Property.php",
+    "method": "updateOwnedListing"
+  },
+  {
+    "procedure": "sp_rt_property_update_owned_listing_3",
+    "file": "app/models/Property.php",
+    "method": "updateOwnedListing"
+  },
+  {
+    "procedure": "sp_rt_property_update_owned_listing_4",
+    "file": "app/models/Property.php",
+    "method": "updateOwnedListing"
+  },
+  {
+    "procedure": "sp_rt_property_update_owned_listing_5",
+    "file": "app/models/Property.php",
+    "method": "updateOwnedListing"
+  },
+  {
+    "procedure": "sp_rt_property_update_owned_listing_6",
+    "file": "app/models/Property.php",
+    "method": "updateOwnedListing"
+  },
+  {
+    "procedure": "sp_rt_property_update_owned_listing_7",
+    "file": "app/models/Property.php",
+    "method": "updateOwnedListing"
+  },
+  {
+    "procedure": "sp_rt_property_moderation_toggle_verified_1",
+    "file": "app/models/PropertyModeration.php",
+    "method": "toggleVerified"
+  },
+  {
+    "procedure": "sp_rt_property_moderation_toggle_verified_2",
+    "file": "app/models/PropertyModeration.php",
+    "method": "toggleVerified"
+  },
+  {
+    "procedure": "sp_rt_property_moderation_update_status_1",
+    "file": "app/models/PropertyModeration.php",
+    "method": "updateStatus"
+  },
+  {
+    "procedure": "sp_rt_property_moderation_update_status_2",
+    "file": "app/models/PropertyModeration.php",
+    "method": "updateStatus"
+  },
+  {
+    "procedure": "sp_rt_property_moderation_update_status_3",
+    "file": "app/models/PropertyModeration.php",
+    "method": "updateStatus"
+  },
+  {
+    "procedure": "sp_rt_property_moderation_update_status_4",
+    "file": "app/models/PropertyModeration.php",
+    "method": "updateStatus"
+  },
+  {
+    "procedure": "sp_rt_property_moderation_update_status_5",
+    "file": "app/models/PropertyModeration.php",
+    "method": "updateStatus"
+  },
+  {
+    "procedure": "sp_rt_property_moderation_update_status_6",
+    "file": "app/models/PropertyModeration.php",
+    "method": "updateStatus"
+  },
+  {
+    "procedure": "sp_rt_property_moderation_update_status_7",
+    "file": "app/models/PropertyModeration.php",
+    "method": "updateStatus"
+  },
+  {
+    "procedure": "sp_rt_province_child_count_1",
+    "file": "app/models/Province.php",
+    "method": "childCount"
+  },
+  {
+    "procedure": "sp_rt_province_usage_count_1",
+    "file": "app/models/Province.php",
+    "method": "usageCount"
+  },
+  {
+    "procedure": "sp_rt_province_admin_list_1",
+    "file": "app/models/Province.php",
+    "method": "adminList"
+  },
+  {
+    "procedure": "sp_rt_report_get_detail_1",
+    "file": "app/models/Report.php",
+    "method": "getDetail"
+  },
+  {
+    "procedure": "sp_rt_user_create_password_reset_token_1",
+    "file": "app/models/User.php",
+    "method": "createPasswordResetToken"
+  },
+  {
+    "procedure": "sp_rt_user_create_password_reset_token_2",
+    "file": "app/models/User.php",
+    "method": "createPasswordResetToken"
+  },
+  {
+    "procedure": "sp_rt_user_find_valid_password_reset_1",
+    "file": "app/models/User.php",
+    "method": "findValidPasswordReset"
+  },
+  {
+    "procedure": "sp_rt_user_delete_password_resets_for_email_1",
+    "file": "app/models/User.php",
+    "method": "deletePasswordResetsForEmail"
+  },
+  {
+    "procedure": "sp_rt_user_delete_password_reset_token_1",
+    "file": "app/models/User.php",
+    "method": "deletePasswordResetToken"
+  },
+  {
+    "procedure": "sp_rt_ward_usage_count_1",
+    "file": "app/models/Ward.php",
+    "method": "usageCount"
+  },
+  {
+    "procedure": "sp_rt_ward_find_by_province_id_1",
+    "file": "app/models/Ward.php",
+    "method": "findByProvinceId"
+  },
+  {
+    "procedure": "sp_rt_ward_find_1",
+    "file": "app/models/Ward.php",
+    "method": "find"
+  },
+  {
+    "procedure": "sp_rt_ward_create_1",
+    "file": "app/models/Ward.php",
+    "method": "create"
+  },
+  {
+    "procedure": "sp_rt_ward_update_1",
+    "file": "app/models/Ward.php",
+    "method": "update"
+  },
+  {
+    "procedure": "sp_rt_ward_delete_1",
+    "file": "app/models/Ward.php",
+    "method": "delete"
+  }
+]

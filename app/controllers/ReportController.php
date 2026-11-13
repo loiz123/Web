@@ -53,7 +53,7 @@ class ReportController extends Controller
             // Tự động bắn thông báo cho TẤT CẢ Admin (WHERE role = 'admin')
             try {
                 $db = Database::connection();
-                $admins = $db->query("SELECT u.id, u.email FROM users u JOIN roles r ON r.id = u.role_id WHERE r.name = 'admin'")->fetchAll();
+                $admins = Database::routine('sp_rt_report_controller_submit_1', [])->fetchAll();
                 foreach ($admins as $admin) {
                     Notification::create(
                         (int)$admin['id'],

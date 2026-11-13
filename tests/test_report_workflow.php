@@ -48,13 +48,13 @@ function checkReport(bool $condition, string $message): void {
     echo "PASS $message\n";
 }
 try {
-    foreach ([false, true] as $routines) {
-        $GLOBALS['config']['use_routines'] = $routines;
-        $mode = $routines ? 'routines' : 'SQL';
+    foreach ([null, 'Description on initial report'] as $description) {
+        $mode = $description === null ? 'procedure without description' : 'procedure with description';
         $db->prepare("UPDATE properties SET status='approved' WHERE id=?")->execute([$property]);
         $model = new Report();
-        $id = $model->submit($property, $customer, "$mode first report");
-        checkReport($id > 0 && $model->getDetail($id)['status'] === 'open', "$mode: create report as open");
+        $id = $model->submit($property, $customer, "$mode first report", $description);
+        $created = $model->getDetail($id);
+        checkReport($id > 0 && $created['status'] === 'open' && $created['description'] === $description, "$mode: create open report and preserve description");
         checkReport($model->hasOpenReport($property, $customer), "$mode: active report found");
         checkReport($model->submit($property, $customer, 'duplicate') === 0, "$mode: duplicate rejected");
         $ids = array_column($model->paginate('pending', 1, 50)['items'], 'id');
